@@ -49,7 +49,7 @@ export default function PendingApprovals() {
         .eq('id', transactionId);
 
       if (error) throw error;
-      toast.success('Transaction approved and sent for admin approval');
+      toast.success('Transaction approved successfully');
       fetchTransactions();
     } catch (error) {
       console.error('Error approving transaction:', error);
@@ -103,8 +103,8 @@ export default function PendingApprovals() {
             onChange={(e) => setStatusFilter(e.target.value)}
           >
             <option value="pending">Pending</option>
-            <option value="dealer_approved">Sent to Admin</option>
-            <option value="approved">Approved</option>
+            <option value="dealer_approved">Approved by Me</option>
+            <option value="approved">Admin Approved</option>
             <option value="rejected">Rejected</option>
           </select>
         </div>
