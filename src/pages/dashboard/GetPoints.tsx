@@ -78,16 +78,19 @@ export default function GetPoints() {
         
         setCurrentUser(profile);
 
-        // Get all dealers in the user's district
-        const { data: dealersData, error: dealersError } = await supabase
-          .from('users')
-          .select('id, first_name, last_name, city, district, mobile_number, gst_number, user_code')
-          .eq('role', 'dealer')
-          .eq('district', profile.district)
-          .order('first_name', { ascending: true });
+        // Only fetch dealers if user is a builder or contractor
+        if (profile.role === 'builder' || profile.role === 'contractor') {
+          // Get all dealers in the user's district
+          const { data: dealersData, error: dealersError } = await supabase
+            .from('users')
+            .select('id, first_name, last_name, city, district, mobile_number, gst_number, user_code')
+            .eq('role', 'dealer')
+            .eq('district', profile.district)
+            .order('first_name', { ascending: true });
 
-        if (dealersError) throw dealersError;
-        setDealers(dealersData || []);
+          if (dealersError) throw dealersError;
+          setDealers(dealersData || []);
+        }
 
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -139,6 +142,23 @@ export default function GetPoints() {
     return (
       <div className="flex justify-center items-center h-64">
         <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+
+  // If user is a dealer, show message that they can't request points
+  if (currentUser?.role === 'dealer') {
+    return (
+      <div className="max-w-lg mx-auto mt-8">
+        <div className="card p-8 text-center">
+          <div className="w-16 h-16 bg-warning-100 text-warning-600 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Building size={32} />
+          </div>
+          <h2 className="text-2xl font-bold mb-2">Not Available</h2>
+          <p className="text-gray-600 mb-6">
+            As a dealer, you cannot request points. This feature is only available for builders and contractors.
+          </p>
+        </div>
       </div>
     );
   }
@@ -300,7 +320,7 @@ export default function GetPoints() {
               >
                 {submitting ? (
                   <>
-                    <LoadingSpinner size="sm\" className="mr-2" />
+                    <LoadingSpinner size="sm" className="mr-2" />
                     Submitting...
                   </>
                 ) : (
