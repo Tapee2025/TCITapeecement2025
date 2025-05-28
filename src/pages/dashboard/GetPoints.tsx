@@ -77,24 +77,20 @@ export default function GetPoints() {
         if (!profile) throw new Error('Profile not found');
         
         setCurrentUser(profile);
-        console.log('Current user district:', profile.district); // Debug log
 
         // Only fetch dealers if user is a builder or contractor
         if (profile.role === 'builder' || profile.role === 'contractor') {
-          console.log('Fetching dealers for district:', profile.district); // Debug log
-          
           // Get all dealers in the user's district
           const { data: dealersData, error: dealersError } = await supabase
             .from('users')
             .select('*')
             .eq('role', 'dealer')
-            .eq('district', profile.district); // Case-insensitive match
+            .eq('district', profile.district)
+            .order('first_name', { ascending: true });
 
           if (dealersError) throw dealersError;
-          console.log('Found dealers:', dealersData); // Debug log
           setDealers(dealersData || []);
         }
-
       } catch (error) {
         console.error('Error fetching data:', error);
         toast.error('Failed to load dealers');
@@ -117,7 +113,6 @@ export default function GetPoints() {
 
       const pointsAmount = calculatePoints(parseInt(data.bagsCount));
       
-      // Create transaction record
       const { error: transactionError } = await supabase
         .from('transactions')
         .insert({
@@ -141,7 +136,14 @@ export default function GetPoints() {
     }
   }
 
-  // If user is a dealer, show message that they can't request points
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+
   if (currentUser?.role === 'dealer') {
     return (
       <div className="max-w-lg mx-auto mt-8">
@@ -315,7 +317,7 @@ export default function GetPoints() {
               >
                 {submitting ? (
                   <>
-                    <LoadingSpinner size="sm\" className="mr-2" />
+                    <LoadingSpinner size="sm" className="mr-2" />
                     Submitting...
                   </>
                 ) : (
