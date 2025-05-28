@@ -42,7 +42,7 @@ export default function GetPoints() {
   });
   
   const bagsCountValue = watch('bagsCount');
-  
+
   useEffect(() => {
     if (bagsCountValue) {
       const bagsCount = parseInt(bagsCountValue);
@@ -73,12 +73,13 @@ export default function GetPoints() {
         if (profileError) throw profileError;
         setCurrentUser(profile);
 
-        // Get all dealers in the same district
+        // Get all dealers in the district, excluding the current user if they're a dealer
         const { data: dealersData, error: dealersError } = await supabase
           .from('users')
           .select('*')
           .eq('role', 'dealer')
-          .eq('district', profile.district);
+          .eq('district', profile.district)
+          .neq('id', profile.role === 'dealer' ? user.id : '');
 
         if (dealersError) throw dealersError;
         setDealers(dealersData || []);
@@ -92,7 +93,7 @@ export default function GetPoints() {
             table: 'users',
             filter: `role=eq.dealer AND district=eq.${profile.district}`
           }, () => {
-            fetchDealers(profile.district);
+            fetchDealers(profile.district, user.id, profile.role);
           })
           .subscribe();
 
@@ -110,13 +111,14 @@ export default function GetPoints() {
     fetchUserAndDealers();
   }, []);
 
-  async function fetchDealers(district: string) {
+  async function fetchDealers(district: string, userId: string, userRole: string) {
     try {
       const { data, error } = await supabase
         .from('users')
         .select('*')
         .eq('role', 'dealer')
-        .eq('district', district);
+        .eq('district', district)
+        .neq('id', userRole === 'dealer' ? userId : '');
 
       if (error) throw error;
       setDealers(data || []);
@@ -325,7 +327,7 @@ export default function GetPoints() {
               >
                 {submitting ? (
                   <>
-                    <LoadingSpinner size="sm\" className="mr-2" />
+                    <LoadingSpinner size="sm" className="mr-2" />
                     Submitting...
                   </>
                 ) : (
