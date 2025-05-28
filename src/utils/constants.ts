@@ -133,3 +133,5 @@ export const STATS_CARDS = {
     { title: 'Total Rewards', icon: 'Award', color: 'bg-accent-500', valueKey: 'totalRewards' }
   ]
 };
+
+export { DEALER_NAVIGATION, USER_NAVIGATION }
