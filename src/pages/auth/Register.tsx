@@ -286,7 +286,7 @@ export default function Register() {
           className="btn btn-primary w-full"
           disabled={loading}
         >
-          {loading ? <LoadingSpinner size="sm" className="mr-2" /> : null}
+          {loading ? <LoadingSpinner size="sm\" className="mr-2" /> : null}
           Create Account
         </button>
       </form>
@@ -301,3 +301,4 @@ export default function Register() {
       </div>
     </div>
   );
+}
