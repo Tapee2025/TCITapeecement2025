@@ -3,11 +3,11 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { supabase } from '../../lib/supabase';
+import { Database } from '../../lib/database.types';
 import { calculatePoints } from '../../utils/helpers';
 import { toast } from 'react-toastify';
 import { Package, Building, CheckCircle } from 'lucide-react';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
-import { Database } from '../../lib/database.types';
 
 type User = Database['public']['Tables']['users']['Row'];
 
@@ -56,13 +56,13 @@ export default function GetPoints() {
       setPointsPreview(0);
     }
   }, [bagsCountValue]);
-  
-  // Fetch user and dealers
+
+  // Subscribe to dealers changes
   useEffect(() => {
-    async function fetchData() {
+    const fetchUserAndDealers = async () => {
       try {
         setLoading(true);
-        
+
         // Get current user
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
@@ -88,16 +88,50 @@ export default function GetPoints() {
 
         if (dealersError) throw dealersError;
         setDealers(dealersData || []);
+
+        // Subscribe to dealer changes
+        const dealersSubscription = supabase
+          .channel('dealers_changes')
+          .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'users',
+            filter: `role=eq.dealer,district=eq.${profile.district}`
+          }, () => {
+            // Refresh dealers list when changes occur
+            fetchDealers(profile.district);
+          })
+          .subscribe();
+
+        return () => {
+          dealersSubscription.unsubscribe();
+        };
       } catch (error) {
         console.error('Error fetching data:', error);
         toast.error('Failed to load dealers');
       } finally {
         setLoading(false);
       }
-    }
+    };
 
-    fetchData();
+    fetchUserAndDealers();
   }, []);
+
+  // Function to fetch dealers
+  async function fetchDealers(district: string) {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('role', 'dealer')
+        .eq('district', district);
+
+      if (error) throw error;
+      setDealers(data || []);
+    } catch (error) {
+      console.error('Error fetching dealers:', error);
+    }
+  }
   
   async function onSubmit(data: PointsRequestFormData) {
     if (!currentUser) return;
@@ -127,13 +161,13 @@ export default function GetPoints() {
       toast.success('Points request submitted successfully!');
       setRequestSubmitted(true);
     } catch (error) {
-      console.error('Error submitting points request:', error);
-      toast.error('Failed to submit request. Please try again.');
+      console.error('Error submitting request:', error);
+      toast.error('Failed to submit request');
     } finally {
       setSubmitting(false);
     }
   }
-  
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -141,7 +175,7 @@ export default function GetPoints() {
       </div>
     );
   }
-  
+
   if (requestSubmitted) {
     return (
       <div className="max-w-lg mx-auto mt-8">
@@ -164,7 +198,7 @@ export default function GetPoints() {
       </div>
     );
   }
-  
+
   return (
     <div>
       <h1 className="text-2xl font-bold mb-6">Get Points</h1>
@@ -299,7 +333,7 @@ export default function GetPoints() {
               >
                 {submitting ? (
                   <>
-                    <LoadingSpinner size="sm\" className="mr-2" />
+                    <LoadingSpinner size="sm" className="mr-2" />
                     Submitting...
                   </>
                 ) : (
