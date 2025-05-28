@@ -339,7 +339,7 @@ export default function GetPoints() {
               >
                 {submitting ? (
                   <>
-                    <LoadingSpinner size="sm" className="mr-2" />
+                    <LoadingSpinner size="sm\" className="mr-2" />
                     Submitting...
                   </>
                 ) : (
