@@ -118,9 +118,9 @@ export const STATS_CARDS = {
     { title: 'Rewards Redeemed', icon: 'Gift', color: 'bg-accent-500', valueKey: 'rewardsRedeemed' }
   ],
   dealer: [
-    { title: 'Available Points', icon: 'Star', color: 'bg-primary-500', valueKey: 'points' },
+    { title: 'Total Transactions', icon: 'Star', color: 'bg-primary-500', valueKey: 'totalTransactions' },
     { title: 'Pending Approvals', icon: 'Clock', color: 'bg-warning-500', valueKey: 'pendingApprovals' },
-    { title: 'Total Approvals', icon: 'CheckCircle', color: 'bg-success-500', valueKey: 'totalApprovals' }
+    { title: 'Approved Today', icon: 'CheckCircle', color: 'bg-success-500', valueKey: 'approvedToday' }
   ],
   contractor: [
     { title: 'Available Points', icon: 'Star', color: 'bg-primary-500', valueKey: 'points' },
