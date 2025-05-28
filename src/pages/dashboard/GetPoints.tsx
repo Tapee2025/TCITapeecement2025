@@ -114,14 +114,14 @@ export default function GetPoints() {
       // Create transaction record
       const { error: transactionError } = await supabase
         .from('transactions')
-        .insert([{
+        .insert({
           user_id: currentUser.id,
           dealer_id: data.dealerId,
           type: 'earned',
           amount: pointsAmount,
           description: `Purchased ${data.bagsCount} bags from ${selectedDealer.first_name} ${selectedDealer.last_name}`,
           status: 'pending'
-        }]);
+        });
 
       if (transactionError) throw transactionError;
       
@@ -300,7 +300,7 @@ export default function GetPoints() {
               >
                 {submitting ? (
                   <>
-                    <LoadingSpinner size="sm\" className="mr-2" />
+                    <LoadingSpinner size="sm" className="mr-2" />
                     Submitting...
                   </>
                 ) : (
