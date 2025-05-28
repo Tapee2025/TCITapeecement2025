@@ -74,12 +74,18 @@ export default function GetPoints() {
         setCurrentUser(profile);
 
         // Get all dealers in the district, excluding the current user if they're a dealer
-        const { data: dealersData, error: dealersError } = await supabase
+        let query = supabase
           .from('users')
           .select('*')
           .eq('role', 'dealer')
-          .eq('district', profile.district)
-          .neq('id', profile.role === 'dealer' ? user.id : '');
+          .eq('district', profile.district);
+
+        // Only add the neq filter if the user is a dealer
+        if (profile.role === 'dealer') {
+          query = query.neq('id', user.id);
+        }
+
+        const { data: dealersData, error: dealersError } = await query;
 
         if (dealersError) throw dealersError;
         setDealers(dealersData || []);
@@ -114,12 +120,18 @@ export default function GetPoints() {
 
   async function fetchDealers(district: string, userId: string, userRole: string) {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('users')
         .select('*')
         .eq('role', 'dealer')
-        .eq('district', district)
-        .neq('id', userRole === 'dealer' ? userId : '');
+        .eq('district', district);
+
+      // Only add the neq filter if the user is a dealer
+      if (userRole === 'dealer') {
+        query = query.neq('id', userId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setDealers(data || []);
@@ -328,7 +340,7 @@ export default function GetPoints() {
               >
                 {submitting ? (
                   <>
-                    <LoadingSpinner size="sm\" className="mr-2" />
+                    <LoadingSpinner size="sm" className="mr-2" />
                     Submitting...
                   </>
                 ) : (
