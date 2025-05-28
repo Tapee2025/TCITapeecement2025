@@ -3,19 +3,19 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useAuth } from '../../contexts/AuthContext';
-import { LoginFormData } from '../../types';
-import { toast } from 'react-toastify';
+import { supabase } from '../../lib/supabase';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import { toast } from 'react-toastify';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters')
 });
 
+type LoginFormData = z.infer<typeof loginSchema>;
+
 export default function Login() {
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
   const navigate = useNavigate();
   
   const { 
@@ -30,11 +30,35 @@ export default function Login() {
     setLoading(true);
     
     try {
-      await login(data.email, data.password);
-      navigate('/dashboard');
+      const { error } = await supabase.auth.signInWithPassword({
+        email: data.email,
+        password: data.password
+      });
+
+      if (error) throw error;
+
+      // Get user role
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('role')
+        .eq('email', data.email)
+        .single();
+
+      if (userError) throw userError;
+
+      // Redirect based on role
+      if (userData.role === 'admin') {
+        navigate('/admin/dashboard');
+      } else if (userData.role === 'dealer') {
+        navigate('/dealer/dashboard');
+      } else {
+        navigate('/dashboard');
+      }
+
+      toast.success('Logged in successfully');
     } catch (error) {
       console.error('Login error:', error);
-      toast.error('Failed to sign in. Please check your credentials.');
+      toast.error('Invalid email or password');
     } finally {
       setLoading(false);
     }
@@ -82,7 +106,7 @@ export default function Login() {
           className="btn btn-primary w-full"
           disabled={loading}
         >
-          {loading ? <LoadingSpinner size="sm\" className="mr-2" /> : null}
+          {loading ? <LoadingSpinner size="sm" className="mr-2" /> : null}
           Sign in
         </button>
       </form>
