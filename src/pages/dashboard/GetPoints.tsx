@@ -78,8 +78,7 @@ export default function GetPoints() {
           .from('users')
           .select('*')
           .eq('role', 'dealer')
-          .eq('district', profile.district)
-          .neq('id', user.id); // Exclude current user if they're a dealer
+          .eq('district', profile.district);
 
         if (dealersError) throw dealersError;
         setDealers(dealersData || []);
@@ -113,15 +112,11 @@ export default function GetPoints() {
 
   async function fetchDealers(district: string) {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('No user found');
-
       const { data, error } = await supabase
         .from('users')
         .select('*')
         .eq('role', 'dealer')
-        .eq('district', district)
-        .neq('id', user.id); // Exclude current user if they're a dealer
+        .eq('district', district);
 
       if (error) throw error;
       setDealers(data || []);
@@ -330,7 +325,7 @@ export default function GetPoints() {
               >
                 {submitting ? (
                   <>
-                    <LoadingSpinner size="sm\" className="mr-2" />
+                    <LoadingSpinner size="sm" className="mr-2" />
                     Submitting...
                   </>
                 ) : (
