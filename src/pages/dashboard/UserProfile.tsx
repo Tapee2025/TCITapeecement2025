@@ -1,7 +1,56 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { User } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
+import { Database } from '../../lib/database.types';
+import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import { format } from 'date-fns';
 
-const UserProfile = () => {
+type Profile = Database['public']['Tables']['users']['Row'];
+
+export default function UserProfile() {
+  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<Profile | null>(null);
+
+  useEffect(() => {
+    fetchProfile();
+  }, []);
+
+  async function fetchProfile() {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (error) throw error;
+      setProfile(data);
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-gray-500">Failed to load profile data</p>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="bg-white rounded-lg shadow-md p-6">
@@ -18,8 +67,8 @@ const UserProfile = () => {
               <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
               <input
                 type="text"
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="John Doe"
+                className="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-50"
+                value={`${profile.first_name} ${profile.last_name}`}
                 disabled
               />
             </div>
@@ -28,8 +77,8 @@ const UserProfile = () => {
               <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
               <input
                 type="email"
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="john@example.com"
+                className="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-50"
+                value={profile.email}
                 disabled
               />
             </div>
@@ -38,8 +87,8 @@ const UserProfile = () => {
               <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
               <input
                 type="tel"
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="+1 (555) 123-4567"
+                className="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-50"
+                value={profile.mobile_number}
                 disabled
               />
             </div>
@@ -47,11 +96,11 @@ const UserProfile = () => {
           
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Company</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">User Code</label>
               <input
                 type="text"
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Acme Inc."
+                className="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-50"
+                value={profile.user_code}
                 disabled
               />
             </div>
@@ -60,8 +109,8 @@ const UserProfile = () => {
               <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
               <input
                 type="text"
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Builder"
+                className="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-50"
+                value={profile.role}
                 disabled
               />
             </div>
@@ -70,8 +119,8 @@ const UserProfile = () => {
               <label className="block text-sm font-medium text-gray-700 mb-1">Member Since</label>
               <input
                 type="text"
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="January 1, 2024"
+                className="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-50"
+                value={format(new Date(profile.created_at), 'MMMM d, yyyy')}
                 disabled
               />
             </div>
@@ -83,21 +132,19 @@ const UserProfile = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-blue-50 p-4 rounded-lg">
               <p className="text-sm text-blue-600 font-medium">Total Points</p>
-              <p className="text-2xl font-bold text-blue-700">1,250</p>
+              <p className="text-2xl font-bold text-blue-700">{profile.points}</p>
             </div>
             <div className="bg-green-50 p-4 rounded-lg">
-              <p className="text-sm text-green-600 font-medium">Redeemed Rewards</p>
-              <p className="text-2xl font-bold text-green-700">8</p>
+              <p className="text-sm text-green-600 font-medium">District</p>
+              <p className="text-2xl font-bold text-green-700">{profile.district}</p>
             </div>
             <div className="bg-purple-50 p-4 rounded-lg">
-              <p className="text-sm text-purple-600 font-medium">Active Rewards</p>
-              <p className="text-2xl font-bold text-purple-700">2</p>
+              <p className="text-sm text-purple-600 font-medium">City</p>
+              <p className="text-2xl font-bold text-purple-700">{profile.city}</p>
             </div>
           </div>
         </div>
       </div>
     </div>
   );
-};
-
-export default UserProfile;
+}
