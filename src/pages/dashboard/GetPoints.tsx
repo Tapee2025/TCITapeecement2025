@@ -2,13 +2,14 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useAuth } from '../../contexts/AuthContext';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '../../firebase/config';
+import { supabase } from '../../lib/supabase';
 import { calculatePoints } from '../../utils/helpers';
 import { toast } from 'react-toastify';
 import { Package, Building, CheckCircle } from 'lucide-react';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import { Database } from '../../lib/database.types';
+
+type User = Database['public']['Tables']['users']['Row'];
 
 const pointsRequestSchema = z.object({
   bagsCount: z.string().refine(
@@ -24,12 +25,12 @@ const pointsRequestSchema = z.object({
 type PointsRequestFormData = z.infer<typeof pointsRequestSchema>;
 
 export default function GetPoints() {
-  const { userData } = useAuth();
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [dealers, setDealers] = useState<any[]>([]);
+  const [dealers, setDealers] = useState<User[]>([]);
   const [pointsPreview, setPointsPreview] = useState(0);
   const [requestSubmitted, setRequestSubmitted] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   
   const { 
     register, 
@@ -56,89 +57,72 @@ export default function GetPoints() {
     }
   }, [bagsCountValue]);
   
-  // Fetch dealers in the same district
+  // Fetch user and dealers
   useEffect(() => {
-    const fetchDealers = async () => {
-      if (!userData || !userData.district) return;
-      
+    async function fetchData() {
       try {
         setLoading(true);
         
-        // In a real app, you would fetch dealers from Firestore
-        const dealersQuery = query(
-          collection(db, 'users'),
-          where('role', '==', 'dealer'),
-          where('district', '==', userData.district)
-        );
-        
-        // Mock data for demonstration
-        const dealersData = [
-          {
-            uid: 'dealer1',
-            firstName: 'Rajesh',
-            lastName: 'Patel',
-            businessName: 'Patel Cement Distributors',
-            district: userData.district,
-            city: 'Botad',
-            mobileNumber: '9876543210'
-          },
-          {
-            uid: 'dealer2',
-            firstName: 'Suresh',
-            lastName: 'Shah',
-            businessName: 'Shah Building Materials',
-            district: userData.district,
-            city: 'Botad',
-            mobileNumber: '9876543211'
-          },
-          {
-            uid: 'dealer3',
-            firstName: 'Mahesh',
-            lastName: 'Joshi',
-            businessName: 'Joshi Hardware & Cement',
-            district: userData.district,
-            city: 'Botad',
-            mobileNumber: '9876543212'
-          }
-        ];
-        
-        setDealers(dealersData);
+        // Get current user
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          throw new Error('No user found');
+        }
+
+        // Get user profile
+        const { data: profile, error: profileError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+
+        if (profileError) throw profileError;
+        setCurrentUser(profile);
+
+        // Get dealers in the same district
+        const { data: dealersData, error: dealersError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('role', 'dealer')
+          .eq('district', profile.district);
+
+        if (dealersError) throw dealersError;
+        setDealers(dealersData || []);
       } catch (error) {
-        console.error('Error fetching dealers:', error);
-        toast.error('Failed to load dealers. Please try again.');
+        console.error('Error fetching data:', error);
+        toast.error('Failed to load dealers');
       } finally {
         setLoading(false);
       }
-    };
-    
-    fetchDealers();
-  }, [userData]);
+    }
+
+    fetchData();
+  }, []);
   
   async function onSubmit(data: PointsRequestFormData) {
-    if (!userData) return;
+    if (!currentUser) return;
     
     setSubmitting(true);
     
     try {
-      // In a real app, you would submit to Firestore
-      // const pointsRequest = {
-      //   userId: userData.uid,
-      //   userName: `${userData.firstName} ${userData.lastName}`,
-      //   userRole: userData.role,
-      //   userDistrict: userData.district,
-      //   dealerId: data.dealerId,
-      //   dealerName: dealers.find(d => d.uid === data.dealerId)?.businessName || '',
-      //   bagsCount: parseInt(data.bagsCount),
-      //   pointsAmount: calculatePoints(parseInt(data.bagsCount)),
-      //   status: 'pending',
-      //   createdAt: serverTimestamp(),
-      //   updatedAt: serverTimestamp()
-      // };
+      const selectedDealer = dealers.find(d => d.id === data.dealerId);
+      if (!selectedDealer) throw new Error('Dealer not found');
+
+      const pointsAmount = calculatePoints(parseInt(data.bagsCount));
       
-      // await addDoc(collection(db, 'pointsRequests'), pointsRequest);
-      
-      // Simulate server delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Create transaction record
+      const { error: transactionError } = await supabase
+        .from('transactions')
+        .insert([{
+          user_id: currentUser.id,
+          dealer_id: data.dealerId,
+          type: 'earned',
+          amount: pointsAmount,
+          description: `Purchased ${data.bagsCount} bags from ${selectedDealer.first_name} ${selectedDealer.last_name}`,
+          status: 'pending'
+        }]);
+
+      if (transactionError) throw transactionError;
       
       toast.success('Points request submitted successfully!');
       setRequestSubmitted(true);
@@ -232,7 +216,7 @@ export default function GetPoints() {
             <div className="mt-6 p-4 bg-primary-50 rounded-md">
               <p className="text-sm text-primary-800">
                 <strong>Note:</strong> Each bag is worth 10 points. Your district is{' '}
-                <strong>{userData?.district}</strong>, so only dealers in this district are shown.
+                <strong>{currentUser?.district}</strong>, so only dealers in this district are shown.
               </p>
             </div>
           </div>
@@ -276,22 +260,22 @@ export default function GetPoints() {
                   <div className="space-y-3">
                     {dealers.map((dealer) => (
                       <label
-                        key={dealer.uid}
+                        key={dealer.id}
                         className="flex items-start p-3 border border-gray-200 rounded-md cursor-pointer hover:bg-gray-50"
                       >
                         <input
                           type="radio"
-                          value={dealer.uid}
+                          value={dealer.id}
                           className="mt-1"
                           {...register('dealerId')}
                         />
                         <div className="ml-3">
-                          <p className="font-medium">{dealer.businessName}</p>
+                          <p className="font-medium">{dealer.first_name} {dealer.last_name}</p>
                           <p className="text-sm text-gray-600">
-                            {dealer.firstName} {dealer.lastName}
+                            {dealer.gst_number && <span>GST: {dealer.gst_number}</span>}
                           </p>
                           <p className="text-xs text-gray-500">
-                            {dealer.city}, {dealer.district} • {dealer.mobileNumber}
+                            {dealer.city}, {dealer.district} • {dealer.mobile_number}
                           </p>
                         </div>
                       </label>
@@ -299,7 +283,7 @@ export default function GetPoints() {
                   </div>
                 ) : (
                   <p className="text-sm text-gray-600 p-4 bg-gray-50 rounded-md">
-                    No dealers found in your district. Please contact support.
+                    No dealers found in your district ({currentUser?.district}). Please contact support.
                   </p>
                 )}
                 
@@ -315,7 +299,7 @@ export default function GetPoints() {
               >
                 {submitting ? (
                   <>
-                    <LoadingSpinner size="sm\" className="mr-2" />
+                    <LoadingSpinner size="sm" className="mr-2" />
                     Submitting...
                   </>
                 ) : (
