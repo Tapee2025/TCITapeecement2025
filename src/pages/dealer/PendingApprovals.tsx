@@ -22,7 +22,7 @@ export default function PendingApprovals() {
       setIsLoading(true);
       const { data, error } = await supabase
         .from('transactions')
-        .select('*')
+        .select('*, users!transactions_user_id_fkey(*)')
         .eq('dealer_id', (await supabase.auth.getUser()).data.user?.id)
         .eq('status', statusFilter)
         .order('created_at', { ascending: false });
@@ -42,11 +42,11 @@ export default function PendingApprovals() {
     try {
       const { error } = await supabase
         .from('transactions')
-        .update({ status: 'approved' })
+        .update({ status: 'dealer_approved' })
         .eq('id', transactionId);
 
       if (error) throw error;
-      toast.success('Transaction approved successfully');
+      toast.success('Transaction approved and sent for admin approval');
       fetchTransactions();
     } catch (error) {
       console.error('Error approving transaction:', error);
@@ -96,6 +96,7 @@ export default function PendingApprovals() {
             onChange={(e) => setStatusFilter(e.target.value)}
           >
             <option value="pending">Pending</option>
+            <option value="dealer_approved">Sent to Admin</option>
             <option value="approved">Approved</option>
             <option value="rejected">Rejected</option>
           </select>
@@ -109,6 +110,9 @@ export default function PendingApprovals() {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Date
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  User
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Type
@@ -130,6 +134,26 @@ export default function PendingApprovals() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {new Date(transaction.created_at).toLocaleDateString()}
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <div className="flex-shrink-0 h-8 w-8">
+                        <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center">
+                          <span className="text-primary-700 font-medium text-sm">
+                            {(transaction as any).users?.first_name?.[0]}
+                            {(transaction as any).users?.last_name?.[0]}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="ml-3">
+                        <div className="text-sm font-medium text-gray-900">
+                          {(transaction as any).users?.first_name} {(transaction as any).users?.last_name}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {(transaction as any).users?.user_code}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 capitalize">
                     {transaction.type}
                   </td>
@@ -140,8 +164,9 @@ export default function PendingApprovals() {
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
                       ${transaction.status === 'approved' ? 'bg-green-100 text-green-800' : 
                         transaction.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
+                        transaction.status === 'dealer_approved' ? 'bg-blue-100 text-blue-800' :
                         'bg-red-100 text-red-800'}`}>
-                      {transaction.status}
+                      {transaction.status === 'dealer_approved' ? 'Sent to Admin' : transaction.status}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -151,6 +176,7 @@ export default function PendingApprovals() {
                           onClick={() => handleApprove(transaction.id)}
                           disabled={processingId === transaction.id}
                           className="text-green-600 hover:text-green-900"
+                          title="Approve and send to admin"
                         >
                           {processingId === transaction.id ? (
                             <LoadingSpinner size="sm" />
@@ -162,6 +188,7 @@ export default function PendingApprovals() {
                           onClick={() => handleReject(transaction.id)}
                           disabled={processingId === transaction.id}
                           className="text-red-600 hover:text-red-900"
+                          title="Reject request"
                         >
                           <X size={20} />
                         </button>
@@ -173,6 +200,12 @@ export default function PendingApprovals() {
             </tbody>
           </table>
         </div>
+
+        {transactions.length === 0 && (
+          <div className="text-center py-8">
+            <p className="text-gray-500">No transactions found</p>
+          </div>
+        )}
       </div>
     </div>
   );
