@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase';
 import DashboardCard from '../../components/ui/DashboardCard';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { Database } from '../../lib/database.types';
+import { LayoutGrid, Clock, CheckCircle } from 'lucide-react';
 
 type Transaction = Database['public']['Tables']['transactions']['Row'];
 
@@ -72,16 +73,22 @@ export default function DealerDashboard() {
           title="Total Transactions"
           value={stats.totalTransactions.toString()}
           description="All time transactions"
+          icon={LayoutGrid}
+          bgColor="bg-blue-500"
         />
         <DashboardCard
           title="Pending Approvals"
           value={stats.pendingApprovals.toString()}
           description="Transactions waiting for approval"
+          icon={Clock}
+          bgColor="bg-yellow-500"
         />
         <DashboardCard
           title="Approved Today"
           value={stats.approvedToday.toString()}
           description="Transactions approved today"
+          icon={CheckCircle}
+          bgColor="bg-green-500"
         />
       </div>
 

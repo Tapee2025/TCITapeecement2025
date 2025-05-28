@@ -1,5 +1,5 @@
 import React from 'react';
-import { DivideIcon as LucideIcon } from 'lucide-react';
+import { LucideIcon } from 'lucide-react';
 
 interface DashboardCardProps {
   title: string;
@@ -8,15 +8,17 @@ interface DashboardCardProps {
   bgColor?: string;
   changeValue?: string | number;
   changeType?: 'increase' | 'decrease' | 'neutral';
+  description?: string;
 }
 
 export default function DashboardCard({
   title,
   value,
   icon: Icon,
-  bgColor = 'bg-primary-500',
+  bgColor = 'bg-blue-500',
   changeValue,
-  changeType = 'neutral'
+  changeType = 'neutral',
+  description
 }: DashboardCardProps) {
   const changeColor = 
     changeType === 'increase' ? 'text-success-600' : 
@@ -29,7 +31,7 @@ export default function DashboardCard({
     '';
 
   return (
-    <div className="card p-6 flex flex-col transition-all duration-300 hover:shadow-md">
+    <div className="bg-white rounded-lg shadow p-6 flex flex-col transition-all duration-300 hover:shadow-md">
       <div className="flex items-start justify-between">
         <div>
           <p className="text-gray-500 text-sm">{title}</p>
@@ -39,6 +41,10 @@ export default function DashboardCard({
             <div className={`flex items-center text-xs mt-2 ${changeColor}`}>
               {changeArrow} {changeValue}
             </div>
+          )}
+          
+          {description && (
+            <p className="text-gray-500 text-xs mt-1">{description}</p>
           )}
         </div>
         
