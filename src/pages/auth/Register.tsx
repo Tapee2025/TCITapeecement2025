@@ -3,11 +3,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useAuth } from '../../contexts/AuthContext';
-import { RegisterFormData, UserRole } from '../../types';
+import { supabase } from '../../lib/supabase';
+import { UserRole } from '../../types';
 import { GUJARAT_DISTRICTS, USER_ROLES } from '../../utils/constants';
 import { toast } from 'react-toastify';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import { generateUserCode } from '../../utils/helpers';
 
 const registerSchema = z.object({
   firstName: z.string().min(2, 'First name is required'),
@@ -32,9 +33,11 @@ const registerSchema = z.object({
   }
 );
 
+type RegisterFormData = z.infer<typeof registerSchema>;
+
 export default function Register() {
   const [loading, setLoading] = useState(false);
-  const { register: registerUser } = useAuth();
+  const [authError, setAuthError] = useState<string | null>(null);
   const navigate = useNavigate();
   
   const { 
@@ -53,14 +56,63 @@ export default function Register() {
   
   async function onSubmit(data: RegisterFormData) {
     setLoading(true);
+    setAuthError(null);
     
     try {
-      await registerUser(data);
+      // Generate user code
+      const userCode = generateUserCode();
+
+      // First create the auth user
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+      });
+
+      if (signUpError) {
+        if (signUpError.message.includes('already registered')) {
+          setAuthError('This email is already registered. Please use a different email or try logging in.');
+        } else {
+          setAuthError('An error occurred during registration. Please try again.');
+        }
+        return;
+      }
+
+      if (!authData.user) {
+        setAuthError('Failed to create user account. Please try again.');
+        return;
+      }
+
+      // Then create the public user profile
+      const { error: profileError } = await supabase
+        .from('users')
+        .insert([{
+          id: authData.user.id,
+          email: data.email,
+          first_name: data.firstName,
+          last_name: data.lastName,
+          role: data.role,
+          city: data.city,
+          address: data.address,
+          district: data.district,
+          gst_number: data.gstNumber,
+          mobile_number: data.mobileNumber,
+          user_code: userCode,
+          points: 0
+        }]);
+
+      if (profileError) {
+        console.error('Profile creation error:', profileError);
+        // Try to clean up the auth user since profile creation failed
+        await supabase.auth.signOut();
+        setAuthError('Failed to create user profile. Please try again.');
+        return;
+      }
+
       toast.success('Account created successfully! Please sign in.');
       navigate('/login');
     } catch (error) {
       console.error('Registration error:', error);
-      toast.error('Failed to create account. Please try again.');
+      setAuthError('An unexpected error occurred. Please try again later.');
     } finally {
       setLoading(false);
     }
@@ -74,6 +126,12 @@ export default function Register() {
       </div>
       
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        {authError && (
+          <div className="p-3 rounded bg-red-50 border border-red-200 text-red-600 text-sm">
+            {authError}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label htmlFor="firstName" className="form-label">First Name</label>
@@ -228,7 +286,7 @@ export default function Register() {
           className="btn btn-primary w-full"
           disabled={loading}
         >
-          {loading ? <LoadingSpinner size="sm\" className="mr-2" /> : null}
+          {loading ? <LoadingSpinner size="sm" className="mr-2" /> : null}
           Create Account
         </button>
       </form>
