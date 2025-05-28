@@ -16,11 +16,12 @@ type LoginFormData = z.infer<typeof loginSchema>;
 
 export default function Login() {
   const [loading, setLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   const navigate = useNavigate();
   
   const { 
     register, 
-    handleSubmit, 
+    handleSubmit,
     formState: { errors } 
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema)
@@ -28,14 +29,27 @@ export default function Login() {
   
   async function onSubmit(data: LoginFormData) {
     setLoading(true);
+    setAuthError(null);
     
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({
         email: data.email,
         password: data.password
       });
 
-      if (error) throw error;
+      if (signInError) {
+        if (signInError.message === 'Invalid login credentials') {
+          setAuthError('Invalid email or password. Please check your credentials and try again.');
+        } else {
+          setAuthError('An error occurred during login. Please try again.');
+        }
+        return;
+      }
+
+      if (!authData.user) {
+        setAuthError('Unable to find user account. Please try again.');
+        return;
+      }
 
       // Get user role
       const { data: userData, error: userError } = await supabase
@@ -44,7 +58,10 @@ export default function Login() {
         .eq('email', data.email)
         .single();
 
-      if (userError) throw userError;
+      if (userError) {
+        setAuthError('Unable to fetch user details. Please try again.');
+        return;
+      }
 
       // Redirect based on role
       if (userData.role === 'admin') {
@@ -58,7 +75,7 @@ export default function Login() {
       toast.success('Logged in successfully');
     } catch (error) {
       console.error('Login error:', error);
-      toast.error('Invalid email or password');
+      setAuthError('An unexpected error occurred. Please try again later.');
     } finally {
       setLoading(false);
     }
@@ -72,6 +89,12 @@ export default function Login() {
       </div>
       
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        {authError && (
+          <div className="p-3 rounded bg-red-50 border border-red-200 text-red-600 text-sm">
+            {authError}
+          </div>
+        )}
+        
         <div>
           <label htmlFor="email" className="form-label">Email</label>
           <input
@@ -106,7 +129,7 @@ export default function Login() {
           className="btn btn-primary w-full"
           disabled={loading}
         >
-          {loading ? <LoadingSpinner size="sm\" className="mr-2" /> : null}
+          {loading ? <LoadingSpinner size="sm" className="mr-2" /> : null}
           Sign in
         </button>
       </form>
