@@ -8,7 +8,7 @@ export default function AuthLayout() {
         <div className="max-w-md mx-auto">
           <div className="flex items-center mb-6">
             <img 
-              src="https://raw.githubusercontent.com/your-username/tapee-cement-assets/main/logo.svg" 
+              src="/logo.png" 
               alt="Tapee Cement" 
               className="h-16 w-auto bg-white p-2 rounded-lg"
             />
