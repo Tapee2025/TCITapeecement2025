@@ -57,11 +57,14 @@ export default function GetPoints() {
   }, [bagsCountValue]);
 
   useEffect(() => {
-    const fetchUserAndDealers = async () => {
+    async function fetchData() {
       try {
         setLoading(true);
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error('No user found');
+        
+        // Get current user session
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError) throw authError;
+        if (!user) throw new Error('Not authenticated');
 
         // Get user profile
         const { data: profile, error: profileError } = await supabase
@@ -71,74 +74,31 @@ export default function GetPoints() {
           .single();
 
         if (profileError) throw profileError;
+        if (!profile) throw new Error('Profile not found');
+        
         setCurrentUser(profile);
 
-        // Get all dealers in the district, excluding the current user if they're a dealer
-        let query = supabase
+        // Get dealers in the same district
+        const { data: dealersData, error: dealersError } = await supabase
           .from('users')
           .select('*')
           .eq('role', 'dealer')
-          .eq('district', profile.district);
-
-        // Only add the neq filter if the user is a dealer
-        if (profile.role === 'dealer') {
-          query = query.neq('id', user.id);
-        }
-
-        const { data: dealersData, error: dealersError } = await query;
+          .eq('district', profile.district)
+          .order('first_name', { ascending: true });
 
         if (dealersError) throw dealersError;
         setDealers(dealersData || []);
 
-        // Subscribe to dealer changes
-        const dealersSubscription = supabase
-          .channel('dealers_changes')
-          .on('postgres_changes', {
-            event: '*',
-            schema: 'public',
-            table: 'users',
-            filter: `role=eq.dealer AND district=eq.${profile.district}`
-          }, () => {
-            // Refresh dealers list when changes occur
-            fetchDealers(profile.district, user.id, profile.role);
-          })
-          .subscribe();
-
-        return () => {
-          dealersSubscription.unsubscribe();
-        };
       } catch (error) {
         console.error('Error fetching data:', error);
         toast.error('Failed to load dealers');
       } finally {
         setLoading(false);
       }
-    };
-
-    fetchUserAndDealers();
-  }, []);
-
-  async function fetchDealers(district: string, userId: string, userRole: string) {
-    try {
-      let query = supabase
-        .from('users')
-        .select('*')
-        .eq('role', 'dealer')
-        .eq('district', district);
-
-      // Only add the neq filter if the user is a dealer
-      if (userRole === 'dealer') {
-        query = query.neq('id', userId);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      setDealers(data || []);
-    } catch (error) {
-      console.error('Error fetching dealers:', error);
     }
-  }
+
+    fetchData();
+  }, []);
   
   async function onSubmit(data: PointsRequestFormData) {
     if (!currentUser) return;
@@ -340,7 +300,7 @@ export default function GetPoints() {
               >
                 {submitting ? (
                   <>
-                    <LoadingSpinner size="sm\" className="mr-2" />
+                    <LoadingSpinner size="sm" className="mr-2" />
                     Submitting...
                   </>
                 ) : (
