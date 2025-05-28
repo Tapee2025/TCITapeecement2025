@@ -78,10 +78,10 @@ export default function GetPoints() {
         
         setCurrentUser(profile);
 
-        // Get dealers in the same district
+        // Get all dealers in the user's district
         const { data: dealersData, error: dealersError } = await supabase
           .from('users')
-          .select('*')
+          .select('id, first_name, last_name, city, district, mobile_number, gst_number, user_code')
           .eq('role', 'dealer')
           .eq('district', profile.district)
           .order('first_name', { ascending: true });
@@ -300,7 +300,7 @@ export default function GetPoints() {
               >
                 {submitting ? (
                   <>
-                    <LoadingSpinner size="sm\" className="mr-2" />
+                    <LoadingSpinner size="sm" className="mr-2" />
                     Submitting...
                   </>
                 ) : (
