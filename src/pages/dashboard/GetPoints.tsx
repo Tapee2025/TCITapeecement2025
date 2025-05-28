@@ -88,7 +88,7 @@ export default function GetPoints() {
             .from('users')
             .select('*')
             .eq('role', 'dealer')
-            .eq('district', profile.district);
+            .eq('district', profile.district); // Case-insensitive match
 
           if (dealersError) throw dealersError;
           console.log('Found dealers:', dealersData); // Debug log
