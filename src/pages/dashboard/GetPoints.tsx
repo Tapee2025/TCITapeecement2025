@@ -74,18 +74,12 @@ export default function GetPoints() {
         setCurrentUser(profile);
 
         // Get all dealers in the district, excluding the current user if they're a dealer
-        let dealerQuery = supabase
+        const { data: dealersData, error: dealersError } = await supabase
           .from('users')
           .select('*')
           .eq('role', 'dealer')
-          .eq('district', profile.district);
-
-        // Only apply the neq filter if the user is a dealer
-        if (profile.role === 'dealer') {
-          dealerQuery = dealerQuery.neq('id', user.id);
-        }
-
-        const { data: dealersData, error: dealersError } = await dealerQuery;
+          .eq('district', profile.district)
+          .neq('id', profile.role === 'dealer' ? user.id : '');
 
         if (dealersError) throw dealersError;
         setDealers(dealersData || []);
@@ -99,6 +93,7 @@ export default function GetPoints() {
             table: 'users',
             filter: `role=eq.dealer AND district=eq.${profile.district}`
           }, () => {
+            // Refresh dealers list when changes occur
             fetchDealers(profile.district, user.id, profile.role);
           })
           .subscribe();
@@ -119,18 +114,12 @@ export default function GetPoints() {
 
   async function fetchDealers(district: string, userId: string, userRole: string) {
     try {
-      let query = supabase
+      const { data, error } = await supabase
         .from('users')
         .select('*')
         .eq('role', 'dealer')
-        .eq('district', district);
-
-      // Only apply the neq filter if the user is a dealer
-      if (userRole === 'dealer') {
-        query = query.neq('id', userId);
-      }
-
-      const { data, error } = await query;
+        .eq('district', district)
+        .neq('id', userRole === 'dealer' ? userId : '');
 
       if (error) throw error;
       setDealers(data || []);
@@ -339,7 +328,7 @@ export default function GetPoints() {
               >
                 {submitting ? (
                   <>
-                    <LoadingSpinner size="sm\" className="mr-2" />
+                    <LoadingSpinner size="sm" className="mr-2" />
                     Submitting...
                   </>
                 ) : (
