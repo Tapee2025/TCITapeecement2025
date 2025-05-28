@@ -43,7 +43,6 @@ export default function GetPoints() {
   
   const bagsCountValue = watch('bagsCount');
   
-  // Calculate points preview
   useEffect(() => {
     if (bagsCountValue) {
       const bagsCount = parseInt(bagsCountValue);
@@ -57,17 +56,12 @@ export default function GetPoints() {
     }
   }, [bagsCountValue]);
 
-  // Subscribe to dealers changes
   useEffect(() => {
     const fetchUserAndDealers = async () => {
       try {
         setLoading(true);
-
-        // Get current user
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          throw new Error('No user found');
-        }
+        if (!user) throw new Error('No user found');
 
         // Get user profile
         const { data: profile, error: profileError } = await supabase
@@ -98,7 +92,6 @@ export default function GetPoints() {
             table: 'users',
             filter: `role=eq.dealer,district=eq.${profile.district}`
           }, () => {
-            // Refresh dealers list when changes occur
             fetchDealers(profile.district);
           })
           .subscribe();
@@ -117,7 +110,6 @@ export default function GetPoints() {
     fetchUserAndDealers();
   }, []);
 
-  // Function to fetch dealers
   async function fetchDealers(district: string) {
     try {
       const { data, error } = await supabase
@@ -333,7 +325,7 @@ export default function GetPoints() {
               >
                 {submitting ? (
                   <>
-                    <LoadingSpinner size="sm\" className="mr-2" />
+                    <LoadingSpinner size="sm" className="mr-2" />
                     Submitting...
                   </>
                 ) : (

@@ -20,10 +20,13 @@ export default function PendingApprovals() {
   async function fetchTransactions() {
     try {
       setIsLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('No user found');
+
       const { data, error } = await supabase
         .from('transactions')
         .select('*, users!transactions_user_id_fkey(*)')
-        .eq('dealer_id', (await supabase.auth.getUser()).data.user?.id)
+        .eq('dealer_id', user.id)
         .eq('status', statusFilter)
         .order('created_at', { ascending: false });
 
@@ -76,7 +79,11 @@ export default function PendingApprovals() {
   }
 
   if (isLoading) {
-    return <LoadingSpinner />;
+    return (
+      <div className="flex justify-center items-center h-64">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
   }
 
   return (
