@@ -1,5 +1,4 @@
 import { Outlet } from 'react-router-dom';
-import { Building2 } from 'lucide-react';
 
 export default function AuthLayout() {
   return (
@@ -8,8 +7,7 @@ export default function AuthLayout() {
       <div className="bg-primary-600 text-white w-full md:w-1/2 p-8 flex flex-col justify-center">
         <div className="max-w-md mx-auto">
           <div className="flex items-center mb-6">
-            <Building2 className="h-10 w-10 mr-2" />
-            <h1 className="text-3xl font-bold">Tapee Cement</h1>
+            <img src="/logo.svg" alt="Tapee Cement" className="h-12 w-auto mr-2" />
           </div>
           <h2 className="text-2xl font-semibold mb-4">Loyalty Rewards Program</h2>
           <p className="text-primary-100 text-lg mb-6">

@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { 
-  Building2, 
   Menu, 
   X, 
   LogOut, 
@@ -63,7 +62,7 @@ export default function AdminLayout() {
       >
         <div className="flex items-center justify-between p-4 border-b border-gray-800">
           <div className="flex items-center space-x-2">
-            <Building2 className="h-8 w-8 text-accent-400" />
+            <img src="/logo.svg" alt="Tapee Cement" className="h-8 w-auto" />
             <div>
               <h1 className="font-bold text-lg">Tapee Cement</h1>
               <p className="text-xs text-gray-400">Admin Dashboard</p>

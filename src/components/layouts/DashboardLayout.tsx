@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { 
-  Building2, 
   Menu, 
   X, 
   LogOut, 
@@ -81,7 +80,7 @@ export default function DashboardLayout() {
       >
         <div className="flex items-center justify-between p-4 border-b">
           <div className="flex items-center space-x-2">
-            <Building2 className="h-8 w-8 text-primary-600" />
+            <img src="/logo.svg" alt="Tapee Cement" className="h-8 w-auto" />
             <div>
               <h1 className="font-bold text-lg text-gray-900">Tapee Cement</h1>
               <p className="text-xs text-gray-500">Loyalty Rewards</p>
