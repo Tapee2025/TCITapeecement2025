@@ -45,7 +45,7 @@ function App() {
           </Route>
           
           {/* User Routes */}
-          <Route element={<ProtectedRoute allowedRoles={['builder', 'dealer', 'contractor']} />}>
+          <Route element={<ProtectedRoute allowedRoles={['builder', 'contractor']} />}>
             <Route element={<DashboardLayout />}>
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/get-points" element={<GetPoints />} />
@@ -61,6 +61,8 @@ function App() {
             <Route element={<DashboardLayout />}>
               <Route path="/dealer/dashboard" element={<DealerDashboard />} />
               <Route path="/dealer/approvals" element={<PendingApprovals />} />
+              <Route path="/transactions" element={<TransactionHistory />} />
+              <Route path="/profile" element={<UserProfile />} />
             </Route>
           </Route>
           
@@ -76,8 +78,8 @@ function App() {
           </Route>
           
           {/* Redirect */}
-          <Route path="/" element={<Navigate to="/login\" replace />} />
-          <Route path="*" element={<Navigate to="/login\" replace />} />
+          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
         <ToastContainer position="top-right" autoClose={3000} />
       </Router>
