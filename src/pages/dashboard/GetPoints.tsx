@@ -77,18 +77,21 @@ export default function GetPoints() {
         if (!profile) throw new Error('Profile not found');
         
         setCurrentUser(profile);
+        console.log('Current user district:', profile.district); // Debug log
 
         // Only fetch dealers if user is a builder or contractor
         if (profile.role === 'builder' || profile.role === 'contractor') {
+          console.log('Fetching dealers for district:', profile.district); // Debug log
+          
           // Get all dealers in the user's district
           const { data: dealersData, error: dealersError } = await supabase
             .from('users')
-            .select('id, first_name, last_name, city, district, mobile_number, gst_number, user_code')
+            .select('*')
             .eq('role', 'dealer')
-            .eq('district', profile.district)
-            .order('first_name', { ascending: true });
+            .eq('district', profile.district);
 
           if (dealersError) throw dealersError;
+          console.log('Found dealers:', dealersData); // Debug log
           setDealers(dealersData || []);
         }
 
@@ -136,14 +139,6 @@ export default function GetPoints() {
     } finally {
       setSubmitting(false);
     }
-  }
-
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <LoadingSpinner size="lg" />
-      </div>
-    );
   }
 
   // If user is a dealer, show message that they can't request points
@@ -320,7 +315,7 @@ export default function GetPoints() {
               >
                 {submitting ? (
                   <>
-                    <LoadingSpinner size="sm\" className="mr-2" />
+                    <LoadingSpinner size="sm" className="mr-2" />
                     Submitting...
                   </>
                 ) : (
