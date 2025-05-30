@@ -133,7 +133,7 @@ export default function Login() {
           className="btn btn-primary w-full"
           disabled={loading}
         >
-          {loading ? <LoadingSpinner size="sm" className="mr-2" /> : null}
+          {loading ? <LoadingSpinner size="sm\" className="mr-2" /> : null}
           Sign in
         </button>
       </form>
