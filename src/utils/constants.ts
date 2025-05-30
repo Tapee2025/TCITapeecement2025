@@ -90,7 +90,6 @@ export const USER_NAVIGATION = [
   { name: 'Dashboard', path: '/dashboard', icon: 'LayoutDashboard' },
   { name: 'Get Points', path: '/get-points', icon: 'PlusCircle' },
   { name: 'Redeem Rewards', path: '/redeem', icon: 'Gift' },
-  { name: 'Rewards Catalog', path: '/rewards', icon: 'Award' },
   { name: 'Transaction History', path: '/transactions', icon: 'History' },
   { name: 'Profile', path: '/profile', icon: 'User' }
 ];

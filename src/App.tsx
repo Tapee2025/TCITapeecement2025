@@ -19,7 +19,6 @@ import GetPoints from './pages/dashboard/GetPoints';
 import RedeemRewards from './pages/dashboard/RedeemRewards';
 import TransactionHistory from './pages/dashboard/TransactionHistory';
 import UserProfile from './pages/dashboard/UserProfile';
-import Rewards from './pages/dashboard/Rewards';
 
 // Dealer Pages
 import DealerDashboard from './pages/dealer/DealerDashboard';
@@ -50,7 +49,6 @@ function App() {
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/get-points" element={<GetPoints />} />
               <Route path="/redeem" element={<RedeemRewards />} />
-              <Route path="/rewards" element={<Rewards />} />
               <Route path="/transactions" element={<TransactionHistory />} />
               <Route path="/profile" element={<UserProfile />} />
             </Route>
@@ -78,8 +76,8 @@ function App() {
           </Route>
           
           {/* Redirect */}
-          <Route path="/" element={<Navigate to="/login\" replace />} />
-          <Route path="*" element={<Navigate to="/login\" replace />} />
+          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
         <ToastContainer position="top-right" autoClose={3000} />
       </Router>
