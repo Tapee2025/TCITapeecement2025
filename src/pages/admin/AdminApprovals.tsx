@@ -23,7 +23,20 @@ export default function AdminApprovals() {
       setLoading(true);
       const { data, error } = await supabase
         .from('transactions')
-        .select('*, users!transactions_user_id_fkey(*)')
+        .select(`
+          *,
+          users!transactions_user_id_fkey (
+            first_name,
+            last_name,
+            user_code,
+            role
+          ),
+          dealers:users!transactions_dealer_id_fkey (
+            first_name,
+            last_name,
+            user_code
+          )
+        `)
         .eq('status', statusFilter)
         .order('created_at', { ascending: false });
 
@@ -40,12 +53,35 @@ export default function AdminApprovals() {
   async function handleApprove(transactionId: string) {
     setProcessingId(transactionId);
     try {
-      const { error } = await supabase
+      // First get the transaction to check if it's still pending dealer approval
+      const { data: transaction, error: fetchError } = await supabase
+        .from('transactions')
+        .select('*, users!transactions_user_id_fkey(id)')
+        .eq('id', transactionId)
+        .single();
+
+      if (fetchError) throw fetchError;
+      if (!transaction) {
+        toast.error('Transaction not found');
+        return;
+      }
+
+      // Update transaction status to approved
+      const { error: updateError } = await supabase
         .from('transactions')
         .update({ status: 'approved' })
         .eq('id', transactionId);
 
-      if (error) throw error;
+      if (updateError) throw updateError;
+
+      // Update user's points
+      const { error: pointsError } = await supabase.rpc('add_points', {
+        p_user_id: transaction.user_id,
+        p_points: transaction.amount
+      });
+
+      if (pointsError) throw pointsError;
+
       toast.success('Transaction approved successfully');
       fetchTransactions();
     } catch (error) {
@@ -79,7 +115,10 @@ export default function AdminApprovals() {
     const searchString = searchQuery.toLowerCase();
     return (
       transaction.description.toLowerCase().includes(searchString) ||
-      transaction.amount.toString().includes(searchString)
+      transaction.amount.toString().includes(searchString) ||
+      (transaction as any).users?.first_name?.toLowerCase().includes(searchString) ||
+      (transaction as any).users?.last_name?.toLowerCase().includes(searchString) ||
+      (transaction as any).users?.user_code?.toLowerCase().includes(searchString)
     );
   });
 
