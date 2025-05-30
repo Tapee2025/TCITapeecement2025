@@ -32,7 +32,15 @@ export default function ApprovePoints() {
       // Get transactions
       const { data, error } = await supabase
         .from('transactions')
-        .select('*, users!transactions_user_id_fkey(*)')
+        .select(`
+          *,
+          users!transactions_user_id_fkey (
+            first_name,
+            last_name,
+            user_code,
+            role
+          )
+        `)
         .eq('dealer_id', user.id)
         .eq('status', statusFilter)
         .order('created_at', { ascending: false });
@@ -50,14 +58,14 @@ export default function ApprovePoints() {
         .eq('status', 'pending');
 
       const { count: approvedTodayCount } = await supabase
-        .from('transactions')
+        .from('dealer_approvals')
         .select('*', { count: 'exact', head: true })
         .eq('dealer_id', user.id)
         .eq('status', 'approved')
-        .gte('updated_at', today.toISOString());
+        .gte('created_at', today.toISOString());
 
       const { data: totalPointsData } = await supabase
-        .from('transactions')
+        .from('dealer_approvals')
         .select('amount')
         .eq('dealer_id', user.id)
         .eq('status', 'approved');
@@ -82,7 +90,7 @@ export default function ApprovePoints() {
   async function handleApprove(transactionId: string) {
     setProcessingId(transactionId);
     try {
-      // First get the transaction to check if it's still pending
+      // Get the transaction details
       const { data: transaction, error: fetchError } = await supabase
         .from('transactions')
         .select('*')
@@ -90,31 +98,34 @@ export default function ApprovePoints() {
         .single();
 
       if (fetchError) throw fetchError;
-      if (!transaction || transaction.status !== 'pending') {
-        toast.error('Transaction is no longer pending');
+      if (!transaction) {
+        toast.error('Transaction not found');
         return;
       }
 
-      // Update transaction status to approved
+      // Create dealer approval record
+      const { error: approvalError } = await supabase
+        .from('dealer_approvals')
+        .insert({
+          transaction_id: transaction.id,
+          user_id: transaction.user_id,
+          dealer_id: transaction.dealer_id,
+          amount: transaction.amount,
+          description: transaction.description,
+          status: 'pending'
+        });
+
+      if (approvalError) throw approvalError;
+
+      // Update transaction status
       const { error: updateError } = await supabase
         .from('transactions')
-        .update({ 
-          status: 'approved',
-          updated_at: new Date().toISOString()
-        })
+        .update({ status: 'dealer_approved' })
         .eq('id', transactionId);
 
       if (updateError) throw updateError;
 
-      // Update user's points
-      const { error: userError } = await supabase.rpc('add_points', {
-        p_user_id: transaction.user_id,
-        p_points: transaction.amount
-      });
-
-      if (userError) throw userError;
-
-      toast.success('Transaction approved and points added');
+      toast.success('Transaction approved and sent to admin');
       fetchTransactions();
     } catch (error) {
       console.error('Error approving transaction:', error);
@@ -129,10 +140,7 @@ export default function ApprovePoints() {
     try {
       const { error } = await supabase
         .from('transactions')
-        .update({ 
-          status: 'rejected',
-          updated_at: new Date().toISOString()
-        })
+        .update({ status: 'rejected' })
         .eq('id', transactionId);
 
       if (error) throw error;
