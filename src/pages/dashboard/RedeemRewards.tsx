@@ -76,7 +76,7 @@ export default function RedeemRewards() {
     try {
       setLoading(true);
       
-      // Create redemption transaction
+      // Create redemption transaction with 'pending' status
       const { error: transactionError } = await supabase
         .from('transactions')
         .insert({
@@ -84,7 +84,7 @@ export default function RedeemRewards() {
           type: 'redeemed',
           amount: selectedReward.points_required,
           description: `Redeemed ${selectedReward.title}`,
-          status: 'completed',
+          status: 'pending', // Changed from 'completed' to 'pending' to comply with status check constraint
           reward_id: selectedReward.id
         });
 
@@ -102,7 +102,7 @@ export default function RedeemRewards() {
       if (pointsError) throw pointsError;
       
       setRedemptionComplete(true);
-      toast.success('Reward redeemed successfully!');
+      toast.success('Reward redemption request submitted successfully!');
     } catch (error) {
       console.error('Error redeeming reward:', error);
       toast.error('Failed to redeem reward');
@@ -153,10 +153,10 @@ export default function RedeemRewards() {
           <div className="w-16 h-16 bg-success-100 text-success-600 rounded-full flex items-center justify-center mx-auto mb-4">
             <CheckCircle size={32} />
           </div>
-          <h2 className="text-2xl font-bold mb-2">Redemption Successful!</h2>
+          <h2 className="text-2xl font-bold mb-2">Redemption Request Submitted!</h2>
           <p className="text-gray-600 mb-6">
-            You've successfully redeemed <strong>{selectedReward?.title}</strong> for <strong>{selectedReward?.points_required} points</strong>.
-            Our team will process your reward shortly.
+            Your request to redeem <strong>{selectedReward?.title}</strong> for <strong>{selectedReward?.points_required} points</strong> has
+            been submitted. Our team will review and process your redemption shortly.
           </p>
           <button
             onClick={handleResetRedemption}
@@ -230,7 +230,7 @@ export default function RedeemRewards() {
               >
                 {loading ? (
                   <>
-                    <LoadingSpinner size="sm\" className="mr-2" />
+                    <LoadingSpinner size="sm" className="mr-2" />
                     Processing...
                   </>
                 ) : (
