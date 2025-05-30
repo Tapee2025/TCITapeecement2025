@@ -16,6 +16,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { DEALER_NAVIGATION, USER_NAVIGATION } from '../../utils/constants';
+import { supabase } from '../../lib/supabase';
+import { toast } from 'react-toastify';
 
 export default function DashboardLayout() {
   const { userData, logout } = useAuth();
@@ -44,6 +46,7 @@ export default function DashboardLayout() {
       navigate('/login');
     } catch (error) {
       console.error('Failed to log out', error);
+      toast.error('Failed to log out');
     }
   }
   
@@ -61,6 +64,16 @@ export default function DashboardLayout() {
       default: return <LayoutDashboard {...props} />;
     }
   };
+
+  if (!userData) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="text-center">
+          <p className="text-gray-600">Loading user data...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -103,17 +116,19 @@ export default function DashboardLayout() {
           <div className="p-4 border-b">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-semibold">
-                {userData?.firstName.charAt(0)}{userData?.lastName.charAt(0)}
+                {userData.first_name?.[0]}{userData.last_name?.[0]}
               </div>
               <div>
-                <p className="font-medium text-gray-900">{userData?.firstName} {userData?.lastName}</p>
-                <p className="text-xs text-gray-500 capitalize">{userData?.role}</p>
+                <p className="font-medium text-gray-900">{userData.first_name} {userData.last_name}</p>
+                <p className="text-xs text-gray-500 capitalize">{userData.role}</p>
               </div>
             </div>
-            <div className="mt-3 flex items-center justify-between bg-primary-50 rounded-md p-2">
-              <span className="text-xs text-gray-600">User Code:</span>
-              <span className="font-medium text-primary-700">{userData?.userCode}</span>
-            </div>
+            {userData.user_code && (
+              <div className="mt-3 flex items-center justify-between bg-primary-50 rounded-md p-2">
+                <span className="text-xs text-gray-600">User Code:</span>
+                <span className="font-medium text-primary-700">{userData.user_code}</span>
+              </div>
+            )}
           </div>
           
           {/* Navigation */}
@@ -203,7 +218,7 @@ export default function DashboardLayout() {
                 className="flex items-center space-x-1 text-sm text-gray-700 hover:text-gray-900"
               >
                 <span className="hidden sm:inline-block font-medium">
-                  {userData?.firstName} {userData?.lastName}
+                  {userData.first_name} {userData.last_name}
                 </span>
                 <ChevronDown size={16} />
               </button>
