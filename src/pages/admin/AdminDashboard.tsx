@@ -28,44 +28,40 @@ export default function AdminDashboard() {
     try {
       setLoading(true);
       
-      // Get user counts by role
-      const { data: dealerData } = await supabase
+      // Get all users except admins
+      const { data: users, error: usersError } = await supabase
         .from('users')
-        .select('id', { count: 'exact' })
-        .eq('role', 'dealer');
-      
-      const { data: builderData } = await supabase
-        .from('users')
-        .select('id', { count: 'exact' })
-        .eq('role', 'builder');
-        
-      const { data: contractorData } = await supabase
-        .from('users')
-        .select('id', { count: 'exact' })
-        .eq('role', 'contractor');
-
-      // Get pending approvals count (transactions approved by dealers)
-      const { count: pendingCount } = await supabase
-        .from('transactions')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'dealer_approved');
-
-      // Get total rewards count
-      const { count: rewardsCount } = await supabase
-        .from('rewards')
-        .select('*', { count: 'exact', head: true })
-        .eq('available', true);
-
-      // Get total points issued
-      const { data: pointsData } = await supabase
-        .from('users')
-        .select('points')
+        .select('*')
         .neq('role', 'admin');
 
-      const totalPoints = pointsData?.reduce((sum, user) => sum + user.points, 0) || 0;
+      if (usersError) throw usersError;
 
-      // Get recent activity (transactions)
-      const { data: recentTransactions } = await supabase
+      // Count users by role
+      const dealerCount = users?.filter(u => u.role === 'dealer').length || 0;
+      const builderCount = users?.filter(u => u.role === 'builder').length || 0;
+      const contractorCount = users?.filter(u => u.role === 'contractor').length || 0;
+
+      // Get pending approvals (transactions approved by dealers)
+      const { data: pendingApprovals, error: approvalsError } = await supabase
+        .from('transactions')
+        .select('*', { count: 'exact' })
+        .eq('status', 'dealer_approved');
+
+      if (approvalsError) throw approvalsError;
+
+      // Get total rewards
+      const { data: rewards, error: rewardsError } = await supabase
+        .from('rewards')
+        .select('*', { count: 'exact' })
+        .eq('available', true);
+
+      if (rewardsError) throw rewardsError;
+
+      // Calculate total points across all users
+      const totalPoints = users?.reduce((sum, user) => sum + (user.points || 0), 0) || 0;
+
+      // Get recent activity (all transactions)
+      const { data: recentTransactions, error: transactionsError } = await supabase
         .from('transactions')
         .select(`
           *,
@@ -74,19 +70,22 @@ export default function AdminDashboard() {
             last_name,
             role,
             user_code
+          ),
+          dealers:users!transactions_dealer_id_fkey (
+            first_name,
+            last_name,
+            user_code
           )
         `)
         .order('created_at', { ascending: false })
         .limit(5);
 
-      const dealerCount = dealerData?.length || 0;
-      const builderCount = builderData?.length || 0;
-      const contractorCount = contractorData?.length || 0;
+      if (transactionsError) throw transactionsError;
 
       setStats({
         totalUsers: dealerCount + builderCount + contractorCount,
-        pendingApprovals: pendingCount || 0,
-        totalRewards: rewardsCount || 0,
+        pendingApprovals: pendingApprovals?.length || 0,
+        totalRewards: rewards?.length || 0,
         totalPoints,
         totalRedemptions: 0,
         totalDealers: dealerCount,
@@ -257,10 +256,10 @@ export default function AdminDashboard() {
                     {activity.amount} points by {activity.users.first_name} {activity.users.last_name}
                     <span className="text-xs text-gray-500 ml-1">({activity.users.user_code})</span>
                   </p>
-                  <p className="text-xs text-gray-500 flex items-center">
+                  <div className="text-xs text-gray-500 flex items-center space-x-2">
                     <span>{new Date(activity.created_at).toLocaleDateString()}</span>
-                    <span className="mx-1">•</span>
-                    <span className={`px-1.5 py-0.5 rounded-full text-xs ${
+                    <span>•</span>
+                    <span className={`px-1.5 py-0.5 rounded-full ${
                       activity.status === 'approved' ? 'bg-green-100 text-green-800' :
                       activity.status === 'dealer_approved' ? 'bg-blue-100 text-blue-800' :
                       activity.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
@@ -268,7 +267,13 @@ export default function AdminDashboard() {
                     }`}>
                       {activity.status}
                     </span>
-                  </p>
+                    {activity.dealers && (
+                      <>
+                        <span>•</span>
+                        <span>Dealer: {activity.dealers.first_name} {activity.dealers.last_name}</span>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
