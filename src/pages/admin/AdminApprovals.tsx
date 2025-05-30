@@ -5,41 +5,38 @@ import { Search, Filter, Check, X, AlertCircle } from 'lucide-react';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { toast } from 'react-toastify';
 
-type DealerApproval = Database['public']['Tables']['dealer_approvals']['Row'];
+type Transaction = Database['public']['Tables']['transactions']['Row'];
 
 export default function AdminApprovals() {
   const [loading, setLoading] = useState(true);
-  const [approvals, setApprovals] = useState<DealerApproval[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('pending');
+  const [statusFilter, setStatusFilter] = useState('dealer_approved');
   const [processingId, setProcessingId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchApprovals();
+    fetchTransactions();
   }, [statusFilter]);
 
-  async function fetchApprovals() {
+  async function fetchTransactions() {
     try {
       setLoading(true);
-      console.log('Fetching approvals with status:', statusFilter); // Debug log
+      console.log('Fetching transactions with status:', statusFilter); // Debug log
 
       const { data, error } = await supabase
-        .from('dealer_approvals')
+        .from('transactions')
         .select(`
           *,
-          users!dealer_approvals_user_id_fkey (
+          users!transactions_user_id_fkey (
             first_name,
             last_name,
             user_code,
             role
           ),
-          dealers:users!dealer_approvals_dealer_id_fkey (
+          dealers:users!transactions_dealer_id_fkey (
             first_name,
             last_name,
             user_code
-          ),
-          transactions!dealer_approvals_transaction_id_fkey (
-            status
           )
         `)
         .eq('status', statusFilter)
@@ -50,122 +47,90 @@ export default function AdminApprovals() {
         throw error;
       }
 
-      console.log('Fetched approvals:', data); // Debug log
-      setApprovals(data || []);
+      console.log('Fetched transactions:', data); // Debug log
+      setTransactions(data || []);
     } catch (error) {
-      console.error('Error fetching approvals:', error);
-      toast.error('Failed to load approvals');
+      console.error('Error fetching transactions:', error);
+      toast.error('Failed to load transactions');
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleApprove(approvalId: string) {
-    setProcessingId(approvalId);
+  async function handleApprove(transactionId: string) {
+    setProcessingId(transactionId);
     try {
-      // Get the approval details
-      const { data: approval, error: fetchError } = await supabase
-        .from('dealer_approvals')
+      // Get the transaction details
+      const { data: transaction, error: fetchError } = await supabase
+        .from('transactions')
         .select('*')
-        .eq('id', approvalId)
+        .eq('id', transactionId)
         .single();
 
       if (fetchError) throw fetchError;
-      if (!approval) {
-        toast.error('Approval not found');
+      if (!transaction) {
+        toast.error('Transaction not found');
         return;
       }
 
-      // Update approval status
-      const { error: updateError } = await supabase
-        .from('dealer_approvals')
-        .update({ 
-          status: 'approved',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', approvalId);
-
-      if (updateError) throw updateError;
-
       // Update transaction status
-      const { error: transactionError } = await supabase
+      const { error: updateError } = await supabase
         .from('transactions')
         .update({ 
           status: 'approved',
           updated_at: new Date().toISOString()
         })
-        .eq('id', approval.transaction_id);
+        .eq('id', transactionId);
 
-      if (transactionError) throw transactionError;
+      if (updateError) throw updateError;
 
       // Add points to user
       const { error: pointsError } = await supabase.rpc('add_points', {
-        p_user_id: approval.user_id,
-        p_points: approval.amount
+        p_user_id: transaction.user_id,
+        p_points: transaction.amount
       });
 
       if (pointsError) throw pointsError;
 
-      toast.success('Approval processed and points added');
-      fetchApprovals();
+      toast.success('Transaction approved and points added');
+      fetchTransactions();
     } catch (error) {
-      console.error('Error processing approval:', error);
-      toast.error('Failed to process approval');
+      console.error('Error approving transaction:', error);
+      toast.error('Failed to approve transaction');
     } finally {
       setProcessingId(null);
     }
   }
 
-  async function handleReject(approvalId: string) {
-    setProcessingId(approvalId);
+  async function handleReject(transactionId: string) {
+    setProcessingId(transactionId);
     try {
-      const { data: approval, error: fetchError } = await supabase
-        .from('dealer_approvals')
-        .select('transaction_id')
-        .eq('id', approvalId)
-        .single();
-
-      if (fetchError) throw fetchError;
-
-      // Update approval status
-      const { error: updateError } = await supabase
-        .from('dealer_approvals')
-        .update({ 
-          status: 'rejected',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', approvalId);
-
-      if (updateError) throw updateError;
-
-      // Update transaction status
-      const { error: transactionError } = await supabase
+      const { error } = await supabase
         .from('transactions')
         .update({ 
           status: 'rejected',
           updated_at: new Date().toISOString()
         })
-        .eq('id', approval.transaction_id);
+        .eq('id', transactionId);
 
-      if (transactionError) throw transactionError;
-
-      toast.success('Approval rejected');
-      fetchApprovals();
+      if (error) throw error;
+      toast.success('Transaction rejected');
+      fetchTransactions();
     } catch (error) {
-      console.error('Error rejecting approval:', error);
-      toast.error('Failed to reject approval');
+      console.error('Error rejecting transaction:', error);
+      toast.error('Failed to reject transaction');
     } finally {
       setProcessingId(null);
     }
   }
 
-  const filteredApprovals = approvals.filter(approval => {
+  const filteredTransactions = transactions.filter(transaction => {
     const searchString = searchQuery.toLowerCase();
     return (
-      (approval as any).users?.first_name?.toLowerCase().includes(searchString) ||
-      (approval as any).users?.last_name?.toLowerCase().includes(searchString) ||
-      (approval as any).users?.user_code?.toLowerCase().includes(searchString) ||
-      approval.description.toLowerCase().includes(searchString)
+      (transaction as any).users?.first_name?.toLowerCase().includes(searchString) ||
+      (transaction as any).users?.last_name?.toLowerCase().includes(searchString) ||
+      (transaction as any).users?.user_code?.toLowerCase().includes(searchString) ||
+      transaction.description.toLowerCase().includes(searchString)
     );
   });
 
@@ -179,7 +144,7 @@ export default function AdminApprovals() {
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Dealer Approvals</h1>
+      <h1 className="text-2xl font-bold text-gray-900 mb-6">Transaction Approvals</h1>
 
       {/* Filters */}
       <div className="bg-white rounded-lg shadow mb-6">
@@ -189,7 +154,7 @@ export default function AdminApprovals() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
               <input
                 type="text"
-                placeholder="Search approvals..."
+                placeholder="Search transactions..."
                 className="form-input pl-10"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -202,8 +167,8 @@ export default function AdminApprovals() {
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
               >
-                <option value="pending">Pending</option>
-                <option value="approved">Approved</option>
+                <option value="dealer_approved">Dealer Approved</option>
+                <option value="approved">Admin Approved</option>
                 <option value="rejected">Rejected</option>
               </select>
             </div>
@@ -211,7 +176,7 @@ export default function AdminApprovals() {
         </div>
       </div>
 
-      {/* Approvals Table */}
+      {/* Transactions Table */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
@@ -241,68 +206,68 @@ export default function AdminApprovals() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredApprovals.map((approval) => (
-                <tr key={approval.id} className="hover:bg-gray-50">
+              {filteredTransactions.map((transaction) => (
+                <tr key={transaction.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(approval.created_at).toLocaleDateString()}
+                    {new Date(transaction.created_at).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="flex-shrink-0 h-8 w-8">
                         <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center">
                           <span className="text-primary-700 font-medium text-sm">
-                            {(approval as any).users?.first_name?.[0]}
-                            {(approval as any).users?.last_name?.[0]}
+                            {(transaction as any).users?.first_name?.[0]}
+                            {(transaction as any).users?.last_name?.[0]}
                           </span>
                         </div>
                       </div>
                       <div className="ml-3">
                         <div className="text-sm font-medium text-gray-900">
-                          {(approval as any).users?.first_name} {(approval as any).users?.last_name}
+                          {(transaction as any).users?.first_name} {(transaction as any).users?.last_name}
                         </div>
                         <div className="text-xs text-gray-500">
-                          {(approval as any).users?.user_code}
+                          {(transaction as any).users?.user_code}
                         </div>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {(approval as any).dealers?.first_name} {(approval as any).dealers?.last_name}
+                    {(transaction as any).dealers?.first_name} {(transaction as any).dealers?.last_name}
                     <div className="text-xs text-gray-400">
-                      {(approval as any).dealers?.user_code}
+                      {(transaction as any).dealers?.user_code}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {approval.amount}
+                    {transaction.amount}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500">
-                    {approval.description}
+                    {transaction.description}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
-                      ${approval.status === 'approved' ? 'bg-green-100 text-green-800' :
-                        approval.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                      ${transaction.status === 'approved' ? 'bg-green-100 text-green-800' :
+                        transaction.status === 'dealer_approved' ? 'bg-blue-100 text-blue-800' :
                         'bg-red-100 text-red-800'}`}>
-                      {approval.status}
+                      {transaction.status === 'dealer_approved' ? 'Pending Admin Approval' : transaction.status}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    {approval.status === 'pending' && (
+                    {transaction.status === 'dealer_approved' && (
                       <div className="flex space-x-2">
                         <button
-                          onClick={() => handleApprove(approval.id)}
-                          disabled={processingId === approval.id}
+                          onClick={() => handleApprove(transaction.id)}
+                          disabled={processingId === transaction.id}
                           className="text-green-600 hover:text-green-900"
                         >
-                          {processingId === approval.id ? (
+                          {processingId === transaction.id ? (
                             <LoadingSpinner size="sm" />
                           ) : (
                             <Check size={18} />
                           )}
                         </button>
                         <button
-                          onClick={() => handleReject(approval.id)}
-                          disabled={processingId === approval.id}
+                          onClick={() => handleReject(transaction.id)}
+                          disabled={processingId === transaction.id}
                           className="text-red-600 hover:text-red-900"
                         >
                           <X size={18} />
@@ -316,14 +281,14 @@ export default function AdminApprovals() {
           </table>
         </div>
 
-        {filteredApprovals.length === 0 && (
+        {filteredTransactions.length === 0 && (
           <div className="text-center py-8">
             <AlertCircle size={48} className="mx-auto text-gray-400 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-1">No Approvals Found</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-1">No Transactions Found</h3>
             <p className="text-gray-500">
               {searchQuery 
-                ? `No approvals match your search for "${searchQuery}"`
-                : `No ${statusFilter} approvals found`}
+                ? `No transactions match your search for "${searchQuery}"`
+                : `No ${statusFilter} transactions found`}
             </p>
           </div>
         )}
