@@ -39,7 +39,7 @@ export default function Login() {
       });
 
       if (signInError) {
-        if (signInError.message === 'Invalid login credentials') {
+        if (signInError.message.includes('Invalid login credentials')) {
           setAuthError('Invalid email or password. Please check your credentials and try again.');
         } else {
           setAuthError('An error occurred during login. Please try again.');
@@ -55,19 +55,16 @@ export default function Login() {
       // Get user role from public.users table
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('role, first_name, last_name')
+        .select('role')
         .eq('id', authData.user.id)
         .single();
 
       if (userError || !userData) {
         console.error('Error fetching user data:', userError);
         setAuthError('Unable to fetch user details. Please try again.');
-        // Sign out since we couldn't get user data
         await supabase.auth.signOut();
         return;
       }
-
-      toast.success(`Welcome back, ${userData.first_name}!`);
 
       // Redirect based on role
       if (userData.role === 'admin') {
@@ -77,6 +74,8 @@ export default function Login() {
       } else {
         navigate('/dashboard');
       }
+
+      toast.success('Signed in successfully!');
     } catch (error) {
       console.error('Login error:', error);
       setAuthError('An unexpected error occurred. Please try again later.');
@@ -133,7 +132,7 @@ export default function Login() {
           className="btn btn-primary w-full"
           disabled={loading}
         >
-          {loading ? <LoadingSpinner size="sm\" className="mr-2" /> : null}
+          {loading ? <LoadingSpinner size="sm" className="mr-2" /> : null}
           Sign in
         </button>
       </form>
