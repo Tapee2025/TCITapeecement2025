@@ -42,7 +42,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (session?.user) {
+          await fetchUserProfile(session.user.id);
+        } else {
+          setCurrentUser(null);
+          setLoading(false);
+        }
+      }
+    );
+
+    // Check current session
     checkUser();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   async function checkUser() {
@@ -52,11 +69,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await fetchUserProfile(user.id);
       } else {
         setCurrentUser(null);
+        setLoading(false);
       }
     } catch (error) {
-      console.error('Error checking auth state:', error);
+      console.error('Error checking user:', error);
       setCurrentUser(null);
-    } finally {
       setLoading(false);
     }
   }
@@ -74,6 +91,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error fetching user profile:', error);
       setCurrentUser(null);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -85,15 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (error) throw error;
-
-      const { data: profile, error: profileError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', data.user.id)
-        .single();
-
-      if (profileError) throw profileError;
-      setCurrentUser(profile);
+      await fetchUserProfile(data.user.id);
     } catch (error) {
       console.error('Login error:', error);
       throw error;
