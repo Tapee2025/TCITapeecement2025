@@ -123,12 +123,6 @@ export default function DashboardLayout() {
                 <p className="text-xs text-gray-500 capitalize">{userData.role}</p>
               </div>
             </div>
-            {userData.user_code && (
-              <div className="mt-3 flex items-center justify-between bg-primary-50 rounded-md p-2">
-                <span className="text-xs text-gray-600">User Code:</span>
-                <span className="font-medium text-primary-700">{userData.user_code}</span>
-              </div>
-            )}
           </div>
           
           {/* Navigation */}
