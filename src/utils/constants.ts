@@ -132,4 +132,4 @@ export const STATS_CARDS = {
     { title: 'Pending Approvals', icon: 'Clock', color: 'bg-warning-500', valueKey: 'pendingApprovals' },
     { title: 'Total Rewards', icon: 'Award', color: 'bg-accent-500', valueKey: 'totalRewards' }
   ]
-}
+};
