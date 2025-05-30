@@ -42,34 +42,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Set up auth state listener
+    checkUser();
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
-          if (session?.user) {
-            try {
-              const { data: profile, error } = await supabase
-                .from('users')
-                .select('*')
-                .eq('id', session.user.id)
-                .single();
+        if (session?.user) {
+          const { data: profile } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
 
-              if (error) throw error;
-              setCurrentUser(profile);
-            } catch (error) {
-              console.error('Error fetching user profile:', error);
-              toast.error('Failed to load user profile');
-            }
-          }
-        } else if (event === 'SIGNED_OUT') {
+          setCurrentUser(profile);
+        } else {
           setCurrentUser(null);
         }
         setLoading(false);
       }
     );
-
-    // Check current auth status
-    checkUser();
 
     return () => {
       subscription.unsubscribe();
@@ -81,13 +71,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (user) {
-        const { data: profile, error } = await supabase
+        const { data: profile } = await supabase
           .from('users')
           .select('*')
           .eq('id', user.id)
           .single();
 
-        if (error) throw error;
         setCurrentUser(profile);
       }
     } catch (error) {
