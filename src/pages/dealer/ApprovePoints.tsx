@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Database } from '../../lib/database.types';
-import { Check, X, Filter, Search, Package, Building2, ArrowRight } from 'lucide-react';
+import { Check, X, Filter, Search, Package, Building2, ArrowRight, Clock, CheckCircle } from 'lucide-react';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { toast } from 'react-toastify';
-import { calculatePoints } from '../../utils/helpers';
 
 type Transaction = Database['public']['Tables']['transactions']['Row'];
 
