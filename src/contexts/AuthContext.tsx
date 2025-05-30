@@ -42,10 +42,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Initial auth check
     checkUser();
 
-    // Subscribe to auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         fetchUserProfile(session.user.id);
@@ -70,6 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error('Error checking auth state:', error);
+      setCurrentUser(null);
     } finally {
       setLoading(false);
     }
