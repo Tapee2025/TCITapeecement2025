@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { toast } from 'react-toastify';
 
@@ -18,6 +18,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { login } = useAuth();
   
   const { 
     register, 
@@ -32,53 +33,14 @@ export default function Login() {
     setAuthError(null);
     
     try {
-      // Sign in with Supabase Auth
-      const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({
-        email: data.email,
-        password: data.password
-      });
-
-      if (signInError) {
-        if (signInError.message.includes('Invalid login credentials')) {
-          setAuthError('Invalid email or password. Please check your credentials and try again.');
-        } else {
-          setAuthError('An error occurred during login. Please try again.');
-        }
-        return;
-      }
-
-      if (!authData.user) {
-        setAuthError('Unable to find user account. Please try again.');
-        return;
-      }
-
-      // Get user role from public.users table
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', authData.user.id)
-        .single();
-
-      if (userError || !userData) {
-        console.error('Error fetching user data:', userError);
-        setAuthError('Unable to fetch user details. Please try again.');
-        await supabase.auth.signOut();
-        return;
-      }
-
-      // Redirect based on role
-      if (userData.role === 'admin') {
-        navigate('/admin/dashboard');
-      } else if (userData.role === 'dealer') {
-        navigate('/dealer/dashboard');
-      } else {
-        navigate('/dashboard');
-      }
-
+      await login(data.email, data.password);
       toast.success('Signed in successfully!');
-    } catch (error) {
+      navigate('/dashboard');
+    } catch (error: any) {
       console.error('Login error:', error);
-      setAuthError('An unexpected error occurred. Please try again later.');
+      setAuthError(error.message === 'Invalid login credentials' 
+        ? 'Invalid email or password'
+        : 'An error occurred. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -132,7 +94,7 @@ export default function Login() {
           className="btn btn-primary w-full"
           disabled={loading}
         >
-          {loading ? <LoadingSpinner size="sm\" className="mr-2" /> : null}
+          {loading ? <LoadingSpinner size="sm" className="mr-2" /> : null}
           Sign in
         </button>
       </form>

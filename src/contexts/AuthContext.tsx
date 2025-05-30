@@ -42,54 +42,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (session?.user) {
-          await fetchUserProfile(session.user.id);
-        } else {
-          setCurrentUser(null);
-          setLoading(false);
-        }
-      }
-    );
-
-    // Check current session
     checkUser();
-
-    return () => {
-      subscription.unsubscribe();
-    };
   }, []);
 
   async function checkUser() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        await fetchUserProfile(user.id);
+        const { data: profile, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+
+        if (error) throw error;
+        setCurrentUser(profile);
       } else {
         setCurrentUser(null);
-        setLoading(false);
       }
     } catch (error) {
       console.error('Error checking user:', error);
-      setCurrentUser(null);
-      setLoading(false);
-    }
-  }
-
-  async function fetchUserProfile(userId: string) {
-    try {
-      const { data: profile, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .single();
-
-      if (error) throw error;
-      setCurrentUser(profile);
-    } catch (error) {
-      console.error('Error fetching user profile:', error);
       setCurrentUser(null);
     } finally {
       setLoading(false);
@@ -104,7 +76,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (error) throw error;
-      await fetchUserProfile(data.user.id);
+
+      const { data: profile, error: profileError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', data.user.id)
+        .single();
+
+      if (profileError) throw profileError;
+      setCurrentUser(profile);
     } catch (error) {
       console.error('Login error:', error);
       throw error;
