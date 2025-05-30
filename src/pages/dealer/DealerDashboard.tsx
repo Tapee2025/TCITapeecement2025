@@ -4,7 +4,8 @@ import DashboardCard from '../../components/ui/DashboardCard';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { Database } from '../../lib/database.types';
 import { Link } from 'react-router-dom';
-import { LayoutGrid, Clock, CheckCircle, ArrowRight } from 'lucide-react';
+import { LayoutGrid, Clock, CheckCircle, ArrowRight, Check, X } from 'lucide-react';
+import { toast } from 'react-toastify';
 
 type Transaction = Database['public']['Tables']['transactions']['Row'];
 type User = Database['public']['Tables']['users']['Row'];
@@ -18,6 +19,7 @@ export default function DealerDashboard() {
     pendingApprovals: 0,
     approvedToday: 0,
   });
+  const [processingId, setProcessingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchDashboardData();
@@ -76,6 +78,44 @@ export default function DealerDashboard() {
       console.error('Error fetching dashboard data:', error);
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function handleApprove(transactionId: string) {
+    setProcessingId(transactionId);
+    try {
+      const { error } = await supabase
+        .from('transactions')
+        .update({ status: 'dealer_approved' })
+        .eq('id', transactionId);
+
+      if (error) throw error;
+      toast.success('Transaction approved successfully');
+      fetchDashboardData();
+    } catch (error) {
+      console.error('Error approving transaction:', error);
+      toast.error('Failed to approve transaction');
+    } finally {
+      setProcessingId(null);
+    }
+  }
+
+  async function handleReject(transactionId: string) {
+    setProcessingId(transactionId);
+    try {
+      const { error } = await supabase
+        .from('transactions')
+        .update({ status: 'rejected' })
+        .eq('id', transactionId);
+
+      if (error) throw error;
+      toast.success('Transaction rejected');
+      fetchDashboardData();
+    } catch (error) {
+      console.error('Error rejecting transaction:', error);
+      toast.error('Failed to reject transaction');
+    } finally {
+      setProcessingId(null);
     }
   }
 
@@ -183,6 +223,9 @@ export default function DealerDashboard() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -225,6 +268,32 @@ export default function DealerDashboard() {
                           'bg-red-100 text-red-800'}`}>
                         {transaction.status === 'dealer_approved' ? 'Approved' : transaction.status}
                       </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      {transaction.status === 'pending' && (
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => handleApprove(transaction.id)}
+                            disabled={processingId === transaction.id}
+                            className="text-green-600 hover:text-green-900"
+                            title="Approve transaction"
+                          >
+                            {processingId === transaction.id ? (
+                              <LoadingSpinner size="sm" />
+                            ) : (
+                              <Check size={18} />
+                            )}
+                          </button>
+                          <button
+                            onClick={() => handleReject(transaction.id)}
+                            disabled={processingId === transaction.id}
+                            className="text-red-600 hover:text-red-900"
+                            title="Reject transaction"
+                          >
+                            <X size={18} />
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
