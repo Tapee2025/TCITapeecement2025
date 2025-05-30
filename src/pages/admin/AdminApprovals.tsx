@@ -21,8 +21,6 @@ export default function AdminApprovals() {
   async function fetchTransactions() {
     try {
       setLoading(true);
-      console.log('Fetching transactions with status:', statusFilter);
-
       const { data, error } = await supabase
         .from('transactions')
         .select(`
@@ -39,17 +37,16 @@ export default function AdminApprovals() {
             first_name,
             last_name,
             user_code
+          ),
+          rewards (
+            title,
+            points_required
           )
         `)
         .eq('status', statusFilter)
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Supabase query error:', error);
-        throw error;
-      }
-
-      console.log('Fetched transactions:', data);
+      if (error) throw error;
       setTransactions(data || []);
     } catch (error) {
       console.error('Error fetching transactions:', error);
@@ -62,16 +59,9 @@ export default function AdminApprovals() {
   async function handleApprove(transactionId: string) {
     setProcessingId(transactionId);
     try {
-      // Get the transaction details
       const { data: transaction, error: fetchError } = await supabase
         .from('transactions')
-        .select(`
-          *,
-          users!transactions_user_id_fkey (
-            id,
-            points
-          )
-        `)
+        .select('*')
         .eq('id', transactionId)
         .single();
 
@@ -81,16 +71,32 @@ export default function AdminApprovals() {
         return;
       }
 
-      // Start a Supabase transaction
-      const { error: updateError } = await supabase.rpc('approve_transaction', {
-        p_transaction_id: transactionId,
-        p_user_id: transaction.user_id,
-        p_points: transaction.amount
-      });
+      // Update transaction status
+      const { error: updateError } = await supabase
+        .from('transactions')
+        .update({ 
+          status: 'approved',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', transactionId);
 
       if (updateError) throw updateError;
 
-      toast.success('Transaction approved and points added successfully');
+      // For points earned, add points to user's account
+      if (transaction.type === 'earned') {
+        const { error: pointsError } = await supabase.rpc('add_points', {
+          p_user_id: transaction.user_id,
+          p_points: transaction.amount
+        });
+
+        if (pointsError) throw pointsError;
+      }
+
+      toast.success(
+        transaction.type === 'earned' 
+          ? 'Transaction approved and points added successfully'
+          : 'Reward redemption approved successfully'
+      );
       fetchTransactions();
     } catch (error) {
       console.error('Error approving transaction:', error);
@@ -103,7 +109,20 @@ export default function AdminApprovals() {
   async function handleReject(transactionId: string) {
     setProcessingId(transactionId);
     try {
-      const { error } = await supabase
+      const { data: transaction, error: fetchError } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('id', transactionId)
+        .single();
+
+      if (fetchError) throw fetchError;
+      if (!transaction) {
+        toast.error('Transaction not found');
+        return;
+      }
+
+      // Update transaction status
+      const { error: updateError } = await supabase
         .from('transactions')
         .update({ 
           status: 'rejected',
@@ -111,8 +130,23 @@ export default function AdminApprovals() {
         })
         .eq('id', transactionId);
 
-      if (error) throw error;
-      toast.success('Transaction rejected');
+      if (updateError) throw updateError;
+
+      // If rejecting a redemption, refund the points
+      if (transaction.type === 'redeemed') {
+        const { error: refundError } = await supabase.rpc('add_points', {
+          p_user_id: transaction.user_id,
+          p_points: transaction.amount // Add back the points that were deducted
+        });
+
+        if (refundError) throw refundError;
+      }
+
+      toast.success(
+        transaction.type === 'redeemed'
+          ? 'Redemption rejected and points refunded'
+          : 'Transaction rejected'
+      );
       fetchTransactions();
     } catch (error) {
       console.error('Error rejecting transaction:', error);
@@ -165,8 +199,9 @@ export default function AdminApprovals() {
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
               >
-                <option value="dealer_approved">Dealer Approved</option>
-                <option value="approved">Admin Approved</option>
+                <option value="dealer_approved">Points Pending Approval</option>
+                <option value="pending">Redemptions Pending Approval</option>
+                <option value="approved">Approved</option>
                 <option value="rejected">Rejected</option>
               </select>
             </div>
@@ -187,7 +222,7 @@ export default function AdminApprovals() {
                   User
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Dealer
+                  Type
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Points
@@ -229,28 +264,34 @@ export default function AdminApprovals() {
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {(transaction as any).dealers?.first_name} {(transaction as any).dealers?.last_name}
-                    <div className="text-xs text-gray-400">
-                      {(transaction as any).dealers?.user_code}
-                    </div>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                      ${transaction.type === 'earned' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
+                      {transaction.type === 'earned' ? 'Points Earned' : 'Reward Redemption'}
+                    </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     {transaction.amount}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500">
                     {transaction.description}
+                    {(transaction as any).rewards && (
+                      <div className="text-xs text-gray-400 mt-1">
+                        Reward: {(transaction as any).rewards.title}
+                      </div>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
                       ${transaction.status === 'approved' ? 'bg-green-100 text-green-800' :
+                        transaction.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                         transaction.status === 'dealer_approved' ? 'bg-blue-100 text-blue-800' :
                         'bg-red-100 text-red-800'}`}>
                       {transaction.status === 'dealer_approved' ? 'Pending Admin Approval' : transaction.status}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    {transaction.status === 'dealer_approved' && (
+                    {(transaction.status === 'dealer_approved' || transaction.status === 'pending') && (
                       <div className="flex space-x-2">
                         <button
                           onClick={() => handleApprove(transaction.id)}
