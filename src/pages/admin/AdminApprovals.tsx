@@ -21,17 +21,19 @@ export default function AdminApprovals() {
   async function fetchTransactions() {
     try {
       setLoading(true);
-      console.log('Fetching transactions with status:', statusFilter); // Debug log
+      console.log('Fetching transactions with status:', statusFilter);
 
       const { data, error } = await supabase
         .from('transactions')
         .select(`
           *,
           users!transactions_user_id_fkey (
+            id,
             first_name,
             last_name,
             user_code,
-            role
+            role,
+            points
           ),
           dealers:users!transactions_dealer_id_fkey (
             first_name,
@@ -43,11 +45,11 @@ export default function AdminApprovals() {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Supabase query error:', error); // Debug log
+        console.error('Supabase query error:', error);
         throw error;
       }
 
-      console.log('Fetched transactions:', data); // Debug log
+      console.log('Fetched transactions:', data);
       setTransactions(data || []);
     } catch (error) {
       console.error('Error fetching transactions:', error);
@@ -63,7 +65,13 @@ export default function AdminApprovals() {
       // Get the transaction details
       const { data: transaction, error: fetchError } = await supabase
         .from('transactions')
-        .select('*')
+        .select(`
+          *,
+          users!transactions_user_id_fkey (
+            id,
+            points
+          )
+        `)
         .eq('id', transactionId)
         .single();
 
@@ -73,26 +81,16 @@ export default function AdminApprovals() {
         return;
       }
 
-      // Update transaction status
-      const { error: updateError } = await supabase
-        .from('transactions')
-        .update({ 
-          status: 'approved',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', transactionId);
-
-      if (updateError) throw updateError;
-
-      // Add points to user using the RPC function
-      const { error: pointsError } = await supabase.rpc('add_points', {
+      // Start a Supabase transaction
+      const { error: updateError } = await supabase.rpc('approve_transaction', {
+        p_transaction_id: transactionId,
         p_user_id: transaction.user_id,
         p_points: transaction.amount
       });
 
-      if (pointsError) throw pointsError;
+      if (updateError) throw updateError;
 
-      toast.success('Transaction approved and points added');
+      toast.success('Transaction approved and points added successfully');
       fetchTransactions();
     } catch (error) {
       console.error('Error approving transaction:', error);
@@ -213,15 +211,15 @@ export default function AdminApprovals() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
-                      <div className="flex-shrink-0 h-8 w-8">
-                        <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center">
+                      <div className="flex-shrink-0 h-10 w-10">
+                        <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center">
                           <span className="text-primary-700 font-medium text-sm">
                             {(transaction as any).users?.first_name?.[0]}
                             {(transaction as any).users?.last_name?.[0]}
                           </span>
                         </div>
                       </div>
-                      <div className="ml-3">
+                      <div className="ml-4">
                         <div className="text-sm font-medium text-gray-900">
                           {(transaction as any).users?.first_name} {(transaction as any).users?.last_name}
                         </div>
