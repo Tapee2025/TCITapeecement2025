@@ -3,9 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { supabase } from '../../lib/supabase';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { toast } from 'react-toastify';
-import { useAuth } from '../../contexts/AuthContext';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -18,7 +18,6 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const navigate = useNavigate();
-  const { login } = useAuth();
   
   const { 
     register, 
@@ -33,30 +32,54 @@ export default function Login() {
     setAuthError(null);
     
     try {
-      const { user, role, firstName } = await login(data.email, data.password);
+      // Sign in with Supabase Auth
+      const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: data.email,
+        password: data.password
+      });
 
-      if (!user) {
+      if (signInError) {
+        if (signInError.message === 'Invalid login credentials') {
+          setAuthError('Invalid email or password. Please check your credentials and try again.');
+        } else {
+          setAuthError('An error occurred during login. Please try again.');
+        }
+        return;
+      }
+
+      if (!authData.user) {
         setAuthError('Unable to find user account. Please try again.');
         return;
       }
 
-      toast.success(`Welcome back, ${firstName}!`);
+      // Get user role from public.users table
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('role, first_name, last_name')
+        .eq('id', authData.user.id)
+        .single();
+
+      if (userError || !userData) {
+        console.error('Error fetching user data:', userError);
+        setAuthError('Unable to fetch user details. Please try again.');
+        // Sign out since we couldn't get user data
+        await supabase.auth.signOut();
+        return;
+      }
+
+      toast.success(`Welcome back, ${userData.first_name}!`);
 
       // Redirect based on role
-      if (role === 'admin') {
+      if (userData.role === 'admin') {
         navigate('/admin/dashboard');
-      } else if (role === 'dealer') {
+      } else if (userData.role === 'dealer') {
         navigate('/dealer/dashboard');
       } else {
         navigate('/dashboard');
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Login error:', error);
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-        setAuthError('Invalid email or password. Please check your credentials and try again.');
-      } else {
-        setAuthError('An unexpected error occurred. Please try again later.');
-      }
+      setAuthError('An unexpected error occurred. Please try again later.');
     } finally {
       setLoading(false);
     }
@@ -110,7 +133,7 @@ export default function Login() {
           className="btn btn-primary w-full"
           disabled={loading}
         >
-          {loading ? <LoadingSpinner size="sm\" className="mr-2" /> : null}
+          {loading ? <LoadingSpinner size="sm" className="mr-2" /> : null}
           Sign in
         </button>
       </form>
