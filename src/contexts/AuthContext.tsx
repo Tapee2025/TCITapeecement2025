@@ -42,24 +42,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Initial auth check
     checkUser();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (session?.user) {
-          const { data: profile } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-
-          setCurrentUser(profile);
-        } else {
-          setCurrentUser(null);
-        }
+    // Subscribe to auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        fetchUserProfile(session.user.id);
+      } else {
+        setCurrentUser(null);
         setLoading(false);
       }
-    );
+    });
 
     return () => {
       subscription.unsubscribe();
@@ -69,20 +63,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function checkUser() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      
       if (user) {
-        const { data: profile } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', user.id)
-          .single();
-
-        setCurrentUser(profile);
+        await fetchUserProfile(user.id);
+      } else {
+        setCurrentUser(null);
       }
     } catch (error) {
       console.error('Error checking auth state:', error);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function fetchUserProfile(userId: string) {
+    try {
+      const { data: profile, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error) throw error;
+      setCurrentUser(profile);
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+      setCurrentUser(null);
     }
   }
 
