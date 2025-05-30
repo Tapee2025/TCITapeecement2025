@@ -54,7 +54,7 @@ export interface PointsRequest {
   dealerName: string;
   bagsCount: number;
   pointsAmount: number; // 10 points per bag
-  status: 'pending' | 'dealer_approved' | 'admin_approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected';
   createdAt: string;
   updatedAt: string;
 }
