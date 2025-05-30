@@ -253,8 +253,8 @@ export default function AdminDashboard() {
                 <div>
                   <p className="text-sm font-medium text-gray-900">
                     {activity.type === 'earned' ? 'Points request: ' : 'Points redeemed: '}
-                    {activity.amount} points by {activity.users.first_name} {activity.users.last_name}
-                    <span className="text-xs text-gray-500 ml-1">({activity.users.user_code})</span>
+                    {activity.amount} points by {activity.users?.first_name || 'Unknown'} {activity.users?.last_name || 'User'}
+                    <span className="text-xs text-gray-500 ml-1">({activity.users?.user_code || 'N/A'})</span>
                   </p>
                   <div className="text-xs text-gray-500 flex items-center space-x-2">
                     <span>{new Date(activity.created_at).toLocaleDateString()}</span>
@@ -270,7 +270,7 @@ export default function AdminDashboard() {
                     {activity.dealers && (
                       <>
                         <span>•</span>
-                        <span>Dealer: {activity.dealers.first_name} {activity.dealers.last_name}</span>
+                        <span>Dealer: {activity.dealers.first_name || 'Unknown'} {activity.dealers.last_name || 'Dealer'}</span>
                       </>
                     )}
                   </div>
