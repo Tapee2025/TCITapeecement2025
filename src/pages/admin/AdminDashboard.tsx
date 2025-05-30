@@ -29,23 +29,22 @@ export default function AdminDashboard() {
       setLoading(true);
       
       // Get user counts by role
-      const { data: userCounts, error: userError } = await supabase
+      const { data: dealerData } = await supabase
         .from('users')
-        .select('role', { count: 'exact' })
-        .neq('role', 'admin')
+        .select('id', { count: 'exact' })
         .eq('role', 'dealer');
       
-      const { data: builderCount } = await supabase
+      const { data: builderData } = await supabase
         .from('users')
-        .select('role', { count: 'exact' })
+        .select('id', { count: 'exact' })
         .eq('role', 'builder');
         
-      const { data: contractorCount } = await supabase
+      const { data: contractorData } = await supabase
         .from('users')
-        .select('role', { count: 'exact' })
+        .select('id', { count: 'exact' })
         .eq('role', 'contractor');
 
-      // Get pending approvals count
+      // Get pending approvals count (transactions approved by dealers)
       const { count: pendingCount } = await supabase
         .from('transactions')
         .select('*', { count: 'exact', head: true })
@@ -73,21 +72,26 @@ export default function AdminDashboard() {
           users!transactions_user_id_fkey (
             first_name,
             last_name,
-            role
+            role,
+            user_code
           )
         `)
         .order('created_at', { ascending: false })
         .limit(5);
 
+      const dealerCount = dealerData?.length || 0;
+      const builderCount = builderData?.length || 0;
+      const contractorCount = contractorData?.length || 0;
+
       setStats({
-        totalUsers: (userCounts?.length || 0) + (builderCount?.length || 0) + (contractorCount?.length || 0),
+        totalUsers: dealerCount + builderCount + contractorCount,
         pendingApprovals: pendingCount || 0,
         totalRewards: rewardsCount || 0,
-        totalPoints: totalPoints,
+        totalPoints,
         totalRedemptions: 0,
-        totalDealers: userCounts?.length || 0,
-        totalBuilders: builderCount?.length || 0,
-        totalContractors: contractorCount?.length || 0
+        totalDealers: dealerCount,
+        totalBuilders: builderCount,
+        totalContractors: contractorCount
       });
 
       setRecentActivity(recentTransactions || []);
@@ -249,11 +253,21 @@ export default function AdminDashboard() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-900">
-                    {activity.type === 'earned' ? 'Points earned: ' : 'Points redeemed: '}
+                    {activity.type === 'earned' ? 'Points request: ' : 'Points redeemed: '}
                     {activity.amount} points by {activity.users.first_name} {activity.users.last_name}
+                    <span className="text-xs text-gray-500 ml-1">({activity.users.user_code})</span>
                   </p>
-                  <p className="text-xs text-gray-500">
-                    {new Date(activity.created_at).toLocaleDateString()}
+                  <p className="text-xs text-gray-500 flex items-center">
+                    <span>{new Date(activity.created_at).toLocaleDateString()}</span>
+                    <span className="mx-1">•</span>
+                    <span className={`px-1.5 py-0.5 rounded-full text-xs ${
+                      activity.status === 'approved' ? 'bg-green-100 text-green-800' :
+                      activity.status === 'dealer_approved' ? 'bg-blue-100 text-blue-800' :
+                      activity.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-red-100 text-red-800'
+                    }`}>
+                      {activity.status}
+                    </span>
                   </p>
                 </div>
               </div>
