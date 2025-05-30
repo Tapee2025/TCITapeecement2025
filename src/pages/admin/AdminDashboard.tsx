@@ -57,8 +57,16 @@ export default function AdminDashboard() {
 
       if (rewardsError) throw rewardsError;
 
-      // Calculate total points across all users
-      const totalPoints = users?.reduce((sum, user) => sum + (user.points || 0), 0) || 0;
+      // Calculate total points issued (from approved transactions)
+      const { data: approvedTransactions, error: pointsError } = await supabase
+        .from('transactions')
+        .select('amount')
+        .eq('status', 'approved')
+        .eq('type', 'earned');
+
+      if (pointsError) throw pointsError;
+
+      const totalPointsIssued = approvedTransactions?.reduce((sum, t) => sum + t.amount, 0) || 0;
 
       // Get recent activity (all transactions)
       const { data: recentTransactions, error: transactionsError } = await supabase
@@ -86,7 +94,7 @@ export default function AdminDashboard() {
         totalUsers: dealerCount + builderCount + contractorCount,
         pendingApprovals: pendingApprovals?.length || 0,
         totalRewards: rewards?.length || 0,
-        totalPoints,
+        totalPoints: totalPointsIssued,
         totalRedemptions: 0,
         totalDealers: dealerCount,
         totalBuilders: builderCount,
@@ -270,7 +278,7 @@ export default function AdminDashboard() {
                     {activity.dealers && (
                       <>
                         <span>•</span>
-                        <span>Dealer: {activity.dealers.first_name || 'Unknown'} {activity.dealers.last_name || 'Dealer'}</span>
+                        <span>Dealer: {activity.dealers?.first_name || 'Unknown'} {activity.dealers?.last_name || 'Dealer'}</span>
                       </>
                     )}
                   </div>

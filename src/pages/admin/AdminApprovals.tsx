@@ -84,7 +84,7 @@ export default function AdminApprovals() {
 
       if (updateError) throw updateError;
 
-      // Add points to user
+      // Add points to user using the RPC function
       const { error: pointsError } = await supabase.rpc('add_points', {
         p_user_id: transaction.user_id,
         p_points: transaction.amount
