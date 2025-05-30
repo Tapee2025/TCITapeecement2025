@@ -53,14 +53,14 @@ export default function ApprovePoints() {
         .from('transactions')
         .select('*', { count: 'exact', head: true })
         .eq('dealer_id', user.id)
-        .eq('status', 'dealer_approved')
-        .gte('created_at', today.toISOString());
+        .eq('status', 'approved')
+        .gte('updated_at', today.toISOString());
 
       const { data: totalPointsData } = await supabase
         .from('transactions')
         .select('amount')
         .eq('dealer_id', user.id)
-        .eq('status', 'dealer_approved');
+        .eq('status', 'approved');
 
       const totalPoints = totalPointsData?.reduce((sum, t) => sum + t.amount, 0) || 0;
 
@@ -82,13 +82,39 @@ export default function ApprovePoints() {
   async function handleApprove(transactionId: string) {
     setProcessingId(transactionId);
     try {
-      const { error } = await supabase
+      // First get the transaction to check if it's still pending
+      const { data: transaction, error: fetchError } = await supabase
         .from('transactions')
-        .update({ status: 'dealer_approved' })
+        .select('*')
+        .eq('id', transactionId)
+        .single();
+
+      if (fetchError) throw fetchError;
+      if (!transaction || transaction.status !== 'pending') {
+        toast.error('Transaction is no longer pending');
+        return;
+      }
+
+      // Update transaction status to approved
+      const { error: updateError } = await supabase
+        .from('transactions')
+        .update({ 
+          status: 'approved',
+          updated_at: new Date().toISOString()
+        })
         .eq('id', transactionId);
 
-      if (error) throw error;
-      toast.success('Transaction approved successfully');
+      if (updateError) throw updateError;
+
+      // Update user's points
+      const { error: userError } = await supabase.rpc('add_points', {
+        p_user_id: transaction.user_id,
+        p_points: transaction.amount
+      });
+
+      if (userError) throw userError;
+
+      toast.success('Transaction approved and points added');
       fetchTransactions();
     } catch (error) {
       console.error('Error approving transaction:', error);
@@ -103,7 +129,10 @@ export default function ApprovePoints() {
     try {
       const { error } = await supabase
         .from('transactions')
-        .update({ status: 'rejected' })
+        .update({ 
+          status: 'rejected',
+          updated_at: new Date().toISOString()
+        })
         .eq('id', transactionId);
 
       if (error) throw error;
@@ -203,8 +232,7 @@ export default function ApprovePoints() {
               onChange={(e) => setStatusFilter(e.target.value)}
             >
               <option value="pending">Pending Approval</option>
-              <option value="dealer_approved">Approved by Me</option>
-              <option value="approved">Admin Approved</option>
+              <option value="approved">Approved</option>
               <option value="rejected">Rejected</option>
             </select>
           </div>
@@ -273,9 +301,8 @@ export default function ApprovePoints() {
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
                       ${transaction.status === 'approved' ? 'bg-green-100 text-green-800' : 
                         transaction.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
-                        transaction.status === 'dealer_approved' ? 'bg-blue-100 text-blue-800' :
                         'bg-red-100 text-red-800'}`}>
-                      {transaction.status === 'dealer_approved' ? 'Sent to Admin' : transaction.status}
+                      {transaction.status}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
