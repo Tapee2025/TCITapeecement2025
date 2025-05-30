@@ -97,7 +97,7 @@ export const USER_NAVIGATION = [
 
 export const DEALER_NAVIGATION = [
   { name: 'Dashboard', path: '/dealer/dashboard', icon: 'LayoutDashboard' },
-  { name: 'Pending Approvals', path: '/dealer/approvals', icon: 'CheckCircle' },
+  { name: 'Approve Points', path: '/dealer/approve-points', icon: 'CheckCircle' },
   { name: 'Transaction History', path: '/transactions', icon: 'History' },
   { name: 'Profile', path: '/profile', icon: 'User' }
 ];
