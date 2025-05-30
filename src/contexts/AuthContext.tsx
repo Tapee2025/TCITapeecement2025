@@ -1,25 +1,30 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { 
-  createUserWithEmailAndPassword, 
-  signInWithEmailAndPassword,
-  signOut,
-  sendPasswordResetEmail,
-  onAuthStateChanged,
-  User as FirebaseUser
-} from 'firebase/auth';
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from '../firebase/config';
-import { User, UserRole } from '../types';
-import { generateUserCode } from '../utils/helpers';
+import { supabase } from '../lib/supabase';
+import { Database } from '../lib/database.types';
+import { toast } from 'react-toastify';
+
+type User = Database['public']['Tables']['users']['Row'];
 
 interface AuthContextType {
-  currentUser: FirebaseUser | null;
-  userData: User | null;
+  currentUser: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (userData: Omit<User, 'uid' | 'points' | 'userCode' | 'createdAt'> & { password: string }) => Promise<void>;
+  register: (data: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+}
+
+interface RegisterData {
+  email: string;
+  password: string;
+  first_name: string;
+  last_name: string;
+  role: 'builder' | 'dealer' | 'contractor';
+  city: string;
+  address: string;
+  district: string;
+  gst_number?: string;
+  mobile_number: string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -33,68 +38,139 @@ export function useAuth() {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
-  const [userData, setUserData] = useState<User | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  async function login(email: string, password: string) {
-    await signInWithEmailAndPassword(auth, email, password);
+  useEffect(() => {
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+          if (session?.user) {
+            try {
+              const { data: profile, error } = await supabase
+                .from('users')
+                .select('*')
+                .eq('id', session.user.id)
+                .single();
+
+              if (error) throw error;
+              setCurrentUser(profile);
+            } catch (error) {
+              console.error('Error fetching user profile:', error);
+              toast.error('Failed to load user profile');
+            }
+          }
+        } else if (event === 'SIGNED_OUT') {
+          setCurrentUser(null);
+        }
+        setLoading(false);
+      }
+    );
+
+    // Check current auth status
+    checkUser();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  async function checkUser() {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user) {
+        const { data: profile, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+
+        if (error) throw error;
+        setCurrentUser(profile);
+      }
+    } catch (error) {
+      console.error('Error checking auth state:', error);
+    } finally {
+      setLoading(false);
+    }
   }
 
-  async function register(userData: Omit<User, 'uid' | 'points' | 'userCode' | 'createdAt'> & { password: string }) {
-    const { email, password, ...restUserData } = userData;
+  async function login(email: string, password: string) {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error) throw error;
+
+      const { data: profile, error: profileError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', data.user.id)
+        .single();
+
+      if (profileError) throw profileError;
+      setCurrentUser(profile);
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
+    }
+  }
+
+  async function register(data: RegisterData) {
+    const { email, password, ...profileData } = data;
     
-    // Create user in Firebase Auth
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    const user = userCredential.user;
-    
-    // Generate 5-digit unique code
-    const userCode = generateUserCode();
-    
-    // Create user document in Firestore
-    await setDoc(doc(db, 'users', user.uid), {
-      ...restUserData,
-      uid: user.uid,
-      email,
-      points: 0,
-      userCode,
-      createdAt: serverTimestamp()
-    });
+    try {
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password
+      });
+
+      if (signUpError) throw signUpError;
+      if (!authData.user) throw new Error('Failed to create user');
+
+      const { error: profileError } = await supabase
+        .from('users')
+        .insert([{
+          id: authData.user.id,
+          email,
+          ...profileData,
+          points: 0
+        }]);
+
+      if (profileError) throw profileError;
+    } catch (error) {
+      console.error('Registration error:', error);
+      throw error;
+    }
   }
 
   async function logout() {
-    await signOut(auth);
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      setCurrentUser(null);
+    } catch (error) {
+      console.error('Logout error:', error);
+      throw error;
+    }
   }
 
   async function resetPassword(email: string) {
-    await sendPasswordResetEmail(auth, email);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      if (error) throw error;
+    } catch (error) {
+      console.error('Password reset error:', error);
+      throw error;
+    }
   }
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setCurrentUser(user);
-      
-      if (user) {
-        // Fetch user data from Firestore
-        const docRef = doc(db, 'users', user.uid);
-        const docSnap = await getDoc(docRef);
-        
-        if (docSnap.exists()) {
-          setUserData({ ...docSnap.data() as User });
-        }
-      } else {
-        setUserData(null);
-      }
-      
-      setLoading(false);
-    });
-
-    return unsubscribe;
-  }, []);
 
   const value = {
     currentUser,
-    userData,
     loading,
     login,
     register,
@@ -104,7 +180,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 }
