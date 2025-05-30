@@ -21,6 +21,8 @@ export default function AdminApprovals() {
   async function fetchApprovals() {
     try {
       setLoading(true);
+      console.log('Fetching approvals with status:', statusFilter); // Debug log
+
       const { data, error } = await supabase
         .from('dealer_approvals')
         .select(`
@@ -35,12 +37,20 @@ export default function AdminApprovals() {
             first_name,
             last_name,
             user_code
+          ),
+          transactions!dealer_approvals_transaction_id_fkey (
+            status
           )
         `)
         .eq('status', statusFilter)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase query error:', error); // Debug log
+        throw error;
+      }
+
+      console.log('Fetched approvals:', data); // Debug log
       setApprovals(data || []);
     } catch (error) {
       console.error('Error fetching approvals:', error);
@@ -69,7 +79,10 @@ export default function AdminApprovals() {
       // Update approval status
       const { error: updateError } = await supabase
         .from('dealer_approvals')
-        .update({ status: 'approved' })
+        .update({ 
+          status: 'approved',
+          updated_at: new Date().toISOString()
+        })
         .eq('id', approvalId);
 
       if (updateError) throw updateError;
@@ -77,7 +90,10 @@ export default function AdminApprovals() {
       // Update transaction status
       const { error: transactionError } = await supabase
         .from('transactions')
-        .update({ status: 'approved' })
+        .update({ 
+          status: 'approved',
+          updated_at: new Date().toISOString()
+        })
         .eq('id', approval.transaction_id);
 
       if (transactionError) throw transactionError;
@@ -114,7 +130,10 @@ export default function AdminApprovals() {
       // Update approval status
       const { error: updateError } = await supabase
         .from('dealer_approvals')
-        .update({ status: 'rejected' })
+        .update({ 
+          status: 'rejected',
+          updated_at: new Date().toISOString()
+        })
         .eq('id', approvalId);
 
       if (updateError) throw updateError;
@@ -122,7 +141,10 @@ export default function AdminApprovals() {
       // Update transaction status
       const { error: transactionError } = await supabase
         .from('transactions')
-        .update({ status: 'rejected' })
+        .update({ 
+          status: 'rejected',
+          updated_at: new Date().toISOString()
+        })
         .eq('id', approval.transaction_id);
 
       if (transactionError) throw transactionError;
