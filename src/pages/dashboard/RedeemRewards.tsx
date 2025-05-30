@@ -1,14 +1,17 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
-import { SAMPLE_REWARDS } from '../../utils/constants';
+import { supabase } from '../../lib/supabase';
+import { Database } from '../../lib/database.types';
 import { formatDate } from '../../utils/helpers';
-import { Reward } from '../../types';
 import { Gift, Search, Award, CheckCircle } from 'lucide-react';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import { toast } from 'react-toastify';
+
+type Reward = Database['public']['Tables']['rewards']['Row'];
+type User = Database['public']['Tables']['users']['Row'];
 
 export default function RedeemRewards() {
-  const { userData } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [userData, setUserData] = useState<User | null>(null);
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [selectedReward, setSelectedReward] = useState<Reward | null>(null);
   const [confirmationStep, setConfirmationStep] = useState(false);
@@ -16,53 +19,49 @@ export default function RedeemRewards() {
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   
-  const categories = [
-    { id: 'all', name: 'All Rewards' },
-    { id: 'discount', name: 'Cash Discounts' },
-    { id: 'travel', name: 'Travel & Tours' },
-    { id: 'merchandise', name: 'Merchandise' }
-  ];
-  
-  // Filter rewards based on search and category
-  const filteredRewards = rewards.filter(reward => {
-    const matchesSearch = reward.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                         reward.description.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    if (categoryFilter === 'all') return matchesSearch;
-    
-    const categoryMap: Record<string, string[]> = {
-      'discount': ['Cash Discount'],
-      'travel': ['Goa Tour Package'],
-      'merchandise': ['Office Chair', 'Premium Toolbox']
-    };
-    
-    return matchesSearch && categoryMap[categoryFilter]?.includes(reward.title);
-  });
-  
-  // Fetch rewards
   useEffect(() => {
-    const fetchRewards = async () => {
-      try {
-        setLoading(true);
-        
-        // In a real app, you would fetch from Firestore
-        // Simulate server delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        setRewards(SAMPLE_REWARDS as Reward[]);
-      } catch (error) {
-        console.error('Error fetching rewards:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchRewards();
+    fetchUserDataAndRewards();
   }, []);
-  
+
+  async function fetchUserDataAndRewards() {
+    try {
+      setLoading(true);
+
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      // Get user profile with points
+      const { data: profile, error: profileError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError) throw profileError;
+      setUserData(profile);
+
+      // Get available rewards
+      const { data: rewardsData, error: rewardsError } = await supabase
+        .from('rewards')
+        .select('*')
+        .eq('available', true)
+        .order('points_required', { ascending: true });
+
+      if (rewardsError) throw rewardsError;
+      setRewards(rewardsData || []);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      toast.error('Failed to load rewards');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   // Handle reward selection
   const handleSelectReward = (reward: Reward) => {
-    if (!userData || userData.points < reward.pointsRequired) {
+    if (!userData || userData.points < reward.points_required) {
+      toast.error('Insufficient points');
       return;
     }
     
@@ -77,17 +76,36 @@ export default function RedeemRewards() {
     try {
       setLoading(true);
       
-      // In a real app, you would update Firestore
-      // 1. Deduct points from user
-      // 2. Create redemption record
-      // 3. Create transaction record
-      
-      // Simulate server delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Create redemption transaction
+      const { error: transactionError } = await supabase
+        .from('transactions')
+        .insert({
+          user_id: userData.id,
+          type: 'redeemed',
+          amount: selectedReward.points_required,
+          description: `Redeemed ${selectedReward.title}`,
+          status: 'completed',
+          reward_id: selectedReward.id
+        });
+
+      if (transactionError) throw transactionError;
+
+      // Update user points
+      const { error: pointsError } = await supabase
+        .from('users')
+        .update({ 
+          points: userData.points - selectedReward.points_required,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', userData.id);
+
+      if (pointsError) throw pointsError;
       
       setRedemptionComplete(true);
+      toast.success('Reward redeemed successfully!');
     } catch (error) {
       console.error('Error redeeming reward:', error);
+      toast.error('Failed to redeem reward');
     } finally {
       setLoading(false);
     }
@@ -98,9 +116,28 @@ export default function RedeemRewards() {
     setSelectedReward(null);
     setConfirmationStep(false);
     setRedemptionComplete(false);
+    fetchUserDataAndRewards(); // Refresh data
   };
+
+  // Filter rewards based on search and category
+  const filteredRewards = rewards.filter(reward => {
+    const searchString = searchQuery.toLowerCase();
+    const matchesSearch = 
+      reward.title.toLowerCase().includes(searchString) || 
+      reward.description.toLowerCase().includes(searchString);
+    
+    if (categoryFilter === 'all') return matchesSearch;
+    
+    const categoryMap: Record<string, string[]> = {
+      'discount': ['Cash Discount'],
+      'travel': ['Goa Tour Package'],
+      'merchandise': ['Office Chair', 'Premium Toolbox']
+    };
+    
+    return matchesSearch && categoryMap[categoryFilter]?.includes(reward.title);
+  });
   
-  if (loading && !selectedReward) {
+  if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
         <LoadingSpinner size="lg" />
@@ -118,7 +155,7 @@ export default function RedeemRewards() {
           </div>
           <h2 className="text-2xl font-bold mb-2">Redemption Successful!</h2>
           <p className="text-gray-600 mb-6">
-            You've successfully redeemed <strong>{selectedReward?.title}</strong> for <strong>{selectedReward?.pointsRequired} points</strong>.
+            You've successfully redeemed <strong>{selectedReward?.title}</strong> for <strong>{selectedReward?.points_required} points</strong>.
             Our team will process your reward shortly.
           </p>
           <button
@@ -150,7 +187,7 @@ export default function RedeemRewards() {
           <div className="grid grid-cols-1 md:grid-cols-2">
             <div className="h-64 md:h-auto">
               <img
-                src={selectedReward.imageUrl}
+                src={selectedReward.image_url}
                 alt={selectedReward.title}
                 className="w-full h-full object-cover"
               />
@@ -160,12 +197,12 @@ export default function RedeemRewards() {
               <div className="flex items-center mb-4">
                 <Gift className="text-primary-600 mr-2" size={20} />
                 <span className="font-semibold text-lg text-primary-700">
-                  {selectedReward.pointsRequired} Points
+                  {selectedReward.points_required} Points
                 </span>
               </div>
               <p className="text-gray-600 mb-4">{selectedReward.description}</p>
               <p className="text-sm text-gray-500 mb-6">
-                Available until: {formatDate(selectedReward.expiryDate)}
+                Available until: {formatDate(selectedReward.expiry_date)}
               </p>
               
               <div className="bg-gray-50 p-4 rounded-md mb-6">
@@ -175,13 +212,13 @@ export default function RedeemRewards() {
                 </div>
                 <div className="flex justify-between mb-2">
                   <span className="text-gray-600">Points Required:</span>
-                  <span className="font-semibold">{selectedReward.pointsRequired}</span>
+                  <span className="font-semibold">{selectedReward.points_required}</span>
                 </div>
                 <div className="border-t border-gray-200 my-2"></div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Remaining Points:</span>
                   <span className="font-semibold">
-                    {(userData?.points || 0) - selectedReward.pointsRequired}
+                    {(userData?.points || 0) - selectedReward.points_required}
                   </span>
                 </div>
               </div>
@@ -193,7 +230,7 @@ export default function RedeemRewards() {
               >
                 {loading ? (
                   <>
-                    <LoadingSpinner size="sm\" className="mr-2" />
+                    <LoadingSpinner size="sm" className="mr-2" />
                     Processing...
                   </>
                 ) : (
@@ -229,11 +266,10 @@ export default function RedeemRewards() {
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
             >
-              {categories.map(category => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
+              <option value="all">All Rewards</option>
+              <option value="discount">Cash Discounts</option>
+              <option value="travel">Travel & Tours</option>
+              <option value="merchandise">Merchandise</option>
             </select>
           </div>
           
@@ -258,7 +294,7 @@ export default function RedeemRewards() {
       {filteredRewards.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredRewards.map((reward) => {
-            const canRedeem = (userData?.points || 0) >= reward.pointsRequired;
+            const canRedeem = (userData?.points || 0) >= reward.points_required;
             
             return (
               <div
@@ -269,7 +305,7 @@ export default function RedeemRewards() {
               >
                 <div className="h-40 overflow-hidden relative">
                   <img
-                    src={reward.imageUrl}
+                    src={reward.image_url}
                     alt={reward.title}
                     className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
                   />
@@ -286,13 +322,13 @@ export default function RedeemRewards() {
                     <h3 className="font-semibold">{reward.title}</h3>
                     <div className="flex items-center bg-primary-50 text-primary-700 px-2 py-1 rounded-md text-sm">
                       <Award size={14} className="mr-1" />
-                      <span>{reward.pointsRequired}</span>
+                      <span>{reward.points_required}</span>
                     </div>
                   </div>
                   <p className="text-gray-600 text-sm mb-4">{reward.description}</p>
                   <div className="flex justify-between items-center">
                     <span className="text-xs text-gray-500">
-                      Expires: {formatDate(reward.expiryDate)}
+                      Expires: {formatDate(reward.expiry_date)}
                     </span>
                     <button
                       onClick={() => handleSelectReward(reward)}
