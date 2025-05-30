@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
-import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { useState } from 'react';
+import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { 
   Menu, 
   X, 
   LogOut, 
   Bell, 
-  ChevronDown, 
+  ChevronDown,
   LayoutDashboard,
   PlusCircle,
   Gift,
@@ -16,29 +16,18 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { DEALER_NAVIGATION, USER_NAVIGATION } from '../../utils/constants';
-import { supabase } from '../../lib/supabase';
 import { toast } from 'react-toastify';
+import LoadingSpinner from '../ui/LoadingSpinner';
 
 export default function DashboardLayout() {
-  const { userData, logout } = useAuth();
+  const { currentUser, loading, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [notifications, setNotifications] = useState<any[]>([]);
   const [notificationOpen, setNotificationOpen] = useState(false);
   const navigate = useNavigate();
-  const location = useLocation();
   
   // Get the appropriate navigation based on user role
-  const navigation = userData?.role === 'dealer' ? DEALER_NAVIGATION : USER_NAVIGATION;
-  
-  // Mock function to fetch notifications
-  useEffect(() => {
-    // In a real app, you would fetch notifications from your backend
-    setNotifications([
-      { id: 1, message: 'Your points request has been approved', read: false, time: '2 hours ago' },
-      { id: 2, message: 'New reward added: Premium Toolbox', read: true, time: '1 day ago' }
-    ]);
-  }, []);
+  const navigation = currentUser?.role === 'dealer' ? DEALER_NAVIGATION : USER_NAVIGATION;
   
   async function handleLogout() {
     try {
@@ -65,11 +54,19 @@ export default function DashboardLayout() {
     }
   };
 
-  if (!userData) {
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+
+  if (!currentUser) {
     return (
       <div className="flex justify-center items-center h-screen">
         <div className="text-center">
-          <p className="text-gray-600">Loading user data...</p>
+          <p className="text-gray-600">Please log in to continue</p>
         </div>
       </div>
     );
@@ -116,11 +113,11 @@ export default function DashboardLayout() {
           <div className="p-4 border-b">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-semibold">
-                {userData.first_name?.[0]}{userData.last_name?.[0]}
+                {currentUser.first_name?.[0]}{currentUser.last_name?.[0]}
               </div>
               <div>
-                <p className="font-medium text-gray-900">{userData.first_name} {userData.last_name}</p>
-                <p className="text-xs text-gray-500 capitalize">{userData.role}</p>
+                <p className="font-medium text-gray-900">{currentUser.first_name} {currentUser.last_name}</p>
+                <p className="text-xs text-gray-500 capitalize">{currentUser.role}</p>
               </div>
             </div>
           </div>
@@ -172,9 +169,6 @@ export default function DashboardLayout() {
                 className="p-1 rounded-full text-gray-500 hover:bg-gray-100 relative"
               >
                 <Bell size={20} />
-                {notifications.some(n => !n.read) && (
-                  <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
-                )}
               </button>
               
               {notificationOpen && (
@@ -183,23 +177,9 @@ export default function DashboardLayout() {
                     <h3 className="text-sm font-medium text-gray-700">Notifications</h3>
                   </div>
                   <div className="max-h-60 overflow-y-auto">
-                    {notifications.length > 0 ? (
-                      notifications.map(notification => (
-                        <div
-                          key={notification.id}
-                          className={`px-4 py-2 hover:bg-gray-50 ${
-                            !notification.read ? 'bg-primary-50' : ''
-                          }`}
-                        >
-                          <p className="text-sm text-gray-800">{notification.message}</p>
-                          <p className="text-xs text-gray-500 mt-1">{notification.time}</p>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="px-4 py-2 text-sm text-gray-500">
-                        No notifications
-                      </div>
-                    )}
+                    <div className="px-4 py-2 text-sm text-gray-500">
+                      No notifications
+                    </div>
                   </div>
                 </div>
               )}
@@ -212,7 +192,7 @@ export default function DashboardLayout() {
                 className="flex items-center space-x-1 text-sm text-gray-700 hover:text-gray-900"
               >
                 <span className="hidden sm:inline-block font-medium">
-                  {userData.first_name} {userData.last_name}
+                  {currentUser.first_name} {currentUser.last_name}
                 </span>
                 <ChevronDown size={16} />
               </button>
