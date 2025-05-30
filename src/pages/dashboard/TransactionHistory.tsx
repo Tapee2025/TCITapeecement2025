@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
-import { Transaction } from '../../types';
+import { supabase } from '../../lib/supabase';
+import { Database } from '../../lib/database.types';
 import { Filter, ArrowDownUp, ArrowUp, ArrowDown, FileText, Download } from 'lucide-react';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import { toast } from 'react-toastify';
+
+type Transaction = Database['public']['Tables']['transactions']['Row'];
 
 export default function TransactionHistory() {
-  const { userData } = useAuth();
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
@@ -14,90 +16,49 @@ export default function TransactionHistory() {
   const [sortConfig, setSortConfig] = useState<{
     key: keyof Transaction | '';
     direction: 'asc' | 'desc';
-  }>({ key: 'createdAt', direction: 'desc' });
+  }>({ key: 'created_at', direction: 'desc' });
   
-  // Fetch transactions
   useEffect(() => {
-    const fetchTransactions = async () => {
-      if (!userData) return;
-      
-      try {
-        setLoading(true);
-        
-        // In a real app, you would fetch from Firestore
-        // Simulate server delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Mock data for demonstration
-        const transactionsData: Transaction[] = [
-          {
-            id: '1',
-            userId: userData.uid,
-            type: 'earned',
-            amount: 500,
-            description: 'Purchased 50 bags from ABC Distributor',
-            status: 'approved',
-            dealerId: 'dealer1',
-            createdAt: new Date(2025, 4, 1).toISOString(),
-            updatedAt: new Date(2025, 4, 1).toISOString()
-          },
-          {
-            id: '2',
-            userId: userData.uid,
-            type: 'redeemed',
-            amount: 1000,
-            description: 'Redeemed for Cash Discount',
-            status: 'completed',
-            rewardId: '1',
-            createdAt: new Date(2025, 3, 25).toISOString(),
-            updatedAt: new Date(2025, 3, 25).toISOString()
-          },
-          {
-            id: '3',
-            userId: userData.uid,
-            type: 'earned',
-            amount: 300,
-            description: 'Purchased 30 bags from XYZ Distributor',
-            status: 'approved',
-            dealerId: 'dealer2',
-            createdAt: new Date(2025, 3, 15).toISOString(),
-            updatedAt: new Date(2025, 3, 15).toISOString()
-          },
-          {
-            id: '4',
-            userId: userData.uid,
-            type: 'earned',
-            amount: 200,
-            description: 'Purchased 20 bags from ABC Distributor',
-            status: 'pending',
-            dealerId: 'dealer1',
-            createdAt: new Date(2025, 3, 10).toISOString(),
-            updatedAt: new Date(2025, 3, 10).toISOString()
-          },
-          {
-            id: '5',
-            userId: userData.uid,
-            type: 'redeemed',
-            amount: 800,
-            description: 'Redeemed for Premium Toolbox',
-            status: 'completed',
-            rewardId: '4',
-            createdAt: new Date(2025, 2, 20).toISOString(),
-            updatedAt: new Date(2025, 2, 20).toISOString()
-          }
-        ];
-        
-        setTransactions(transactionsData);
-        setFilteredTransactions(transactionsData);
-      } catch (error) {
-        console.error('Error fetching transactions:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
     fetchTransactions();
-  }, [userData]);
+  }, []);
+  
+  async function fetchTransactions() {
+    try {
+      setLoading(true);
+      
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      // Fetch transactions with related data
+      const { data, error } = await supabase
+        .from('transactions')
+        .select(`
+          *,
+          dealers:users!transactions_dealer_id_fkey (
+            first_name,
+            last_name,
+            user_code
+          ),
+          rewards (
+            title,
+            points_required
+          )
+        `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      
+      setTransactions(data || []);
+      setFilteredTransactions(data || []);
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
+      toast.error('Failed to load transaction history');
+    } finally {
+      setLoading(false);
+    }
+  }
   
   // Apply filters and sorting
   useEffect(() => {
@@ -127,7 +88,7 @@ export default function TransactionHistory() {
           break;
       }
       
-      filtered = filtered.filter(transaction => new Date(transaction.createdAt) >= dateThreshold);
+      filtered = filtered.filter(transaction => new Date(transaction.created_at) >= dateThreshold);
     }
     
     // Apply sorting
@@ -163,7 +124,7 @@ export default function TransactionHistory() {
     
     const headers = ['Date', 'Type', 'Description', 'Points', 'Status'];
     const rows = filteredTransactions.map(transaction => [
-      new Date(transaction.createdAt).toLocaleDateString(),
+      new Date(transaction.created_at).toLocaleDateString(),
       transaction.type,
       transaction.description,
       transaction.amount.toString(),
@@ -263,7 +224,7 @@ export default function TransactionHistory() {
                 <tr>
                   <th 
                     className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                    onClick={() => handleSort('createdAt')}
+                    onClick={() => handleSort('created_at')}
                   >
                     <div className="flex items-center">
                       <span>Date</span>
@@ -306,7 +267,7 @@ export default function TransactionHistory() {
                 {filteredTransactions.map((transaction) => (
                   <tr key={transaction.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                      {new Date(transaction.createdAt).toLocaleDateString()}
+                      {new Date(transaction.created_at).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <div className="flex items-center">
@@ -324,6 +285,16 @@ export default function TransactionHistory() {
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700">
                       {transaction.description}
+                      {(transaction as any).rewards && (
+                        <div className="text-xs text-gray-400 mt-1">
+                          Reward: {(transaction as any).rewards.title}
+                        </div>
+                      )}
+                      {(transaction as any).dealers && (
+                        <div className="text-xs text-gray-400 mt-1">
+                          Dealer: {(transaction as any).dealers.first_name} {(transaction as any).dealers.last_name}
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <span className={`${
@@ -338,9 +309,11 @@ export default function TransactionHistory() {
                           ? 'badge-success'
                           : transaction.status === 'pending'
                           ? 'badge-warning'
+                          : transaction.status === 'dealer_approved'
+                          ? 'badge-primary'
                           : 'badge-error'
                       }`}>
-                        {transaction.status}
+                        {transaction.status === 'dealer_approved' ? 'Pending Admin' : transaction.status}
                       </span>
                     </td>
                   </tr>
@@ -349,7 +322,7 @@ export default function TransactionHistory() {
             </table>
           </div>
         ) : (
-          <div className="p-8 text-center">
+          <div className="text-center py-8">
             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <FileText size={24} className="text-gray-400" />
             </div>
