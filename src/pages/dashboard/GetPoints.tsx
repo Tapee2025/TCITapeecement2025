@@ -113,7 +113,8 @@ export default function GetPoints() {
 
       const pointsAmount = calculatePoints(parseInt(data.bagsCount));
       
-      const { error: transactionError } = await supabase
+      // Create the transaction
+      const { data: transaction, error: transactionError } = await supabase
         .from('transactions')
         .insert({
           user_id: currentUser.id,
@@ -121,8 +122,12 @@ export default function GetPoints() {
           type: 'earned',
           amount: pointsAmount,
           description: `Purchased ${data.bagsCount} bags from ${selectedDealer.first_name} ${selectedDealer.last_name}`,
-          status: 'pending'
-        });
+          status: 'pending',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
 
       if (transactionError) throw transactionError;
       
@@ -317,7 +322,7 @@ export default function GetPoints() {
               >
                 {submitting ? (
                   <>
-                    <LoadingSpinner size="sm\" className="mr-2" />
+                    <LoadingSpinner size="sm" className="mr-2" />
                     Submitting...
                   </>
                 ) : (
