@@ -70,7 +70,7 @@ export default function AdminApprovals() {
           )
         `)
         .eq('id', transactionId)
-        .maybeSingle();
+        .single();
 
       if (fetchError) throw fetchError;
       if (!transaction) {
@@ -84,24 +84,7 @@ export default function AdminApprovals() {
         return;
       }
 
-      // Start a transaction using RPC
-      if (transaction.type === 'earned') {
-        // Calculate new points
-        const newPoints = (user.points || 0) + transaction.amount;
-
-        // Update user points
-        const { error: pointsError } = await supabase
-          .from('users')
-          .update({ 
-            points: newPoints,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', transaction.user_id);
-
-        if (pointsError) throw pointsError;
-      }
-
-      // Update transaction status
+      // Update transaction status first
       const { error: updateError } = await supabase
         .from('transactions')
         .update({ 
@@ -111,6 +94,31 @@ export default function AdminApprovals() {
         .eq('id', transactionId);
 
       if (updateError) throw updateError;
+
+      // For points earned, update user's points
+      if (transaction.type === 'earned') {
+        const newPoints = (user.points || 0) + transaction.amount;
+        
+        const { error: pointsError } = await supabase
+          .from('users')
+          .update({ 
+            points: newPoints,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', transaction.user_id);
+
+        if (pointsError) {
+          // If points update fails, revert transaction status
+          await supabase
+            .from('transactions')
+            .update({ 
+              status: 'dealer_approved',
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', transactionId);
+          throw pointsError;
+        }
+      }
 
       toast.success(
         transaction.type === 'earned' 
@@ -140,7 +148,7 @@ export default function AdminApprovals() {
           )
         `)
         .eq('id', transactionId)
-        .maybeSingle();
+        .single();
 
       if (fetchError) throw fetchError;
       if (!transaction) {
@@ -154,24 +162,7 @@ export default function AdminApprovals() {
         return;
       }
 
-      // If rejecting a redemption, refund the points
-      if (transaction.type === 'redeemed') {
-        // Calculate refund amount
-        const newPoints = (user.points || 0) + transaction.amount;
-
-        // Update user points
-        const { error: refundError } = await supabase
-          .from('users')
-          .update({ 
-            points: newPoints,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', transaction.user_id);
-
-        if (refundError) throw refundError;
-      }
-
-      // Update transaction status
+      // Update transaction status first
       const { error: updateError } = await supabase
         .from('transactions')
         .update({ 
@@ -181,6 +172,31 @@ export default function AdminApprovals() {
         .eq('id', transactionId);
 
       if (updateError) throw updateError;
+
+      // If rejecting a redemption, refund the points
+      if (transaction.type === 'redeemed') {
+        const newPoints = (user.points || 0) + transaction.amount;
+        
+        const { error: refundError } = await supabase
+          .from('users')
+          .update({ 
+            points: newPoints,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', transaction.user_id);
+
+        if (refundError) {
+          // If points refund fails, revert transaction status
+          await supabase
+            .from('transactions')
+            .update({ 
+              status: 'dealer_approved',
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', transactionId);
+          throw refundError;
+        }
+      }
 
       toast.success(
         transaction.type === 'redeemed'
