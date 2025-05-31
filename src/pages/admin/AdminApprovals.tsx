@@ -25,7 +25,7 @@ export default function AdminApprovals() {
         .from('transactions')
         .select(`
           *,
-          users (
+          customer:users!transactions_user_id_fkey (
             id,
             first_name,
             last_name,
@@ -69,7 +69,7 @@ export default function AdminApprovals() {
         return;
       }
 
-      const user = (transaction as any).users;
+      const user = (transaction as any).customer;
       if (!user) {
         toast.error('User not found');
         return;
@@ -111,7 +111,7 @@ export default function AdminApprovals() {
         return;
       }
 
-      const user = (transaction as any).users;
+      const user = (transaction as any).customer;
       if (!user) {
         toast.error('User not found');
         return;
@@ -158,7 +158,7 @@ export default function AdminApprovals() {
 
   const filteredTransactions = transactions.filter(transaction => {
     const searchString = searchQuery.toLowerCase();
-    const user = (transaction as any).users;
+    const user = (transaction as any).customer;
     return (
       user?.first_name?.toLowerCase().includes(searchString) ||
       user?.last_name?.toLowerCase().includes(searchString) ||
@@ -241,7 +241,7 @@ export default function AdminApprovals() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredTransactions.map((transaction) => {
-                const user = (transaction as any).users;
+                const user = (transaction as any).customer;
                 const dealer = (transaction as any).dealers;
                 const reward = (transaction as any).rewards;
                 
