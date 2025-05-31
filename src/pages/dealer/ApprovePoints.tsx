@@ -29,12 +29,13 @@ export default function ApprovePoints() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No user found');
 
-      // Get transactions
+      // Get transactions with user details
       const { data, error } = await supabase
         .from('transactions')
         .select(`
           *,
-          users!transactions_user_id_fkey (
+          users (
+            id,
             first_name,
             last_name,
             user_code,
@@ -157,10 +158,11 @@ export default function ApprovePoints() {
   // Filter transactions based on search
   const filteredTransactions = transactions.filter(transaction => {
     const searchString = searchQuery.toLowerCase();
+    const user = (transaction as any).users;
     return (
-      (transaction as any).users?.first_name?.toLowerCase().includes(searchString) ||
-      (transaction as any).users?.last_name?.toLowerCase().includes(searchString) ||
-      (transaction as any).users?.user_code?.toLowerCase().includes(searchString) ||
+      user?.first_name?.toLowerCase().includes(searchString) ||
+      user?.last_name?.toLowerCase().includes(searchString) ||
+      user?.user_code?.toLowerCase().includes(searchString) ||
       transaction.description.toLowerCase().includes(searchString)
     );
   });
@@ -240,6 +242,7 @@ export default function ApprovePoints() {
               onChange={(e) => setStatusFilter(e.target.value)}
             >
               <option value="pending">Pending Approval</option>
+              <option value="dealer_approved">Sent to Admin</option>
               <option value="approved">Approved</option>
               <option value="rejected">Rejected</option>
             </select>
@@ -274,73 +277,77 @@ export default function ApprovePoints() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredTransactions.map((transaction) => (
-                <tr key={transaction.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(transaction.created_at).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10">
-                        <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center">
-                          <span className="text-primary-700 font-medium text-sm">
-                            {(transaction as any).users?.first_name?.[0]}
-                            {(transaction as any).users?.last_name?.[0]}
-                          </span>
+              {filteredTransactions.map((transaction) => {
+                const user = (transaction as any).users;
+                return (
+                  <tr key={transaction.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {new Date(transaction.created_at).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 h-10 w-10">
+                          <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center">
+                            <span className="text-primary-700 font-medium text-sm">
+                              {user?.first_name?.[0]}
+                              {user?.last_name?.[0]}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900">
+                            {user?.first_name} {user?.last_name}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {user?.user_code} • {user?.role}
+                          </div>
                         </div>
                       </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">
-                          {(transaction as any).users?.first_name} {(transaction as any).users?.last_name}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {transaction.amount / 10} bags
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-primary-600">
+                      {transaction.amount} points
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                        ${transaction.status === 'approved' ? 'bg-green-100 text-green-800' : 
+                          transaction.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
+                          transaction.status === 'dealer_approved' ? 'bg-blue-100 text-blue-800' :
+                          'bg-red-100 text-red-800'}`}>
+                        {transaction.status === 'dealer_approved' ? 'Sent to Admin' : transaction.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      {transaction.status === 'pending' && (
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => handleApprove(transaction.id)}
+                            disabled={processingId === transaction.id}
+                            className="text-green-600 hover:text-green-900"
+                            title="Approve request"
+                          >
+                            {processingId === transaction.id ? (
+                              <LoadingSpinner size="sm" />
+                            ) : (
+                              <Check size={18} />
+                            )}
+                          </button>
+                          <button
+                            onClick={() => handleReject(transaction.id)}
+                            disabled={processingId === transaction.id}
+                            className="text-red-600 hover:text-red-900"
+                            title="Reject request"
+                          >
+                            <X size={18} />
+                          </button>
                         </div>
-                        <div className="text-xs text-gray-500">
-                          {(transaction as any).users?.user_code} • {(transaction as any).users?.role}
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {transaction.amount / 10} bags
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-primary-600">
-                    {transaction.amount} points
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                      ${transaction.status === 'approved' ? 'bg-green-100 text-green-800' : 
-                        transaction.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
-                        'bg-red-100 text-red-800'}`}>
-                      {transaction.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    {transaction.status === 'pending' && (
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => handleApprove(transaction.id)}
-                          disabled={processingId === transaction.id}
-                          className="text-green-600 hover:text-green-900"
-                          title="Approve request"
-                        >
-                          {processingId === transaction.id ? (
-                            <LoadingSpinner size="sm" />
-                          ) : (
-                            <Check size={18} />
-                          )}
-                        </button>
-                        <button
-                          onClick={() => handleReject(transaction.id)}
-                          disabled={processingId === transaction.id}
-                          className="text-red-600 hover:text-red-900"
-                          title="Reject request"
-                        >
-                          <X size={18} />
-                        </button>
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              ))}
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
