@@ -25,7 +25,7 @@ export default function AdminApprovals() {
         .from('transactions')
         .select(`
           *,
-          users!transactions_user_id_fkey (
+          users:user_id (
             id,
             first_name,
             last_name,
@@ -34,7 +34,7 @@ export default function AdminApprovals() {
             district,
             points
           ),
-          dealers:users!transactions_dealer_id_fkey (
+          dealers:dealer_id (
             id,
             first_name,
             last_name,
