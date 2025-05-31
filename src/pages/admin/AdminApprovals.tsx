@@ -84,10 +84,16 @@ export default function AdminApprovals() {
 
       // For points earned, add points to user's account
       if (transaction.type === 'earned') {
-        const { error: pointsError } = await supabase.rpc('add_points', {
-          p_user_id: transaction.user_id,
-          p_points: transaction.amount
-        });
+        const { error: pointsError } = await supabase
+          .from('users')
+          .update({ 
+            points: supabase.rpc('add_points', { 
+              p_user_id: transaction.user_id, 
+              p_points: transaction.amount 
+            }),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', transaction.user_id);
 
         if (pointsError) throw pointsError;
       }
