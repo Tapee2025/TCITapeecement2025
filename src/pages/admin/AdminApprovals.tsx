@@ -25,7 +25,7 @@ export default function AdminApprovals() {
         .from('transactions')
         .select(`
           *,
-          users:users!transactions_user_id_fkey (
+          users (
             id,
             first_name,
             last_name,
@@ -33,19 +33,19 @@ export default function AdminApprovals() {
             role,
             district,
             points
-          )?,
-          dealers:users!transactions_dealer_id_fkey (
+          ),
+          dealers:users (
             id,
             first_name,
             last_name,
             user_code,
             district
-          )?,
+          ),
           rewards (
             id,
             title,
             points_required
-          )?
+          )
         `)
         .eq('status', statusFilter)
         .order('created_at', { ascending: false });
