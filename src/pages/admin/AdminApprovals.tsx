@@ -25,7 +25,7 @@ export default function AdminApprovals() {
         .from('transactions')
         .select(`
           *,
-          users!transactions_user_id_fkey (
+          users:users!transactions_user_id_fkey (
             id,
             first_name,
             last_name,
