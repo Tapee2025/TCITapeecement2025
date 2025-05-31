@@ -63,7 +63,7 @@ export default function AdminApprovals() {
         .from('transactions')
         .select('*')
         .eq('id', transactionId)
-        .single();
+        .maybeSingle();
 
       if (fetchError) throw fetchError;
       if (!transaction) {
@@ -89,12 +89,16 @@ export default function AdminApprovals() {
           .from('users')
           .select('points')
           .eq('id', transaction.user_id)
-          .single();
+          .maybeSingle();
 
         if (userError) throw userError;
+        if (!userData) {
+          toast.error('User not found. Points could not be updated.');
+          return;
+        }
 
         // Calculate new points total
-        const newPoints = (userData?.points || 0) + transaction.amount;
+        const newPoints = (userData.points || 0) + transaction.amount;
 
         // Update user points
         const { error: pointsError } = await supabase
@@ -129,7 +133,7 @@ export default function AdminApprovals() {
         .from('transactions')
         .select('*')
         .eq('id', transactionId)
-        .single();
+        .maybeSingle();
 
       if (fetchError) throw fetchError;
       if (!transaction) {
@@ -155,12 +159,16 @@ export default function AdminApprovals() {
           .from('users')
           .select('points')
           .eq('id', transaction.user_id)
-          .single();
+          .maybeSingle();
 
         if (userError) throw userError;
+        if (!userData) {
+          toast.error('User not found. Points could not be refunded.');
+          return;
+        }
 
         // Calculate new points total
-        const newPoints = (userData?.points || 0) + transaction.amount;
+        const newPoints = (userData.points || 0) + transaction.amount;
 
         // Update user points
         const { error: refundError } = await supabase
