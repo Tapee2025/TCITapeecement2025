@@ -84,13 +84,23 @@ export default function AdminApprovals() {
 
       // For points earned, add points to user's account
       if (transaction.type === 'earned') {
+        // First get current points
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('points')
+          .eq('id', transaction.user_id)
+          .single();
+
+        if (userError) throw userError;
+
+        // Calculate new points total
+        const newPoints = (userData?.points || 0) + transaction.amount;
+
+        // Update user points
         const { error: pointsError } = await supabase
           .from('users')
           .update({ 
-            points: supabase.rpc('add_points', { 
-              p_user_id: transaction.user_id, 
-              p_points: transaction.amount 
-            }),
+            points: newPoints,
             updated_at: new Date().toISOString()
           })
           .eq('id', transaction.user_id);
@@ -140,10 +150,26 @@ export default function AdminApprovals() {
 
       // If rejecting a redemption, refund the points
       if (transaction.type === 'redeemed') {
-        const { error: refundError } = await supabase.rpc('add_points', {
-          p_user_id: transaction.user_id,
-          p_points: transaction.amount // Add back the points that were deducted
-        });
+        // First get current points
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('points')
+          .eq('id', transaction.user_id)
+          .single();
+
+        if (userError) throw userError;
+
+        // Calculate new points total
+        const newPoints = (userData?.points || 0) + transaction.amount;
+
+        // Update user points
+        const { error: refundError } = await supabase
+          .from('users')
+          .update({ 
+            points: newPoints,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', transaction.user_id);
 
         if (refundError) throw refundError;
       }
