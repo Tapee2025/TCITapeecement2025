@@ -25,7 +25,7 @@ export default function AdminApprovals() {
         .from('transactions')
         .select(`
           *,
-          users:user_id (
+          users (
             id,
             first_name,
             last_name,
@@ -34,7 +34,7 @@ export default function AdminApprovals() {
             district,
             points
           ),
-          dealers:dealer_id (
+          dealers:users!transactions_dealer_id_fkey (
             id,
             first_name,
             last_name,
@@ -245,6 +245,8 @@ export default function AdminApprovals() {
                 const dealer = (transaction as any).dealers;
                 const reward = (transaction as any).rewards;
                 
+                if (!user) return null; // Skip if no user data
+                
                 return (
                   <tr key={transaction.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -255,19 +257,19 @@ export default function AdminApprovals() {
                         <div className="flex-shrink-0 h-10 w-10">
                           <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center">
                             <span className="text-primary-700 font-medium text-sm">
-                              {user?.first_name?.[0]}{user?.last_name?.[0]}
+                              {user.first_name[0]}{user.last_name[0]}
                             </span>
                           </div>
                         </div>
                         <div className="ml-4">
                           <div className="text-sm font-medium text-gray-900">
-                            {user?.first_name} {user?.last_name}
+                            {user.first_name} {user.last_name}
                           </div>
                           <div className="text-xs text-gray-500">
-                            {user?.user_code} • {user?.role}
+                            {user.user_code} • {user.role}
                           </div>
                           <div className="text-xs text-gray-400">
-                            District: {user?.district}
+                            District: {user.district}
                           </div>
                         </div>
                       </div>
