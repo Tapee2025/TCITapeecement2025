@@ -39,7 +39,8 @@ export default function ApprovePoints() {
             first_name,
             last_name,
             user_code,
-            role
+            role,
+            district
           )
         `)
         .eq('dealer_id', user.id)
@@ -91,16 +92,15 @@ export default function ApprovePoints() {
   async function handleApprove(transactionId: string) {
     setProcessingId(transactionId);
     try {
-      // Get the transaction details
-      const { data: transaction, error: fetchError } = await supabase
-        .from('transactions')
-        .select('*')
-        .eq('id', transactionId)
-        .single();
-
-      if (fetchError) throw fetchError;
+      const transaction = transactions.find(t => t.id === transactionId);
       if (!transaction) {
         toast.error('Transaction not found');
+        return;
+      }
+
+      const user = (transaction as any).users;
+      if (!user) {
+        toast.error('User not found');
         return;
       }
 
@@ -109,7 +109,7 @@ export default function ApprovePoints() {
         .from('dealer_approvals')
         .insert({
           transaction_id: transaction.id,
-          user_id: transaction.user_id,
+          user_id: user.id,
           dealer_id: transaction.dealer_id,
           amount: transaction.amount,
           description: transaction.description,
@@ -121,7 +121,10 @@ export default function ApprovePoints() {
       // Update transaction status
       const { error: updateError } = await supabase
         .from('transactions')
-        .update({ status: 'dealer_approved' })
+        .update({ 
+          status: 'dealer_approved',
+          updated_at: new Date().toISOString()
+        })
         .eq('id', transactionId);
 
       if (updateError) throw updateError;
@@ -141,7 +144,10 @@ export default function ApprovePoints() {
     try {
       const { error } = await supabase
         .from('transactions')
-        .update({ status: 'rejected' })
+        .update({ 
+          status: 'rejected',
+          updated_at: new Date().toISOString()
+        })
         .eq('id', transactionId);
 
       if (error) throw error;
