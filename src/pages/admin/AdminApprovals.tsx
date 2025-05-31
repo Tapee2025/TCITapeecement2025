@@ -59,9 +59,16 @@ export default function AdminApprovals() {
   async function handleApprove(transactionId: string) {
     setProcessingId(transactionId);
     try {
+      // Get the transaction with user data
       const { data: transaction, error: fetchError } = await supabase
         .from('transactions')
-        .select('*')
+        .select(`
+          *,
+          users!transactions_user_id_fkey (
+            id,
+            points
+          )
+        `)
         .eq('id', transactionId)
         .maybeSingle();
 
@@ -71,34 +78,16 @@ export default function AdminApprovals() {
         return;
       }
 
-      // Update transaction status
-      const { error: updateError } = await supabase
-        .from('transactions')
-        .update({ 
-          status: 'approved',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', transactionId);
+      const user = (transaction as any).users;
+      if (!user) {
+        toast.error('User not found');
+        return;
+      }
 
-      if (updateError) throw updateError;
-
-      // For points earned, add points to user's account
+      // Start a transaction using RPC
       if (transaction.type === 'earned') {
-        // First get current points
-        const { data: userData, error: userError } = await supabase
-          .from('users')
-          .select('points')
-          .eq('id', transaction.user_id)
-          .maybeSingle();
-
-        if (userError) throw userError;
-        if (!userData) {
-          toast.error('User not found. Points could not be updated.');
-          return;
-        }
-
-        // Calculate new points total
-        const newPoints = (userData.points || 0) + transaction.amount;
+        // Calculate new points
+        const newPoints = (user.points || 0) + transaction.amount;
 
         // Update user points
         const { error: pointsError } = await supabase
@@ -111,6 +100,17 @@ export default function AdminApprovals() {
 
         if (pointsError) throw pointsError;
       }
+
+      // Update transaction status
+      const { error: updateError } = await supabase
+        .from('transactions')
+        .update({ 
+          status: 'approved',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', transactionId);
+
+      if (updateError) throw updateError;
 
       toast.success(
         transaction.type === 'earned' 
@@ -129,9 +129,16 @@ export default function AdminApprovals() {
   async function handleReject(transactionId: string) {
     setProcessingId(transactionId);
     try {
+      // Get the transaction with user data
       const { data: transaction, error: fetchError } = await supabase
         .from('transactions')
-        .select('*')
+        .select(`
+          *,
+          users!transactions_user_id_fkey (
+            id,
+            points
+          )
+        `)
         .eq('id', transactionId)
         .maybeSingle();
 
@@ -141,34 +148,16 @@ export default function AdminApprovals() {
         return;
       }
 
-      // Update transaction status
-      const { error: updateError } = await supabase
-        .from('transactions')
-        .update({ 
-          status: 'rejected',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', transactionId);
-
-      if (updateError) throw updateError;
+      const user = (transaction as any).users;
+      if (!user) {
+        toast.error('User not found');
+        return;
+      }
 
       // If rejecting a redemption, refund the points
       if (transaction.type === 'redeemed') {
-        // First get current points
-        const { data: userData, error: userError } = await supabase
-          .from('users')
-          .select('points')
-          .eq('id', transaction.user_id)
-          .maybeSingle();
-
-        if (userError) throw userError;
-        if (!userData) {
-          toast.error('User not found. Points could not be refunded.');
-          return;
-        }
-
-        // Calculate new points total
-        const newPoints = (userData.points || 0) + transaction.amount;
+        // Calculate refund amount
+        const newPoints = (user.points || 0) + transaction.amount;
 
         // Update user points
         const { error: refundError } = await supabase
@@ -181,6 +170,17 @@ export default function AdminApprovals() {
 
         if (refundError) throw refundError;
       }
+
+      // Update transaction status
+      const { error: updateError } = await supabase
+        .from('transactions')
+        .update({ 
+          status: 'rejected',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', transactionId);
+
+      if (updateError) throw updateError;
 
       toast.success(
         transaction.type === 'redeemed'
