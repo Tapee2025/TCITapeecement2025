@@ -1,25 +1,19 @@
-import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
+import { createClient } from '@supabase/supabase-js';
+import type { Database } from '../lib/database.types';
 
-// Firebase configuration
-// Replace with your Firebase config values
-const firebaseConfig = {
-  apiKey: "AIzaSyDHx6qL3oUtAhER8iZk1DpXKDtjX1cqV5Q",
-  authDomain: "tapee-cement-loyalty.firebaseapp.com",
-  projectId: "tapee-cement-loyalty",
-  storageBucket: "tapee-cement-loyalty.appspot.com",
-  messagingSenderId: "578165970123",
-  appId: "1:578165970123:web:96a5cc79f6bd3e95d91e73"
-};
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('Missing Supabase environment variables');
+}
 
-// Initialize Firebase services
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-export const storage = getStorage(app);
+export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true
+  }
+});
 
-export default app;
+export default supabase;
