@@ -91,7 +91,7 @@ export default function AdminDashboard() {
       if (transactionsError) throw transactionsError;
 
       setStats({
-        totalUsers: dealerCount + builderCount + contractorCount,
+        totalUsers: users?.length || 0,
         pendingApprovals: pendingApprovals?.length || 0,
         totalRewards: rewards?.length || 0,
         totalPoints: totalPointsIssued,
