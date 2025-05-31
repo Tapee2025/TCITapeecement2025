@@ -28,7 +28,6 @@ export default function AdminApprovals() {
   .single();
 
 console.log(transaction);
-          dealers:users!transactions_dealer_id_fkey (
             id,
             first_name,
             last_name,
