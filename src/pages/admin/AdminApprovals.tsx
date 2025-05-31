@@ -25,15 +25,16 @@ export default function AdminApprovals() {
         .from('transactions')
         .select(`
           *,
-          users!transactions_user_id_fkey (
+          users:user_id (
             id,
             first_name,
             last_name,
             user_code,
             role,
-            district
+            district,
+            points
           ),
-          dealers:users!transactions_dealer_id_fkey (
+          dealers:dealer_id (
             id,
             first_name,
             last_name,
@@ -62,23 +63,7 @@ export default function AdminApprovals() {
   async function handleApprove(transactionId: string) {
     setProcessingId(transactionId);
     try {
-      // Get the transaction with user data
-      const { data: transaction, error: fetchError } = await supabase
-        .from('transactions')
-        .select(`
-          *,
-          users!transactions_user_id_fkey (
-            id,
-            first_name,
-            last_name,
-            points,
-            user_code
-          )
-        `)
-        .eq('id', transactionId)
-        .single();
-
-      if (fetchError) throw fetchError;
+      const transaction = transactions.find(t => t.id === transactionId);
       if (!transaction) {
         toast.error('Transaction not found');
         return;
@@ -90,47 +75,24 @@ export default function AdminApprovals() {
         return;
       }
 
-      // Begin transaction
-      const { error: updateError } = await supabase
-        .from('transactions')
-        .update({ 
-          status: 'approved',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', transactionId);
-
-      if (updateError) throw updateError;
-
-      // For points earned, update user's points
-      if (transaction.type === 'earned') {
-        const newPoints = (user.points || 0) + transaction.amount;
-        
-        const { error: pointsError } = await supabase
-          .from('users')
-          .update({ 
-            points: newPoints,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', user.id);
-
-        if (pointsError) {
-          // Rollback transaction status if points update fails
-          await supabase
-            .from('transactions')
-            .update({ 
-              status: 'dealer_approved',
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', transactionId);
-          throw pointsError;
+      // Start a Supabase transaction
+      const { data: updatedTransaction, error: transactionError } = await supabase.rpc(
+        'approve_transaction',
+        { 
+          p_transaction_id: transactionId,
+          p_user_id: user.id,
+          p_points: transaction.type === 'earned' ? transaction.amount : 0
         }
-      }
+      );
+
+      if (transactionError) throw transactionError;
 
       toast.success(
         transaction.type === 'earned' 
           ? `Approved ${transaction.amount} points for ${user.first_name} ${user.last_name}`
           : 'Reward redemption approved successfully'
       );
+      
       fetchTransactions();
     } catch (error) {
       console.error('Error approving transaction:', error);
@@ -143,23 +105,7 @@ export default function AdminApprovals() {
   async function handleReject(transactionId: string) {
     setProcessingId(transactionId);
     try {
-      // Get the transaction with user data
-      const { data: transaction, error: fetchError } = await supabase
-        .from('transactions')
-        .select(`
-          *,
-          users!transactions_user_id_fkey (
-            id,
-            first_name,
-            last_name,
-            points,
-            user_code
-          )
-        `)
-        .eq('id', transactionId)
-        .single();
-
-      if (fetchError) throw fetchError;
+      const transaction = transactions.find(t => t.id === transactionId);
       if (!transaction) {
         toast.error('Transaction not found');
         return;
@@ -184,27 +130,15 @@ export default function AdminApprovals() {
 
       // If rejecting a redemption, refund the points
       if (transaction.type === 'redeemed') {
-        const newPoints = (user.points || 0) + transaction.amount;
-        
         const { error: refundError } = await supabase
           .from('users')
           .update({ 
-            points: newPoints,
+            points: user.points + transaction.amount,
             updated_at: new Date().toISOString()
           })
           .eq('id', user.id);
 
-        if (refundError) {
-          // Rollback transaction status if points refund fails
-          await supabase
-            .from('transactions')
-            .update({ 
-              status: 'dealer_approved',
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', transactionId);
-          throw refundError;
-        }
+        if (refundError) throw refundError;
       }
 
       toast.success(
@@ -212,6 +146,7 @@ export default function AdminApprovals() {
           ? `Rejected redemption and refunded ${transaction.amount} points to ${user.first_name} ${user.last_name}`
           : 'Transaction rejected successfully'
       );
+      
       fetchTransactions();
     } catch (error) {
       console.error('Error rejecting transaction:', error);
