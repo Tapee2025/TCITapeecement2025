@@ -21,19 +21,13 @@ export default function AdminApprovals() {
   async function fetchTransactions() {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('transactions')
-        .select(`
-          *,
-          users!transactions_user_id_fkey (
-            id,
-            first_name,
-            last_name,
-            user_code,
-            role,
-            points,
-            district
-          ),
+      const { data: transaction, error: fetchError } = await supabase
+  .from('transactions')
+  .select(`*`)
+  .eq('id', transactionId)
+  .single();
+
+console.log(transaction);
           dealers:users!transactions_dealer_id_fkey (
             id,
             first_name,
