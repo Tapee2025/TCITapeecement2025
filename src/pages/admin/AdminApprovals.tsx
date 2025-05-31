@@ -31,14 +31,18 @@ export default function AdminApprovals() {
             last_name,
             user_code,
             role,
-            points
+            points,
+            district
           ),
           dealers:users!transactions_dealer_id_fkey (
+            id,
             first_name,
             last_name,
-            user_code
+            user_code,
+            district
           ),
           rewards (
+            id,
             title,
             points_required
           )
@@ -66,7 +70,10 @@ export default function AdminApprovals() {
           *,
           users!transactions_user_id_fkey (
             id,
-            points
+            first_name,
+            last_name,
+            points,
+            user_code
           )
         `)
         .eq('id', transactionId)
@@ -84,7 +91,7 @@ export default function AdminApprovals() {
         return;
       }
 
-      // Update transaction status first
+      // Begin transaction
       const { error: updateError } = await supabase
         .from('transactions')
         .update({ 
@@ -105,10 +112,10 @@ export default function AdminApprovals() {
             points: newPoints,
             updated_at: new Date().toISOString()
           })
-          .eq('id', transaction.user_id);
+          .eq('id', user.id);
 
         if (pointsError) {
-          // If points update fails, revert transaction status
+          // Rollback transaction status if points update fails
           await supabase
             .from('transactions')
             .update({ 
@@ -122,7 +129,7 @@ export default function AdminApprovals() {
 
       toast.success(
         transaction.type === 'earned' 
-          ? 'Transaction approved and points added successfully'
+          ? `Approved ${transaction.amount} points for ${user.first_name} ${user.last_name}`
           : 'Reward redemption approved successfully'
       );
       fetchTransactions();
@@ -144,7 +151,10 @@ export default function AdminApprovals() {
           *,
           users!transactions_user_id_fkey (
             id,
-            points
+            first_name,
+            last_name,
+            points,
+            user_code
           )
         `)
         .eq('id', transactionId)
@@ -162,7 +172,7 @@ export default function AdminApprovals() {
         return;
       }
 
-      // Update transaction status first
+      // Update transaction status
       const { error: updateError } = await supabase
         .from('transactions')
         .update({ 
@@ -183,10 +193,10 @@ export default function AdminApprovals() {
             points: newPoints,
             updated_at: new Date().toISOString()
           })
-          .eq('id', transaction.user_id);
+          .eq('id', user.id);
 
         if (refundError) {
-          // If points refund fails, revert transaction status
+          // Rollback transaction status if points refund fails
           await supabase
             .from('transactions')
             .update({ 
@@ -200,8 +210,8 @@ export default function AdminApprovals() {
 
       toast.success(
         transaction.type === 'redeemed'
-          ? 'Redemption rejected and points refunded'
-          : 'Transaction rejected'
+          ? `Rejected redemption and refunded ${transaction.amount} points to ${user.first_name} ${user.last_name}`
+          : 'Transaction rejected successfully'
       );
       fetchTransactions();
     } catch (error) {
@@ -214,10 +224,11 @@ export default function AdminApprovals() {
 
   const filteredTransactions = transactions.filter(transaction => {
     const searchString = searchQuery.toLowerCase();
+    const user = (transaction as any).users;
     return (
-      (transaction as any).users?.first_name?.toLowerCase().includes(searchString) ||
-      (transaction as any).users?.last_name?.toLowerCase().includes(searchString) ||
-      (transaction as any).users?.user_code?.toLowerCase().includes(searchString) ||
+      user?.first_name?.toLowerCase().includes(searchString) ||
+      user?.last_name?.toLowerCase().includes(searchString) ||
+      user?.user_code?.toLowerCase().includes(searchString) ||
       transaction.description.toLowerCase().includes(searchString)
     );
   });
@@ -295,83 +306,96 @@ export default function AdminApprovals() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredTransactions.map((transaction) => (
-                <tr key={transaction.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(transaction.created_at).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10">
-                        <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center">
-                          <span className="text-primary-700 font-medium text-sm">
-                            {(transaction as any).users?.first_name?.[0]}
-                            {(transaction as any).users?.last_name?.[0]}
-                          </span>
+              {filteredTransactions.map((transaction) => {
+                const user = (transaction as any).users;
+                const dealer = (transaction as any).dealers;
+                const reward = (transaction as any).rewards;
+                
+                return (
+                  <tr key={transaction.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {new Date(transaction.created_at).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 h-10 w-10">
+                          <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center">
+                            <span className="text-primary-700 font-medium text-sm">
+                              {user?.first_name?.[0]}{user?.last_name?.[0]}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900">
+                            {user?.first_name} {user?.last_name}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {user?.user_code} • {user?.role}
+                          </div>
+                          <div className="text-xs text-gray-400">
+                            District: {user?.district}
+                          </div>
                         </div>
                       </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">
-                          {(transaction as any).users?.first_name} {(transaction as any).users?.last_name}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                        ${transaction.type === 'earned' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
+                        {transaction.type === 'earned' ? 'Points Earned' : 'Reward Redemption'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {transaction.amount}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-500">
+                      {transaction.description}
+                      {reward && (
+                        <div className="text-xs text-gray-400 mt-1">
+                          Reward: {reward.title}
                         </div>
-                        <div className="text-xs text-gray-500">
-                          {(transaction as any).users?.user_code}
+                      )}
+                      {dealer && (
+                        <div className="text-xs text-gray-400 mt-1">
+                          Dealer: {dealer.first_name} {dealer.last_name} ({dealer.user_code})
                         </div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
-                      ${transaction.type === 'earned' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
-                      {transaction.type === 'earned' ? 'Points Earned' : 'Reward Redemption'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {transaction.amount}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
-                    {transaction.description}
-                    {(transaction as any).rewards && (
-                      <div className="text-xs text-gray-400 mt-1">
-                        Reward: {(transaction as any).rewards.title}
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
-                      ${transaction.status === 'approved' ? 'bg-green-100 text-green-800' :
-                        transaction.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                        transaction.status === 'dealer_approved' ? 'bg-blue-100 text-blue-800' :
-                        'bg-red-100 text-red-800'}`}>
-                      {transaction.status === 'dealer_approved' ? 'Pending Admin Approval' : transaction.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    {(transaction.status === 'dealer_approved' || transaction.status === 'pending') && (
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => handleApprove(transaction.id)}
-                          disabled={processingId === transaction.id}
-                          className="text-green-600 hover:text-green-900"
-                        >
-                          {processingId === transaction.id ? (
-                            <LoadingSpinner size="sm" />
-                          ) : (
-                            <Check size={18} />
-                          )}
-                        </button>
-                        <button
-                          onClick={() => handleReject(transaction.id)}
-                          disabled={processingId === transaction.id}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          <X size={18} />
-                        </button>
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              ))}
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                        ${transaction.status === 'approved' ? 'bg-green-100 text-green-800' :
+                          transaction.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                          transaction.status === 'dealer_approved' ? 'bg-blue-100 text-blue-800' :
+                          'bg-red-100 text-red-800'}`}>
+                        {transaction.status === 'dealer_approved' ? 'Pending Admin Approval' : transaction.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      {(transaction.status === 'dealer_approved' || transaction.status === 'pending') && (
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => handleApprove(transaction.id)}
+                            disabled={processingId === transaction.id}
+                            className="text-green-600 hover:text-green-900"
+                          >
+                            {processingId === transaction.id ? (
+                              <LoadingSpinner size="sm" />
+                            ) : (
+                              <Check size={18} />
+                            )}
+                          </button>
+                          <button
+                            onClick={() => handleReject(transaction.id)}
+                            disabled={processingId === transaction.id}
+                            className="text-red-600 hover:text-red-900"
+                          >
+                            <X size={18} />
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
