@@ -11,11 +11,15 @@
     @apply scroll-smooth antialiased;
     -webkit-tap-highlight-color: transparent;
     height: var(--app-height);
+    overflow: hidden;
   }
   
   body {
-    @apply bg-gray-50 text-gray-900 font-sans overscroll-none;
+    @apply bg-gray-50 text-gray-900 font-sans;
     height: var(--app-height);
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
     /* Prevent pull-to-refresh on iOS */
     overscroll-behavior-y: none;
     -webkit-overflow-scrolling: touch;
@@ -155,15 +159,6 @@
       padding-bottom: env(safe-area-inset-bottom);
     }
 
-    /* Adjust modal for mobile */
-    .modal-container {
-      @apply p-4;
-    }
-    
-    .modal-content {
-      @apply max-h-[80vh];
-    }
-
     /* Fix iOS input zoom */
     input[type="text"],
     input[type="email"],
@@ -173,6 +168,15 @@
     select,
     textarea {
       font-size: 16px !important;
+    }
+
+    /* Adjust modal for mobile */
+    .modal-container {
+      @apply p-4;
+    }
+    
+    .modal-content {
+      @apply max-h-[80vh];
     }
   }
 }

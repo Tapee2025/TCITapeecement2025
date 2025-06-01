@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { 
   Menu, 
@@ -30,6 +30,24 @@ export default function DashboardLayout() {
   // Get the appropriate navigation based on user role
   const navigation = currentUser?.role === 'dealer' ? DEALER_NAVIGATION : USER_NAVIGATION;
   
+  // Close sidebar when route changes
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [location.pathname]);
+
+  // Close sidebar when clicking outside on mobile
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      const sidebar = document.getElementById('mobile-sidebar');
+      if (sidebar && !sidebar.contains(event.target as Node) && sidebarOpen) {
+        setSidebarOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [sidebarOpen]);
+  
   async function handleLogout() {
     try {
       await logout();
@@ -57,7 +75,7 @@ export default function DashboardLayout() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen">
+      <div className="flex justify-center items-center h-[100vh]">
         <LoadingSpinner size="lg" />
       </div>
     );
@@ -65,7 +83,7 @@ export default function DashboardLayout() {
 
   if (!currentUser) {
     return (
-      <div className="flex justify-center items-center h-screen">
+      <div className="flex justify-center items-center h-[100vh]">
         <div className="text-center">
           <p className="text-gray-600">Please log in to continue</p>
         </div>
@@ -74,7 +92,7 @@ export default function DashboardLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-[100vh] h-[100vh] flex bg-gray-50 overflow-hidden">
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div 
@@ -85,7 +103,8 @@ export default function DashboardLayout() {
       
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 left-0 z-30 w-64 h-full bg-white border-r border-gray-200 transition-transform duration-300 ease-in-out transform lg:translate-x-0 ${
+        id="mobile-sidebar"
+        className={`fixed lg:static top-0 left-0 z-30 w-64 h-full bg-white border-r border-gray-200 transition-transform duration-300 ease-in-out transform lg:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -140,6 +159,7 @@ export default function DashboardLayout() {
                 className={({ isActive }) => 
                   `nav-link ${isActive ? 'nav-link-active' : ''}`
                 }
+                onClick={() => setSidebarOpen(false)}
               >
                 {renderIcon(item.icon)}
                 <span>{item.name}</span>
@@ -160,7 +180,7 @@ export default function DashboardLayout() {
       </aside>
       
       {/* Main content */}
-      <div className="lg:pl-64 min-h-screen flex flex-col">
+      <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
         <header className="sticky top-0 z-10 bg-white border-b border-gray-200 flex justify-between items-center px-4 py-2 sm:px-6 safe-top">
           <button
