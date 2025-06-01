@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, Camera } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { supabase, getProfilePictureUrl } from '../../lib/supabase';
 import { Database } from '../../lib/database.types';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { format } from 'date-fns';
@@ -49,7 +49,6 @@ export default function UserProfile() {
       // Upload to Supabase Storage
       const fileExt = file.name.split('.').pop();
       const fileName = `${profile.id}.${fileExt}`;
-      const filePath = fileName;
 
       // Delete old profile picture if exists
       if (profile.profile_picture_url) {
@@ -64,7 +63,7 @@ export default function UserProfile() {
       // Upload new image
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(filePath, file, {
+        .upload(fileName, file, {
           cacheControl: '3600',
           upsert: true
         });
@@ -72,19 +71,17 @@ export default function UserProfile() {
       if (uploadError) throw uploadError;
 
       // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath);
+      const publicUrl = getProfilePictureUrl(fileName);
 
       // Update user profile
       const { error: updateError } = await supabase
         .from('users')
-        .update({ profile_picture_url: publicUrl })
+        .update({ profile_picture_url: fileName })
         .eq('id', profile.id);
 
       if (updateError) throw updateError;
 
-      setProfile({ ...profile, profile_picture_url: publicUrl });
+      setProfile({ ...profile, profile_picture_url: fileName });
       toast.success('Profile picture updated successfully');
       setShowImageUpload(false);
     } catch (error) {
@@ -119,7 +116,7 @@ export default function UserProfile() {
           <div className="relative">
             {profile.profile_picture_url ? (
               <img
-                src={profile.profile_picture_url}
+                src={getProfilePictureUrl(profile.profile_picture_url)}
                 alt={`${profile.first_name}'s profile`}
                 className="w-32 h-32 rounded-full object-cover border-4 border-white shadow-lg"
               />
