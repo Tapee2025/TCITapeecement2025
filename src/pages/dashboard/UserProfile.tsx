@@ -277,7 +277,7 @@ export default function UserProfile() {
           >
             {saving ? (
               <>
-                <LoadingSpinner size="sm" className="mr-2" />
+                <LoadingSpinner size="sm\" className="mr-2" />
                 Saving...
               </>
             ) : (
