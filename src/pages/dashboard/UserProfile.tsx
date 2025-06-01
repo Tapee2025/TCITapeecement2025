@@ -1,15 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { User } from 'lucide-react';
+import { User, Camera } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Database } from '../../lib/database.types';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { format } from 'date-fns';
+import ImageUpload from '../../components/ui/ImageUpload';
+import { toast } from 'react-toastify';
 
 type Profile = Database['public']['Tables']['users']['Row'];
 
 export default function UserProfile() {
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [showImageUpload, setShowImageUpload] = useState(false);
 
   useEffect(() => {
     fetchProfile();
@@ -30,8 +34,60 @@ export default function UserProfile() {
       setProfile(data);
     } catch (error) {
       console.error('Error fetching profile:', error);
+      toast.error('Failed to load profile data');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleImageSelect(file: File) {
+    try {
+      setUploading(true);
+      
+      if (!profile) return;
+
+      // Upload to Supabase Storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${profile.id}-${Math.random()}.${fileExt}`;
+      const filePath = `profile-pictures/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('user-uploads')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('user-uploads')
+        .getPublicUrl(filePath);
+
+      // Update user profile
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ profile_picture_url: publicUrl })
+        .eq('id', profile.id);
+
+      if (updateError) throw updateError;
+
+      // Delete old profile picture if exists
+      if (profile.profile_picture_url) {
+        const oldFilePath = profile.profile_picture_url.split('/').pop();
+        if (oldFilePath) {
+          await supabase.storage
+            .from('user-uploads')
+            .remove([`profile-pictures/${oldFilePath}`]);
+        }
+      }
+
+      setProfile({ ...profile, profile_picture_url: publicUrl });
+      toast.success('Profile picture updated successfully');
+      setShowImageUpload(false);
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast.error('Failed to update profile picture');
+    } finally {
+      setUploading(false);
     }
   }
 
@@ -54,17 +110,63 @@ export default function UserProfile() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="bg-white rounded-lg shadow-md p-6">
-        <div className="flex items-center space-x-4 mb-6">
-          <div className="p-3 bg-blue-100 rounded-full">
-            <User className="w-8 h-8 text-blue-600" />
+        {/* Profile Picture Section */}
+        <div className="flex flex-col items-center mb-8">
+          <div className="relative">
+            {profile.profile_picture_url ? (
+              <img
+                src={profile.profile_picture_url}
+                alt={`${profile.first_name}'s profile`}
+                className="w-32 h-32 rounded-full object-cover border-4 border-white shadow-lg"
+              />
+            ) : (
+              <div className="w-32 h-32 rounded-full bg-primary-100 flex items-center justify-center border-4 border-white shadow-lg">
+                <User className="w-16 h-16 text-primary-600" />
+              </div>
+            )}
+            <button
+              onClick={() => setShowImageUpload(true)}
+              className="absolute bottom-0 right-0 bg-white rounded-full p-2 shadow-md hover:bg-gray-50 transition-colors"
+              title="Change profile picture"
+            >
+              <Camera size={20} className="text-gray-600" />
+            </button>
           </div>
-          <h1 className="text-2xl font-bold text-gray-800">User Profile</h1>
+          <h2 className="text-xl font-semibold mt-4">
+            {profile.first_name} {profile.last_name}
+          </h2>
+          <p className="text-gray-500">{profile.email}</p>
         </div>
-        
+
+        {/* Image Upload Modal */}
+        {showImageUpload && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+              <div className="p-6">
+                <h3 className="text-lg font-semibold mb-4">Update Profile Picture</h3>
+                <ImageUpload
+                  onImageSelect={(file) => handleImageSelect(file)}
+                  maxSize={2 * 1024 * 1024} // 2MB
+                  className="mb-4"
+                />
+                <div className="flex justify-end space-x-2">
+                  <button
+                    onClick={() => setShowImageUpload(false)}
+                    className="btn btn-outline"
+                    disabled={uploading}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="grid md:grid-cols-2 gap-6">
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+              <label className="text-sm font-medium text-gray-700 mb-1">Full Name</label>
               <input
                 type="text"
                 className="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-50"
@@ -74,7 +176,7 @@ export default function UserProfile() {
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <label className="text-sm font-medium text-gray-700 mb-1">Email</label>
               <input
                 type="email"
                 className="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-50"
@@ -84,7 +186,7 @@ export default function UserProfile() {
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+              <label className="text-sm font-medium text-gray-700 mb-1">Phone Number</label>
               <input
                 type="tel"
                 className="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-50"
@@ -96,7 +198,7 @@ export default function UserProfile() {
           
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">User Code</label>
+              <label className="text-sm font-medium text-gray-700 mb-1">User Code</label>
               <input
                 type="text"
                 className="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-50"
@@ -106,7 +208,7 @@ export default function UserProfile() {
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+              <label className="text-sm font-medium text-gray-700 mb-1">Role</label>
               <input
                 type="text"
                 className="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-50"
@@ -116,7 +218,7 @@ export default function UserProfile() {
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Member Since</label>
+              <label className="text-sm font-medium text-gray-700 mb-1">Member Since</label>
               <input
                 type="text"
                 className="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-50"

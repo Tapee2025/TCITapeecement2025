@@ -23,6 +23,7 @@ export interface Database {
           mobile_number: string
           user_code: string
           points: number
+          profile_picture_url: string | null
           created_at: string
           updated_at: string
         }
@@ -39,6 +40,7 @@ export interface Database {
           mobile_number: string
           user_code: string
           points?: number
+          profile_picture_url?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -55,6 +57,7 @@ export interface Database {
           mobile_number?: string
           user_code?: string
           points?: number
+          profile_picture_url?: string | null
           created_at?: string
           updated_at?: string
         }
