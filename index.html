@@ -9,6 +9,7 @@
     <!-- PWA Meta Tags -->
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#2979f2" />
+    <meta name="mobile-web-app-capable" content="yes" />
     
     <!-- iOS Meta Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -48,6 +49,17 @@
             });
         });
       }
+
+      // Prevent pull-to-refresh behavior
+      document.body.style.overscrollBehavior = 'none';
+      
+      // Fix iOS 100vh issue
+      const appHeight = () => {
+        const doc = document.documentElement;
+        doc.style.setProperty('--app-height', `${window.innerHeight}px`);
+      };
+      window.addEventListener('resize', appHeight);
+      appHeight();
     </script>
   </body>
 </html>
