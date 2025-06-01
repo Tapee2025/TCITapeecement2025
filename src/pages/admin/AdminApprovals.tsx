@@ -41,7 +41,7 @@ export default function AdminApprovals() {
             user_code,
             district
           ),
-          rewards (
+          rewards:reward_id (
             id,
             title,
             points_required
@@ -75,10 +75,9 @@ export default function AdminApprovals() {
         return;
       }
 
-      // Start a Supabase transaction
       const { data: updatedTransaction, error: transactionError } = await supabase.rpc(
         'approve_transaction',
-        { 
+        {
           p_transaction_id: transactionId,
           p_user_id: user.id,
           p_points: transaction.type === 'earned' ? transaction.amount : 0
@@ -88,11 +87,11 @@ export default function AdminApprovals() {
       if (transactionError) throw transactionError;
 
       toast.success(
-        transaction.type === 'earned' 
+        transaction.type === 'earned'
           ? `Approved ${transaction.amount} points for ${user.first_name} ${user.last_name}`
           : 'Reward redemption approved successfully'
       );
-      
+
       fetchTransactions();
     } catch (error) {
       console.error('Error approving transaction:', error);
@@ -117,10 +116,9 @@ export default function AdminApprovals() {
         return;
       }
 
-      // Update transaction status
       const { error: updateError } = await supabase
         .from('transactions')
-        .update({ 
+        .update({
           status: 'rejected',
           updated_at: new Date().toISOString()
         })
@@ -128,11 +126,10 @@ export default function AdminApprovals() {
 
       if (updateError) throw updateError;
 
-      // If rejecting a redemption, refund the points
       if (transaction.type === 'redeemed') {
         const { error: refundError } = await supabase
           .from('users')
-          .update({ 
+          .update({
             points: user.points + transaction.amount,
             updated_at: new Date().toISOString()
           })
@@ -146,7 +143,7 @@ export default function AdminApprovals() {
           ? `Rejected redemption and refunded ${transaction.amount} points to ${user.first_name} ${user.last_name}`
           : 'Transaction rejected successfully'
       );
-      
+
       fetchTransactions();
     } catch (error) {
       console.error('Error rejecting transaction:', error);
@@ -179,7 +176,6 @@ export default function AdminApprovals() {
     <div className="p-6">
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Transaction Approvals</h1>
 
-      {/* Filters */}
       <div className="bg-white rounded-lg shadow mb-6">
         <div className="p-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -210,33 +206,18 @@ export default function AdminApprovals() {
         </div>
       </div>
 
-      {/* Transactions Table */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Date
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  User
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Type
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Points
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Description
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Points</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -244,22 +225,20 @@ export default function AdminApprovals() {
                 const user = (transaction as any).users;
                 const dealer = (transaction as any).dealers;
                 const reward = (transaction as any).rewards;
-                
-                if (!user) return null; // Skip if no user data
-                
+
+                if (!user) return null;
+
                 return (
                   <tr key={transaction.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-6 py-4 text-sm text-gray-500">
                       {new Date(transaction.created_at).toLocaleDateString()}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-4">
                       <div className="flex items-center">
-                        <div className="flex-shrink-0 h-10 w-10">
-                          <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center">
-                            <span className="text-primary-700 font-medium text-sm">
-                              {user.first_name[0]}{user.last_name[0]}
-                            </span>
-                          </div>
+                        <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center">
+                          <span className="text-primary-700 font-medium text-sm">
+                            {user.first_name[0]}{user.last_name[0]}
+                          </span>
                         </div>
                         <div className="ml-4">
                           <div className="text-sm font-medium text-gray-900">
@@ -274,15 +253,13 @@ export default function AdminApprovals() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-4">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
                         ${transaction.type === 'earned' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
                         {transaction.type === 'earned' ? 'Points Earned' : 'Reward Redemption'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {transaction.amount}
-                    </td>
+                    <td className="px-6 py-4 text-sm font-medium text-gray-900">{transaction.amount}</td>
                     <td className="px-6 py-4 text-sm text-gray-500">
                       {transaction.description}
                       {reward && (
@@ -296,16 +273,16 @@ export default function AdminApprovals() {
                         </div>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-4">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
                         ${transaction.status === 'approved' ? 'bg-green-100 text-green-800' :
                           transaction.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                          transaction.status === 'dealer_approved' ? 'bg-blue-100 text-blue-800' :
-                          'bg-red-100 text-red-800'}`}>
+                            transaction.status === 'dealer_approved' ? 'bg-blue-100 text-blue-800' :
+                              'bg-red-100 text-red-800'}`}>
                         {transaction.status === 'dealer_approved' ? 'Pending Admin Approval' : transaction.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <td className="px-6 py-4 text-sm font-medium">
                       {(transaction.status === 'dealer_approved' || transaction.status === 'pending') && (
                         <div className="flex space-x-2">
                           <button
@@ -313,11 +290,7 @@ export default function AdminApprovals() {
                             disabled={processingId === transaction.id}
                             className="text-green-600 hover:text-green-900"
                           >
-                            {processingId === transaction.id ? (
-                              <LoadingSpinner size="sm" />
-                            ) : (
-                              <Check size={18} />
-                            )}
+                            {processingId === transaction.id ? <LoadingSpinner size="sm" /> : <Check size={18} />}
                           </button>
                           <button
                             onClick={() => handleReject(transaction.id)}
@@ -341,7 +314,7 @@ export default function AdminApprovals() {
             <AlertCircle size={48} className="mx-auto text-gray-400 mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-1">No Transactions Found</h3>
             <p className="text-gray-500">
-              {searchQuery 
+              {searchQuery
                 ? `No transactions match your search for "${searchQuery}"`
                 : `No ${statusFilter} transactions found`}
             </p>
