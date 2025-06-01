@@ -12,7 +12,8 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: true
+    detectSessionInUrl: true,
+    storage: window.localStorage
   },
   global: {
     headers: {
@@ -20,3 +21,9 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     }
   }
 });
+
+// Helper function to get profile picture URL
+export function getProfilePictureUrl(fileName: string | null): string {
+  if (!fileName) return '';
+  return `${supabaseUrl}/storage/v1/object/public/avatars/${fileName}`;
+}
