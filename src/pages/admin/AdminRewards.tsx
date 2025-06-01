@@ -22,7 +22,7 @@ export default function AdminRewards() {
     points_required: '',
     expiry_date: '',
     available: true,
-    visible_to: ['builder', 'contractor'] as ('builder' | 'contractor')[]
+    visible_to: ['builder', 'contractor'] as ('builder' | 'contractor' | 'dealer')[]
   });
 
   useEffect(() => {
@@ -136,9 +136,11 @@ export default function AdminRewards() {
     setShowAddModal(true);
   }
 
-  function handleVisibleToChange(role: 'builder' | 'contractor') {
+  function handleVisibleToChange(role: 'builder' | 'contractor' | 'dealer') {
     const currentVisibleTo = [...formData.visible_to];
     if (currentVisibleTo.includes(role)) {
+      // Don't allow deselecting if it's the last selected role
+      if (currentVisibleTo.length === 1) return;
       setFormData({
         ...formData,
         visible_to: currentVisibleTo.filter(r => r !== role)
@@ -219,7 +221,7 @@ export default function AdminRewards() {
               </div>
               <div className="mb-4">
                 <p className="text-sm text-gray-500">Visible to:</p>
-                <div className="flex gap-2 mt-1">
+                <div className="flex flex-wrap gap-2 mt-1">
                   {reward.visible_to?.map(role => (
                     <span key={role} className="px-2 py-1 bg-gray-100 rounded-full text-xs font-medium text-gray-700 capitalize">
                       {role}s
@@ -262,8 +264,8 @@ export default function AdminRewards() {
 
       {/* Add/Edit Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <h2 className="text-xl font-semibold mb-4">
                 {editingReward ? 'Edit Reward' : 'Add New Reward'}
@@ -323,12 +325,12 @@ export default function AdminRewards() {
                 <div>
                   <label className="form-label">Visible to</label>
                   <div className="space-y-2">
-                    {USER_ROLES.filter(role => role.value !== 'dealer').map(role => (
+                    {USER_ROLES.map(role => (
                       <label key={role.value} className="flex items-center space-x-2">
                         <input
                           type="checkbox"
-                          checked={formData.visible_to.includes(role.value as 'builder' | 'contractor')}
-                          onChange={() => handleVisibleToChange(role.value as 'builder' | 'contractor')}
+                          checked={formData.visible_to.includes(role.value as 'builder' | 'contractor' | 'dealer')}
+                          onChange={() => handleVisibleToChange(role.value as 'builder' | 'contractor' | 'dealer')}
                           className="form-checkbox"
                         />
                         <span>{role.label}s</span>

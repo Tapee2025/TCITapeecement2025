@@ -153,7 +153,7 @@ export default function DashboardLayout() {
       {/* Main content */}
       <div className="lg:pl-64 min-h-screen flex flex-col">
         {/* Header */}
-        <header className="sticky top-0 z-10 bg-white border-b border-gray-200 flex justify-between items-center px-4 py-2 sm:px-6">
+        <header className="sticky top-0 z-10 bg-white border-b border-gray-200 flex justify-between items-center px-4 py-2 sm:px-6 safe-top">
           <button
             onClick={() => setSidebarOpen(true)}
             className="lg:hidden text-gray-500 hover:text-gray-900"
@@ -219,7 +219,7 @@ export default function DashboardLayout() {
         </header>
         
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 safe-bottom">
           <Outlet />
         </main>
       </div>

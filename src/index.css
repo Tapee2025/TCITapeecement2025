@@ -139,6 +139,15 @@
     .mobile-menu {
       padding-bottom: env(safe-area-inset-bottom);
     }
+
+    /* Adjust modal for mobile */
+    .modal-container {
+      @apply p-4;
+    }
+    
+    .modal-content {
+      @apply max-h-[80vh];
+    }
   }
 }
 
