@@ -67,6 +67,7 @@ export interface Database {
           image_url: string
           points_required: number
           available: boolean
+          visible_to: ('builder' | 'contractor')[]
           expiry_date: string
           created_at: string
           updated_at: string
@@ -78,6 +79,7 @@ export interface Database {
           image_url: string
           points_required: number
           available?: boolean
+          visible_to?: ('builder' | 'contractor')[]
           expiry_date: string
           created_at?: string
           updated_at?: string
@@ -89,6 +91,7 @@ export interface Database {
           image_url?: string
           points_required?: number
           available?: boolean
+          visible_to?: ('builder' | 'contractor')[]
           expiry_date?: string
           created_at?: string
           updated_at?: string

@@ -5,6 +5,7 @@ import { Search, Plus, Edit, Trash, Calendar, Award } from 'lucide-react';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { toast } from 'react-toastify';
 import { format } from 'date-fns';
+import { USER_ROLES } from '../../utils/constants';
 
 type Reward = Database['public']['Tables']['rewards']['Row'];
 
@@ -20,7 +21,8 @@ export default function AdminRewards() {
     image_url: '',
     points_required: '',
     expiry_date: '',
-    available: true
+    available: true,
+    visible_to: ['builder', 'contractor'] as ('builder' | 'contractor')[]
   });
 
   useEffect(() => {
@@ -63,7 +65,8 @@ export default function AdminRewards() {
         image_url: formData.image_url,
         points_required: parseInt(formData.points_required),
         expiry_date: formData.expiry_date,
-        available: formData.available
+        available: formData.available,
+        visible_to: formData.visible_to
       };
 
       if (editingReward) {
@@ -91,7 +94,8 @@ export default function AdminRewards() {
         image_url: '',
         points_required: '',
         expiry_date: '',
-        available: true
+        available: true,
+        visible_to: ['builder', 'contractor']
       });
       fetchRewards();
     } catch (error) {
@@ -126,9 +130,25 @@ export default function AdminRewards() {
       image_url: reward.image_url,
       points_required: reward.points_required.toString(),
       expiry_date: format(new Date(reward.expiry_date), 'yyyy-MM-dd'),
-      available: reward.available
+      available: reward.available,
+      visible_to: reward.visible_to || ['builder', 'contractor']
     });
     setShowAddModal(true);
+  }
+
+  function handleVisibleToChange(role: 'builder' | 'contractor') {
+    const currentVisibleTo = [...formData.visible_to];
+    if (currentVisibleTo.includes(role)) {
+      setFormData({
+        ...formData,
+        visible_to: currentVisibleTo.filter(r => r !== role)
+      });
+    } else {
+      setFormData({
+        ...formData,
+        visible_to: [...currentVisibleTo, role]
+      });
+    }
   }
 
   if (loading) {
@@ -187,7 +207,7 @@ export default function AdminRewards() {
                 </span>
               </div>
               <p className="text-gray-600 text-sm mb-4">{reward.description}</p>
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center text-primary-600">
                   <Award size={16} className="mr-1" />
                   <span className="font-semibold">{reward.points_required} Points</span>
@@ -195,6 +215,16 @@ export default function AdminRewards() {
                 <div className="flex items-center text-gray-500 text-sm">
                   <Calendar size={16} className="mr-1" />
                   <span>Expires: {format(new Date(reward.expiry_date), 'MMM dd, yyyy')}</span>
+                </div>
+              </div>
+              <div className="mb-4">
+                <p className="text-sm text-gray-500">Visible to:</p>
+                <div className="flex gap-2 mt-1">
+                  {reward.visible_to?.map(role => (
+                    <span key={role} className="px-2 py-1 bg-gray-100 rounded-full text-xs font-medium text-gray-700 capitalize">
+                      {role}s
+                    </span>
+                  ))}
                 </div>
               </div>
               <div className="flex justify-end space-x-2">
@@ -290,6 +320,27 @@ export default function AdminRewards() {
                     required
                   />
                 </div>
+                <div>
+                  <label className="form-label">Visible to</label>
+                  <div className="space-y-2">
+                    {USER_ROLES.filter(role => role.value !== 'dealer').map(role => (
+                      <label key={role.value} className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          checked={formData.visible_to.includes(role.value as 'builder' | 'contractor')}
+                          onChange={() => handleVisibleToChange(role.value as 'builder' | 'contractor')}
+                          className="form-checkbox"
+                        />
+                        <span>{role.label}s</span>
+                      </label>
+                    ))}
+                  </div>
+                  {formData.visible_to.length === 0 && (
+                    <p className="text-sm text-error-600 mt-1">
+                      Please select at least one user type
+                    </p>
+                  )}
+                </div>
                 <div className="flex items-center">
                   <input
                     type="checkbox"
@@ -313,7 +364,11 @@ export default function AdminRewards() {
                   >
                     Cancel
                   </button>
-                  <button type="submit" className="btn btn-primary">
+                  <button 
+                    type="submit" 
+                    className="btn btn-primary"
+                    disabled={formData.visible_to.length === 0}
+                  >
                     {editingReward ? 'Update Reward' : 'Create Reward'}
                   </button>
                 </div>
