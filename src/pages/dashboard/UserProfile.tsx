@@ -48,18 +48,32 @@ export default function UserProfile() {
 
       // Upload to Supabase Storage
       const fileExt = file.name.split('.').pop();
-      const fileName = `${profile.id}-${Math.random()}.${fileExt}`;
-      const filePath = `profile-pictures/${fileName}`;
+      const fileName = `${profile.id}.${fileExt}`;
+      const filePath = fileName;
 
+      // Delete old profile picture if exists
+      if (profile.profile_picture_url) {
+        const oldFileName = profile.profile_picture_url.split('/').pop();
+        if (oldFileName) {
+          await supabase.storage
+            .from('avatars')
+            .remove([oldFileName]);
+        }
+      }
+
+      // Upload new image
       const { error: uploadError } = await supabase.storage
-        .from('user-uploads')
-        .upload(filePath, file);
+        .from('avatars')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true
+        });
 
       if (uploadError) throw uploadError;
 
       // Get public URL
       const { data: { publicUrl } } = supabase.storage
-        .from('user-uploads')
+        .from('avatars')
         .getPublicUrl(filePath);
 
       // Update user profile
@@ -69,16 +83,6 @@ export default function UserProfile() {
         .eq('id', profile.id);
 
       if (updateError) throw updateError;
-
-      // Delete old profile picture if exists
-      if (profile.profile_picture_url) {
-        const oldFilePath = profile.profile_picture_url.split('/').pop();
-        if (oldFilePath) {
-          await supabase.storage
-            .from('user-uploads')
-            .remove([`profile-pictures/${oldFilePath}`]);
-        }
-      }
 
       setProfile({ ...profile, profile_picture_url: publicUrl });
       toast.success('Profile picture updated successfully');
