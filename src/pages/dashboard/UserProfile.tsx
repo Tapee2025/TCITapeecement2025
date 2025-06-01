@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Camera } from 'lucide-react';
+import { User, Camera, Save } from 'lucide-react';
 import { supabase, getProfilePictureUrl } from '../../lib/supabase';
 import { Database } from '../../lib/database.types';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
@@ -12,8 +12,11 @@ type Profile = Database['public']['Tables']['users']['Row'];
 export default function UserProfile() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [showImageUpload, setShowImageUpload] = useState(false);
+  const [editedEmail, setEditedEmail] = useState('');
+  const [editedPhone, setEditedPhone] = useState('');
 
   useEffect(() => {
     fetchProfile();
@@ -32,6 +35,8 @@ export default function UserProfile() {
 
       if (error) throw error;
       setProfile(data);
+      setEditedEmail(data.email);
+      setEditedPhone(data.mobile_number);
     } catch (error) {
       console.error('Error fetching profile:', error);
       toast.error('Failed to load profile data');
@@ -86,6 +91,41 @@ export default function UserProfile() {
       toast.error('Failed to update profile picture');
     } finally {
       setUploading(false);
+    }
+  }
+
+  async function handleSaveProfile() {
+    if (!profile) return;
+
+    try {
+      setSaving(true);
+
+      const { error } = await supabase
+        .from('users')
+        .update({
+          email: editedEmail,
+          mobile_number: editedPhone,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', profile.id);
+
+      if (error) throw error;
+
+      // Update auth email if changed
+      if (editedEmail !== profile.email) {
+        const { error: authError } = await supabase.auth.updateUser({
+          email: editedEmail
+        });
+        if (authError) throw authError;
+      }
+
+      setProfile({ ...profile, email: editedEmail, mobile_number: editedPhone });
+      toast.success('Profile updated successfully');
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      toast.error('Failed to update profile');
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -177,9 +217,9 @@ export default function UserProfile() {
               <label className="text-sm font-medium text-gray-700 mb-1">Email</label>
               <input
                 type="email"
-                className="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-50"
-                value={profile.email}
-                disabled
+                className="form-input"
+                value={editedEmail}
+                onChange={(e) => setEditedEmail(e.target.value)}
               />
             </div>
             
@@ -187,9 +227,11 @@ export default function UserProfile() {
               <label className="text-sm font-medium text-gray-700 mb-1">Phone Number</label>
               <input
                 type="tel"
-                className="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-50"
-                value={profile.mobile_number}
-                disabled
+                className="form-input"
+                value={editedPhone}
+                onChange={(e) => setEditedPhone(e.target.value)}
+                pattern="[0-9]{10}"
+                maxLength={10}
               />
             </div>
           </div>
@@ -225,6 +267,26 @@ export default function UserProfile() {
               />
             </div>
           </div>
+        </div>
+
+        <div className="mt-6 flex justify-end">
+          <button
+            onClick={handleSaveProfile}
+            disabled={saving}
+            className="btn btn-primary"
+          >
+            {saving ? (
+              <>
+                <LoadingSpinner size="sm" className="mr-2" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save size={20} className="mr-2" />
+                Save Changes
+              </>
+            )}
+          </button>
         </div>
         
         <div className="mt-8 pt-6 border-t border-gray-200">

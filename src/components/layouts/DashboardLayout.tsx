@@ -18,6 +18,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { DEALER_NAVIGATION, USER_NAVIGATION } from '../../utils/constants';
 import { toast } from 'react-toastify';
 import LoadingSpinner from '../ui/LoadingSpinner';
+import { getProfilePictureUrl } from '../../lib/supabase';
 
 export default function DashboardLayout() {
   const { currentUser, loading, logout } = useAuth();
@@ -112,9 +113,17 @@ export default function DashboardLayout() {
           {/* User info */}
           <div className="p-4 border-b">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-semibold">
-                {currentUser.first_name?.[0]}{currentUser.last_name?.[0]}
-              </div>
+              {currentUser.profile_picture_url ? (
+                <img
+                  src={getProfilePictureUrl(currentUser.profile_picture_url)}
+                  alt={currentUser.first_name}
+                  className="w-10 h-10 rounded-full object-cover"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-semibold">
+                  {currentUser.first_name?.[0]}{currentUser.last_name?.[0]}
+                </div>
+              )}
               <div>
                 <p className="font-medium text-gray-900">{currentUser.first_name} {currentUser.last_name}</p>
                 <p className="text-xs text-gray-500 capitalize">{currentUser.role}</p>
