@@ -70,10 +70,7 @@ export default function UserProfile() {
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
-      const publicUrl = getProfilePictureUrl(fileName);
-
-      // Update user profile
+      // Update user profile with just the filename
       const { error: updateError } = await supabase
         .from('users')
         .update({ profile_picture_url: fileName })
