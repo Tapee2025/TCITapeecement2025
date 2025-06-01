@@ -41,11 +41,12 @@ export default function RedeemRewards() {
       if (profileError) throw profileError;
       setUserData(profile);
 
-      // Get available rewards
+      // Get available rewards visible to user's role
       const { data: rewardsData, error: rewardsError } = await supabase
         .from('rewards')
         .select('*')
         .eq('available', true)
+        .contains('visible_to', [profile.role])
         .order('points_required', { ascending: true });
 
       if (rewardsError) throw rewardsError;
@@ -84,7 +85,7 @@ export default function RedeemRewards() {
           type: 'redeemed',
           amount: selectedReward.points_required,
           description: `Redeemed ${selectedReward.title}`,
-          status: 'pending', // Changed from 'completed' to 'pending' to comply with status check constraint
+          status: 'pending',
           reward_id: selectedReward.id
         });
 
@@ -230,7 +231,7 @@ export default function RedeemRewards() {
               >
                 {loading ? (
                   <>
-                    <LoadingSpinner size="sm\" className="mr-2" />
+                    <LoadingSpinner size="sm" className="mr-2" />
                     Processing...
                   </>
                 ) : (
@@ -291,9 +292,9 @@ export default function RedeemRewards() {
       </div>
       
       {/* Rewards Grid */}
-      {filteredRewards.length > 0 ? (
+      {rewards.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredRewards.map((reward) => {
+          {rewards.map((reward) => {
             const canRedeem = (userData?.points || 0) >= reward.points_required;
             
             return (
