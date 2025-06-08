@@ -50,6 +50,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // For development mode, create a mock user if no real Supabase connection
+    const isDevelopment = import.meta.env.VITE_SUPABASE_URL?.includes('placeholder');
+    
+    if (isDevelopment) {
+      console.log('Running in development mode with mock data');
+      // Create a mock user for development
+      const mockUser: User = {
+        id: 'mock-user-id',
+        email: 'demo@example.com',
+        first_name: 'Demo',
+        last_name: 'User',
+        role: 'builder',
+        city: 'Demo City',
+        address: '123 Demo Street',
+        district: 'Demo District',
+        gst_number: null,
+        mobile_number: '+1234567890',
+        user_code: 'BUILDER-123456',
+        points: 150,
+        profile_picture_url: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      setUser(mockUser);
+      setLoading(false);
+      return;
+    }
+
     // Get initial session
     supabase.auth.getSession().then(({ data: { session }, error }) => {
       if (error) {

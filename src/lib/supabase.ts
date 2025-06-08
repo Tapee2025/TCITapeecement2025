@@ -3,17 +3,17 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Missing Supabase environment variables');
-  console.error('VITE_SUPABASE_URL:', supabaseUrl);
-  console.error('VITE_SUPABASE_ANON_KEY:', supabaseAnonKey ? 'Present' : 'Missing');
-}
+// For development, use placeholder values if env vars are not set
+const defaultUrl = 'https://placeholder.supabase.co';
+const defaultKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYWNlaG9sZGVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE2NDUxOTI4MDAsImV4cCI6MTk2MDc2ODgwMH0.placeholder';
 
-// Use fallback values for development if env vars are missing
-const fallbackUrl = supabaseUrl || 'https://your-project.supabase.co';
-const fallbackKey = supabaseAnonKey || 'your-anon-key';
+const finalUrl = supabaseUrl || defaultUrl;
+const finalKey = supabaseAnonKey || defaultKey;
 
-export const supabase = createClient(fallbackUrl, fallbackKey);
+console.log('Supabase URL:', finalUrl);
+console.log('Supabase Key present:', !!finalKey);
+
+export const supabase = createClient(finalUrl, finalKey);
 
 export type Database = {
   public: {
