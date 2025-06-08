@@ -1,9 +1,22 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
-import { Database } from '../lib/database.types';
-import { toast } from 'react-toastify';
+import * as SecureStore from 'expo-secure-store';
 
-type User = Database['public']['Tables']['users']['Row'];
+interface User {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: 'builder' | 'dealer' | 'contractor' | 'admin';
+  city: string;
+  address: string;
+  district: string;
+  gstNumber?: string;
+  mobileNumber: string;
+  userCode: string;
+  points: number;
+  createdAt: string;
+}
 
 interface AuthContextType {
   currentUser: User | null;
@@ -17,14 +30,14 @@ interface AuthContextType {
 interface RegisterData {
   email: string;
   password: string;
-  first_name: string;
-  last_name: string;
+  firstName: string;
+  lastName: string;
   role: 'builder' | 'dealer' | 'contractor';
   city: string;
   address: string;
   district: string;
-  gst_number?: string;
-  mobile_number: string;
+  gstNumber?: string;
+  mobileNumber: string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -74,6 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           } else if (event === 'SIGNED_OUT') {
             setCurrentUser(null);
             setLoading(false);
+            await SecureStore.deleteItemAsync('userSession');
           }
         });
 
@@ -108,7 +122,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error('Profile fetch error:', error);
         setCurrentUser(null);
       } else {
-        setCurrentUser(profile);
+        const user: User = {
+          id: profile.id,
+          email: profile.email,
+          firstName: profile.first_name,
+          lastName: profile.last_name,
+          role: profile.role,
+          city: profile.city,
+          address: profile.address,
+          district: profile.district,
+          gstNumber: profile.gst_number,
+          mobileNumber: profile.mobile_number,
+          userCode: profile.user_code,
+          points: profile.points,
+          createdAt: profile.created_at,
+        };
+        setCurrentUser(user);
+        await SecureStore.setItemAsync('userSession', JSON.stringify(user));
       }
     } catch (error) {
       console.error('Error fetching user profile:', error);
@@ -146,6 +176,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setLoading(true);
       
+      // Generate user code
+      const userCode = Math.floor(10000 + Math.random() * 90000).toString();
+      
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email,
         password
@@ -159,7 +192,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .insert([{
           id: authData.user.id,
           email,
-          ...profileData,
+          first_name: profileData.firstName,
+          last_name: profileData.lastName,
+          role: profileData.role,
+          city: profileData.city,
+          address: profileData.address,
+          district: profileData.district,
+          gst_number: profileData.gstNumber,
+          mobile_number: profileData.mobileNumber,
+          user_code: userCode,
           points: 0
         }]);
 
@@ -178,6 +219,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       setCurrentUser(null);
+      await SecureStore.deleteItemAsync('userSession');
     } catch (error) {
       console.error('Logout error:', error);
       throw error;
