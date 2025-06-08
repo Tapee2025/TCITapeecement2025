@@ -30,7 +30,7 @@ function AppRoutes() {
         <Route path="/login" element={<LoginScreen />} />
         <Route path="/register" element={<RegisterScreen />} />
         <Route path="/forgot-password" element={<ForgotPasswordScreen />} />
-        <Route path="*" element={<Navigate to="/login\" replace />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     );
   }
@@ -47,12 +47,12 @@ function AppRoutes() {
         <Route path="profile" element={<ProfileScreen />} />
         {isDealerOrAdmin && (
           <>
-            <Route path="dealer-dashboard\" element={<DealerDashboardScreen />} />
+            <Route path="dealer-dashboard" element={<DealerDashboardScreen />} />
             <Route path="approve-points" element={<ApprovePointsScreen />} />
           </>
         )}
       </Route>
-      <Route path="*" element={<Navigate to="/\" replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
