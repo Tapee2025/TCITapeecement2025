@@ -50,67 +50,93 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // For development mode, create a mock user if no real Supabase connection
-    const isDevelopment = import.meta.env.VITE_SUPABASE_URL?.includes('placeholder');
-    
-    if (isDevelopment) {
-      console.log('Running in development mode with mock data');
-      // Create a mock user for development
-      const mockUser: User = {
-        id: 'mock-user-id',
-        email: 'demo@example.com',
-        first_name: 'Demo',
-        last_name: 'User',
-        role: 'builder',
-        city: 'Demo City',
-        address: '123 Demo Street',
-        district: 'Demo District',
-        gst_number: null,
-        mobile_number: '+1234567890',
-        user_code: 'BUILDER-123456',
-        points: 150,
-        profile_picture_url: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      setUser(mockUser);
-      setLoading(false);
-      return;
-    }
+    let mounted = true;
 
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      if (error) {
-        console.error('Error getting session:', error);
-        setLoading(false);
-        return;
-      }
-      
-      if (session?.user) {
-        fetchUserProfile(session.user);
-      } else {
-        setLoading(false);
-      }
-    }).catch((error) => {
-      console.error('Error in getSession:', error);
-      setLoading(false);
-    });
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.id);
+    const initializeAuth = async () => {
+      try {
+        // Check if we have valid Supabase configuration
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
         
-        if (session?.user) {
+        const isDevelopment = !supabaseUrl || !supabaseKey || 
+                             supabaseUrl.includes('placeholder') || 
+                             supabaseKey.includes('placeholder');
+        
+        if (isDevelopment) {
+          console.log('Running in development mode with mock data');
+          // Create a mock user for development
+          const mockUser: User = {
+            id: 'mock-user-id',
+            email: 'demo@example.com',
+            first_name: 'Demo',
+            last_name: 'User',
+            role: 'builder',
+            city: 'Demo City',
+            address: '123 Demo Street',
+            district: 'Demo District',
+            gst_number: null,
+            mobile_number: '+1234567890',
+            user_code: 'BUILDER-123456',
+            points: 150,
+            profile_picture_url: null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+          
+          if (mounted) {
+            setUser(mockUser);
+            setLoading(false);
+          }
+          return;
+        }
+
+        // Get initial session
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Error getting session:', error);
+          if (mounted) {
+            setLoading(false);
+          }
+          return;
+        }
+        
+        if (session?.user && mounted) {
           await fetchUserProfile(session.user);
-        } else {
-          setUser(null);
+        } else if (mounted) {
+          setLoading(false);
+        }
+
+        // Listen for auth changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+          async (event, session) => {
+            console.log('Auth state changed:', event, session?.user?.id);
+            
+            if (session?.user && mounted) {
+              await fetchUserProfile(session.user);
+            } else if (mounted) {
+              setUser(null);
+              setLoading(false);
+            }
+          }
+        );
+
+        return () => {
+          subscription.unsubscribe();
+        };
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+        if (mounted) {
           setLoading(false);
         }
       }
-    );
+    };
 
-    return () => subscription.unsubscribe();
+    initializeAuth();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const fetchUserProfile = async (authUser: SupabaseUser) => {
