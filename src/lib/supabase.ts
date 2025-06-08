@@ -4,10 +4,16 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables');
+  console.error('Missing Supabase environment variables');
+  console.error('VITE_SUPABASE_URL:', supabaseUrl);
+  console.error('VITE_SUPABASE_ANON_KEY:', supabaseAnonKey ? 'Present' : 'Missing');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Use fallback values for development if env vars are missing
+const fallbackUrl = supabaseUrl || 'https://your-project.supabase.co';
+const fallbackKey = supabaseAnonKey || 'your-anon-key';
+
+export const supabase = createClient(fallbackUrl, fallbackKey);
 
 export type Database = {
   public: {
