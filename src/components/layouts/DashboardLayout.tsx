@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { 
   Menu, 
   X, 
@@ -26,6 +26,7 @@ export default function DashboardLayout() {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   
   // Get the appropriate navigation based on user role
   const navigation = currentUser?.role === 'dealer' ? DEALER_NAVIGATION : USER_NAVIGATION;
@@ -91,6 +92,8 @@ export default function DashboardLayout() {
     );
   }
 
+  const profileImageUrl = currentUser.profile_picture_url ? getProfilePictureUrl(currentUser.profile_picture_url) : null;
+
   return (
     <div className="min-h-[100vh] h-[100vh] flex bg-gray-50 overflow-hidden">
       {/* Mobile sidebar backdrop */}
@@ -132,17 +135,20 @@ export default function DashboardLayout() {
           {/* User info */}
           <div className="p-4 border-b">
             <div className="flex items-center space-x-3">
-              {currentUser.profile_picture_url ? (
+              {profileImageUrl ? (
                 <img
-                  src={getProfilePictureUrl(currentUser.profile_picture_url)}
+                  src={profileImageUrl}
                   alt={currentUser.first_name}
                   className="w-10 h-10 rounded-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                  }}
                 />
-              ) : (
-                <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-semibold">
-                  {currentUser.first_name?.[0]}{currentUser.last_name?.[0]}
-                </div>
-              )}
+              ) : null}
+              <div className={`w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-semibold ${profileImageUrl ? 'hidden' : ''}`}>
+                {currentUser.first_name?.[0]}{currentUser.last_name?.[0]}
+              </div>
               <div>
                 <p className="font-medium text-gray-900">{currentUser.first_name} {currentUser.last_name}</p>
                 <p className="text-xs text-gray-500 capitalize">{currentUser.role}</p>

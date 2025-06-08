@@ -25,5 +25,21 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
 // Helper function to get profile picture URL
 export function getProfilePictureUrl(fileName: string | null): string {
   if (!fileName) return '';
-  return `${supabaseUrl}/storage/v1/object/public/avatars/${fileName}`;
+  
+  try {
+    // Check if it's already a full URL
+    if (fileName.startsWith('http')) {
+      return fileName;
+    }
+    
+    // Create the full URL for Supabase storage
+    const { data } = supabase.storage
+      .from('avatars')
+      .getPublicUrl(fileName);
+    
+    return data.publicUrl;
+  } catch (error) {
+    console.error('Error getting profile picture URL:', error);
+    return '';
+  }
 }

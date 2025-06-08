@@ -24,6 +24,7 @@ export default function UserProfile() {
 
   async function fetchProfile() {
     try {
+      setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
@@ -51,17 +52,38 @@ export default function UserProfile() {
       
       if (!profile) return;
 
+      // Create storage bucket if it doesn't exist
+      const { data: buckets } = await supabase.storage.listBuckets();
+      const avatarsBucket = buckets?.find(bucket => bucket.name === 'avatars');
+      
+      if (!avatarsBucket) {
+        const { error: bucketError } = await supabase.storage.createBucket('avatars', {
+          public: true,
+          allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
+          fileSizeLimit: 2097152 // 2MB
+        });
+        
+        if (bucketError) {
+          console.error('Error creating bucket:', bucketError);
+          // Continue anyway, bucket might already exist
+        }
+      }
+
       // Upload to Supabase Storage
       const fileExt = file.name.split('.').pop();
-      const fileName = `${profile.id}.${fileExt}`;
+      const fileName = `${profile.id}-${Date.now()}.${fileExt}`;
 
       // Delete old profile picture if exists
       if (profile.profile_picture_url) {
-        const oldFileName = profile.profile_picture_url.split('/').pop();
-        if (oldFileName) {
-          await supabase.storage
-            .from('avatars')
-            .remove([oldFileName]);
+        try {
+          const oldFileName = profile.profile_picture_url.split('/').pop();
+          if (oldFileName && !oldFileName.startsWith('http')) {
+            await supabase.storage
+              .from('avatars')
+              .remove([oldFileName]);
+          }
+        } catch (deleteError) {
+          console.warn('Could not delete old profile picture:', deleteError);
         }
       }
 
@@ -78,7 +100,10 @@ export default function UserProfile() {
       // Update user profile with just the filename
       const { error: updateError } = await supabase
         .from('users')
-        .update({ profile_picture_url: fileName })
+        .update({ 
+          profile_picture_url: fileName,
+          updated_at: new Date().toISOString()
+        })
         .eq('id', profile.id);
 
       if (updateError) throw updateError;
@@ -116,7 +141,9 @@ export default function UserProfile() {
         const { error: authError } = await supabase.auth.updateUser({
           email: editedEmail
         });
-        if (authError) throw authError;
+        if (authError) {
+          console.warn('Could not update auth email:', authError);
+        }
       }
 
       setProfile({ ...profile, email: editedEmail, mobile_number: editedPhone });
@@ -145,23 +172,29 @@ export default function UserProfile() {
     );
   }
 
+  const profileImageUrl = profile.profile_picture_url ? getProfilePictureUrl(profile.profile_picture_url) : null;
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="bg-white rounded-lg shadow-md p-6">
         {/* Profile Picture Section */}
         <div className="flex flex-col items-center mb-8">
           <div className="relative">
-            {profile.profile_picture_url ? (
+            {profileImageUrl ? (
               <img
-                src={getProfilePictureUrl(profile.profile_picture_url)}
+                src={profileImageUrl}
                 alt={`${profile.first_name}'s profile`}
                 className="w-32 h-32 rounded-full object-cover border-4 border-white shadow-lg"
+                onError={(e) => {
+                  console.error('Error loading profile image');
+                  e.currentTarget.style.display = 'none';
+                  e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                }}
               />
-            ) : (
-              <div className="w-32 h-32 rounded-full bg-primary-100 flex items-center justify-center border-4 border-white shadow-lg">
-                <User className="w-16 h-16 text-primary-600" />
-              </div>
-            )}
+            ) : null}
+            <div className={`w-32 h-32 rounded-full bg-primary-100 flex items-center justify-center border-4 border-white shadow-lg ${profileImageUrl ? 'hidden' : ''}`}>
+              <User className="w-16 h-16 text-primary-600" />
+            </div>
             <button
               onClick={() => setShowImageUpload(true)}
               className="absolute bottom-0 right-0 bg-white rounded-full p-2 shadow-md hover:bg-gray-50 transition-colors"
@@ -277,7 +310,7 @@ export default function UserProfile() {
           >
             {saving ? (
               <>
-                <LoadingSpinner size="sm\" className="mr-2" />
+                <LoadingSpinner size="sm" className="mr-2" />
                 Saving...
               </>
             ) : (
