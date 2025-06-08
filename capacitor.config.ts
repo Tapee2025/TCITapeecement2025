@@ -31,9 +31,6 @@ const config: CapacitorConfig = {
       resize: 'body',
       style: 'DARK',
       resizeOnFullScreen: true
-    },
-    App: {
-      launchUrl: 'https://tapee-cement-loyalty.netlify.app'
     }
   },
   ios: {
@@ -45,7 +42,7 @@ const config: CapacitorConfig = {
       keystorePassword: undefined,
       keystoreAlias: undefined,
       keystoreAliasPassword: undefined,
-      releaseType: 'APK',
+      releaseType: 'AAB', // Changed to AAB for Play Store
       signingType: 'apksigner'
     }
   }
