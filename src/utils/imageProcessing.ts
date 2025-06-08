@@ -1,7 +1,3 @@
-import Pica from 'pica';
-
-const pica = new Pica();
-
 export async function resizeImage(file: File, maxWidth: number = 1200, maxHeight: number = 800): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -21,28 +17,25 @@ export async function resizeImage(file: File, maxWidth: number = 1200, maxHeight
           height = maxHeight;
         }
 
-        // Create canvases
-        const from = document.createElement('canvas');
-        from.width = img.width;
-        from.height = img.height;
-        const ctx = from.getContext('2d');
+        // Create canvas for resizing
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(width);
+        canvas.height = Math.round(height);
+        
+        const ctx = canvas.getContext('2d');
         if (!ctx) throw new Error('Could not get canvas context');
-        ctx.drawImage(img, 0, 0);
-
-        const to = document.createElement('canvas');
-        to.width = Math.round(width);
-        to.height = Math.round(height);
-
-        // Resize using pica
-        const result = await pica.resize(from, to, {
-          unsharpAmount: 80,
-          unsharpRadius: 0.6,
-          unsharpThreshold: 2
-        });
+        
+        // Draw resized image
+        ctx.drawImage(img, 0, 0, width, height);
 
         // Convert to blob
-        const blob = await pica.toBlob(result, 'image/jpeg', 0.9);
-        resolve(blob);
+        canvas.toBlob((blob) => {
+          if (blob) {
+            resolve(blob);
+          } else {
+            reject(new Error('Failed to create blob'));
+          }
+        }, 'image/jpeg', 0.9);
       } catch (error) {
         reject(error);
       }
