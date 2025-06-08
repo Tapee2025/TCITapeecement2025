@@ -30,15 +30,15 @@ export default function LoginScreen() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100 px-4">
-      <div className="max-w-md w-full space-y-8">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100 safe-area-top safe-area-bottom">
+      <div className="w-full max-w-md mx-4 space-y-6 sm:space-y-8">
         <div className="text-center">
           <img 
             src="/logo.svg" 
             alt="Tapee Cement" 
-            className="mx-auto h-16 w-auto"
+            className="mx-auto h-12 sm:h-16 w-auto"
           />
-          <h2 className="mt-6 text-3xl font-bold text-gray-900">
+          <h2 className="mt-4 sm:mt-6 text-2xl sm:text-3xl font-bold text-gray-900">
             Welcome Back
           </h2>
           <p className="mt-2 text-sm text-gray-600">
@@ -46,19 +46,19 @@ export default function LoginScreen() {
           </p>
         </div>
 
-        <div className="bg-white py-8 px-6 shadow-lg rounded-xl">
-          <form className="space-y-6" onSubmit={handleSubmit}>
+        <div className="bg-white py-6 sm:py-8 px-4 sm:px-6 shadow-lg rounded-xl">
+          <form className="mobile-form" onSubmit={handleSubmit}>
             {error && (
-              <div className="bg-error-50 border border-error-200 text-error-700 px-4 py-3 rounded-lg">
+              <div className="bg-error-50 border border-error-200 text-error-700 px-4 py-3 rounded-lg text-sm">
                 {error}
               </div>
             )}
 
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+            <div className="form-group">
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
                 Email Address
               </label>
-              <div className="relative">
+              <div className="relative mt-1">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Mail className="h-5 w-5 text-gray-400" />
                 </div>
@@ -76,11 +76,11 @@ export default function LoginScreen() {
               </div>
             </div>
 
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+            <div className="form-group">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                 Password
               </label>
-              <div className="relative">
+              <div className="relative mt-1">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Lock className="h-5 w-5 text-gray-400" />
                 </div>
@@ -92,12 +92,12 @@ export default function LoginScreen() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="input-field pl-10 pr-10"
+                  className="input-field pl-10 pr-12"
                   placeholder="Enter your password"
                 />
                 <button
                   type="button"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center touch-target"
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? (
@@ -109,11 +109,11 @@ export default function LoginScreen() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-center sm:justify-between">
               <div className="text-sm">
                 <Link
                   to="/forgot-password"
-                  className="font-medium text-primary-600 hover:text-primary-500"
+                  className="font-medium text-primary-600 hover:text-primary-500 touch-target"
                 >
                   Forgot your password?
                 </Link>
@@ -123,7 +123,7 @@ export default function LoginScreen() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full btn-primary py-3 text-lg"
+              className="w-full btn-primary text-base sm:text-lg"
             >
               {loading ? 'Signing in...' : 'Sign In'}
             </button>

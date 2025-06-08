@@ -86,6 +86,24 @@ export default {
       fontFamily: {
         sans: ['Inter', 'sans-serif'],
       },
+      spacing: {
+        'safe-top': 'env(safe-area-inset-top)',
+        'safe-bottom': 'env(safe-area-inset-bottom)',
+        'safe-left': 'env(safe-area-inset-left)',
+        'safe-right': 'env(safe-area-inset-right)',
+      },
+      minHeight: {
+        'screen-safe': 'calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom))',
+      },
+      maxHeight: {
+        'screen-safe': 'calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom))',
+      },
+      screens: {
+        'xs': '475px',
+        'mobile-landscape': {'raw': '(max-height: 500px) and (orientation: landscape)'},
+        'touch': {'raw': '(hover: none) and (pointer: coarse)'},
+        'no-touch': {'raw': '(hover: hover) and (pointer: fine)'},
+      },
     },
   },
   plugins: [],

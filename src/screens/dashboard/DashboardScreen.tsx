@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { supabase } from '../../lib/supabase';
-import { TrendingUp, Gift, History, Users } from 'lucide-react';
+import { TrendingUp, Gift, History, Users, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface MarketingSlide {
   id: string;
@@ -47,42 +47,50 @@ export default function DashboardScreen() {
     if (!user) return;
 
     try {
-      // Fetch marketing slides
-      const { data: slides } = await supabase
-        .from('marketing_slides')
-        .select('*')
-        .eq('active', true)
-        .order('order_number');
+      // Mock data for development
+      const mockSlides: MarketingSlide[] = [
+        {
+          id: '1',
+          image_url: 'https://images.pexels.com/photos/1216589/pexels-photo-1216589.jpeg?auto=compress&cs=tinysrgb&w=800',
+          title: 'Premium Quality Cement',
+          active: true,
+          order_number: 1
+        },
+        {
+          id: '2',
+          image_url: 'https://images.pexels.com/photos/834892/pexels-photo-834892.jpeg?auto=compress&cs=tinysrgb&w=800',
+          title: 'Build Your Dreams',
+          active: true,
+          order_number: 2
+        }
+      ];
 
-      if (slides) {
-        setMarketingSlides(slides);
-      }
+      const mockTransactions = [
+        {
+          id: '1',
+          description: 'Cement purchase - 50 bags',
+          created_at: new Date().toISOString(),
+          type: 'earned',
+          amount: 500,
+          status: 'approved'
+        },
+        {
+          id: '2',
+          description: 'Cement purchase - 25 bags',
+          created_at: new Date(Date.now() - 86400000).toISOString(),
+          type: 'earned',
+          amount: 250,
+          status: 'pending'
+        }
+      ];
 
-      // Fetch user transactions
-      const { data: transactions } = await supabase
-        .from('transactions')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      // Fetch available rewards
-      const { data: rewards } = await supabase
-        .from('rewards')
-        .select('*')
-        .eq('available', true)
-        .contains('visible_to', [user.role]);
-
-      if (transactions) {
-        const pendingCount = transactions.filter(t => t.status === 'pending').length;
-        const recentTransactions = transactions.slice(0, 5);
-
-        setStats({
-          totalTransactions: transactions.length,
-          pendingTransactions: pendingCount,
-          totalRewards: rewards?.length || 0,
-          recentTransactions,
-        });
-      }
+      setMarketingSlides(mockSlides);
+      setStats({
+        totalTransactions: mockTransactions.length,
+        pendingTransactions: mockTransactions.filter(t => t.status === 'pending').length,
+        totalRewards: 5,
+        recentTransactions: mockTransactions,
+      });
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {
@@ -90,22 +98,30 @@ export default function DashboardScreen() {
     }
   };
 
+  const nextSlide = () => {
+    setCurrentSlide((prev) => (prev + 1) % marketingSlides.length);
+  };
+
+  const prevSlide = () => {
+    setCurrentSlide((prev) => (prev - 1 + marketingSlides.length) % marketingSlides.length);
+  };
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      <div className="mobile-loading">
+        <div className="animate-spin rounded-full h-8 w-8 sm:h-12 sm:w-12 border-b-2 border-primary-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Welcome Section */}
-      <div className="bg-gradient-to-r from-primary-600 to-primary-700 rounded-xl p-6 text-white">
-        <h1 className="text-2xl font-bold mb-2">
+      <div className="bg-gradient-to-r from-primary-600 to-primary-700 rounded-xl p-4 sm:p-6 text-white">
+        <h1 className="text-xl sm:text-2xl font-bold mb-2">
           Welcome back, {user?.first_name}!
         </h1>
-        <p className="text-primary-100">
+        <p className="text-primary-100 text-sm sm:text-base">
           You have {user?.points} loyalty points available
         </p>
       </div>
@@ -113,19 +129,37 @@ export default function DashboardScreen() {
       {/* Marketing Slides */}
       {marketingSlides.length > 0 && (
         <div className="relative bg-white rounded-xl shadow-sm overflow-hidden">
-          <div className="relative h-64">
+          <div className="relative h-48 sm:h-64">
             <img
               src={marketingSlides[currentSlide]?.image_url}
               alt={marketingSlides[currentSlide]?.title}
               className="w-full h-full object-cover"
             />
             <div className="absolute inset-0 bg-black bg-opacity-40 flex items-end">
-              <div className="p-6 text-white">
-                <h3 className="text-xl font-bold">
+              <div className="p-4 sm:p-6 text-white">
+                <h3 className="text-lg sm:text-xl font-bold">
                   {marketingSlides[currentSlide]?.title}
                 </h3>
               </div>
             </div>
+            
+            {/* Navigation arrows for mobile */}
+            {marketingSlides.length > 1 && (
+              <>
+                <button
+                  onClick={prevSlide}
+                  className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white rounded-full p-2 touch-target"
+                >
+                  <ChevronLeft size={20} />
+                </button>
+                <button
+                  onClick={nextSlide}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white rounded-full p-2 touch-target"
+                >
+                  <ChevronRight size={20} />
+                </button>
+              </>
+            )}
           </div>
           
           {marketingSlides.length > 1 && (
@@ -134,7 +168,7 @@ export default function DashboardScreen() {
                 <button
                   key={index}
                   onClick={() => setCurrentSlide(index)}
-                  className={`w-2 h-2 rounded-full transition-colors ${
+                  className={`w-2 h-2 rounded-full transition-colors touch-target ${
                     index === currentSlide ? 'bg-white' : 'bg-white bg-opacity-50'
                   }`}
                 />
@@ -145,51 +179,51 @@ export default function DashboardScreen() {
       )}
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
         <div className="card">
-          <div className="flex items-center">
-            <div className="p-3 bg-primary-100 rounded-lg">
-              <TrendingUp className="h-6 w-6 text-primary-600" />
+          <div className="flex flex-col sm:flex-row sm:items-center">
+            <div className="p-2 sm:p-3 bg-primary-100 rounded-lg mb-2 sm:mb-0 self-start">
+              <TrendingUp className="h-5 w-5 sm:h-6 sm:w-6 text-primary-600" />
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Total Points</p>
-              <p className="text-2xl font-bold text-gray-900">{user?.points}</p>
+            <div className="sm:ml-4">
+              <p className="text-xs sm:text-sm font-medium text-gray-600">Total Points</p>
+              <p className="text-lg sm:text-2xl font-bold text-gray-900">{user?.points}</p>
             </div>
           </div>
         </div>
 
         <div className="card">
-          <div className="flex items-center">
-            <div className="p-3 bg-warning-100 rounded-lg">
-              <History className="h-6 w-6 text-warning-600" />
+          <div className="flex flex-col sm:flex-row sm:items-center">
+            <div className="p-2 sm:p-3 bg-warning-100 rounded-lg mb-2 sm:mb-0 self-start">
+              <History className="h-5 w-5 sm:h-6 sm:w-6 text-warning-600" />
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Transactions</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalTransactions}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="flex items-center">
-            <div className="p-3 bg-error-100 rounded-lg">
-              <Users className="h-6 w-6 text-error-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Pending</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.pendingTransactions}</p>
+            <div className="sm:ml-4">
+              <p className="text-xs sm:text-sm font-medium text-gray-600">Transactions</p>
+              <p className="text-lg sm:text-2xl font-bold text-gray-900">{stats.totalTransactions}</p>
             </div>
           </div>
         </div>
 
         <div className="card">
-          <div className="flex items-center">
-            <div className="p-3 bg-success-100 rounded-lg">
-              <Gift className="h-6 w-6 text-success-600" />
+          <div className="flex flex-col sm:flex-row sm:items-center">
+            <div className="p-2 sm:p-3 bg-error-100 rounded-lg mb-2 sm:mb-0 self-start">
+              <Users className="h-5 w-5 sm:h-6 sm:w-6 text-error-600" />
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Rewards</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalRewards}</p>
+            <div className="sm:ml-4">
+              <p className="text-xs sm:text-sm font-medium text-gray-600">Pending</p>
+              <p className="text-lg sm:text-2xl font-bold text-gray-900">{stats.pendingTransactions}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="flex flex-col sm:flex-row sm:items-center">
+            <div className="p-2 sm:p-3 bg-success-100 rounded-lg mb-2 sm:mb-0 self-start">
+              <Gift className="h-5 w-5 sm:h-6 sm:w-6 text-success-600" />
+            </div>
+            <div className="sm:ml-4">
+              <p className="text-xs sm:text-sm font-medium text-gray-600">Rewards</p>
+              <p className="text-lg sm:text-2xl font-bold text-gray-900">{stats.totalRewards}</p>
             </div>
           </div>
         </div>
@@ -202,17 +236,17 @@ export default function DashboardScreen() {
           <div className="space-y-3">
             {stats.recentTransactions.map((transaction) => (
               <div key={transaction.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="font-medium text-gray-900">{transaction.description}</p>
-                  <p className="text-sm text-gray-600">
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-gray-900 text-sm sm:text-base truncate">{transaction.description}</p>
+                  <p className="text-xs sm:text-sm text-gray-600">
                     {new Date(transaction.created_at).toLocaleDateString()}
                   </p>
                 </div>
-                <div className="text-right">
-                  <p className={`font-semibold ${
+                <div className="text-right ml-4 flex-shrink-0">
+                  <p className={`font-semibold text-sm sm:text-base ${
                     transaction.type === 'earned' ? 'text-success-600' : 'text-error-600'
                   }`}>
-                    {transaction.type === 'earned' ? '+' : '-'}{transaction.amount} points
+                    {transaction.type === 'earned' ? '+' : '-'}{transaction.amount}
                   </p>
                   <p className={`text-xs px-2 py-1 rounded-full ${
                     transaction.status === 'approved' ? 'bg-success-100 text-success-800' :
@@ -226,7 +260,7 @@ export default function DashboardScreen() {
             ))}
           </div>
         ) : (
-          <p className="text-gray-600 text-center py-8">No transactions yet</p>
+          <p className="text-gray-600 text-center py-8 text-sm sm:text-base">No transactions yet</p>
         )}
       </div>
     </div>
