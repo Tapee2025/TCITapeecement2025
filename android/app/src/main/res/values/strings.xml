@@ -1,7 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-    <string name="app_name">Tapee Cement Loyalty</string>
-    <string name="title_activity_main">Tapee Cement Loyalty</string>
-    <string name="package_name">com.tapeecement.loyalty</string>
-    <string name="custom_url_scheme">com.tapeecement.loyalty</string>
-</resources>
