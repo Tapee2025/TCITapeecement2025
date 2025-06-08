@@ -60,7 +60,7 @@ export default function AdminLayout() {
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="flex items-center justify-between p-4 border-b border-gray-800">
+        <div className="flex items-center justify-between p-4 border-b border-gray-800 safe-top">
           <div className="flex items-center space-x-2">
             <img 
               src="/logo.png" 
@@ -84,7 +84,7 @@ export default function AdminLayout() {
         <div className="p-4 border-b border-gray-800">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-full bg-accent-400/20 flex items-center justify-center text-accent-400 font-semibold">
-              {userData?.firstName.charAt(0)}{userData?.lastName.charAt(0)}
+              {userData?.firstName?.charAt(0)}{userData?.lastName?.charAt(0)}
             </div>
             <div>
               <p className="font-medium">{userData?.firstName} {userData?.lastName}</p>
@@ -94,7 +94,7 @@ export default function AdminLayout() {
         </div>
         
         {/* Navigation */}
-        <nav className="p-4 space-y-1">
+        <nav className="p-4 space-y-1 flex-1">
           {ADMIN_NAVIGATION.map((item) => (
             <NavLink
               key={item.name}
@@ -112,7 +112,7 @@ export default function AdminLayout() {
           
           <button
             onClick={handleLogout}
-            className="flex items-center gap-2 px-3 py-2 rounded-md text-gray-300 hover:bg-gray-800 w-full"
+            className="flex items-center gap-2 px-3 py-2 rounded-md text-gray-300 hover:bg-gray-800 w-full mobile-bottom-safe"
           >
             <LogOut size={20} />
             <span>Logout</span>
@@ -123,7 +123,7 @@ export default function AdminLayout() {
       {/* Main content */}
       <div className="lg:pl-64">
         {/* Header */}
-        <header className="sticky top-0 z-10 bg-white border-b border-gray-200 flex justify-between items-center px-4 py-2 sm:px-6">
+        <header className="sticky top-0 z-10 bg-white border-b border-gray-200 flex justify-between items-center px-4 py-2 sm:px-6 safe-top safe-left safe-right">
           <button
             onClick={() => setSidebarOpen(true)}
             className="lg:hidden text-gray-500 hover:text-gray-900"
@@ -159,7 +159,7 @@ export default function AdminLayout() {
         </header>
         
         {/* Page content */}
-        <main className="p-4 sm:p-6">
+        <main className="p-4 sm:p-6 safe-bottom safe-left safe-right">
           <Outlet />
         </main>
       </div>

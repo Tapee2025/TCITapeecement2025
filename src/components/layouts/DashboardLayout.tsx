@@ -112,7 +112,7 @@ export default function DashboardLayout() {
         }`}
       >
         <div className="flex flex-col h-full">
-          <div className="flex items-center justify-between p-4 border-b">
+          <div className="flex items-center justify-between p-4 border-b safe-top">
             <div className="flex items-center space-x-2">
               <img 
                 src="/logo.png" 
@@ -173,7 +173,7 @@ export default function DashboardLayout() {
             ))}
           </nav>
           
-          <div className="p-4 border-t">
+          <div className="p-4 border-t mobile-bottom-safe">
             <button
               onClick={handleLogout}
               className="nav-link text-gray-700 hover:bg-gray-100 w-full"
@@ -188,7 +188,7 @@ export default function DashboardLayout() {
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <header className="sticky top-0 z-10 bg-white border-b border-gray-200 flex justify-between items-center px-4 py-2 sm:px-6 safe-top">
+        <header className="sticky top-0 z-10 bg-white border-b border-gray-200 flex justify-between items-center px-4 py-2 sm:px-6 safe-top safe-left safe-right">
           <button
             onClick={() => setSidebarOpen(true)}
             className="lg:hidden text-gray-500 hover:text-gray-900"
@@ -254,7 +254,7 @@ export default function DashboardLayout() {
         </header>
         
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 safe-bottom">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 safe-bottom safe-left safe-right">
           <Outlet />
         </main>
       </div>
