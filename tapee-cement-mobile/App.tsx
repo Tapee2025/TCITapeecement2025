@@ -4,9 +4,6 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { useFonts } from 'expo-font';
-import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
 
 // Import screens
 import LoginScreen from './src/screens/auth/LoginScreen';
@@ -16,9 +13,6 @@ import GetPointsScreen from './src/screens/dashboard/GetPointsScreen';
 import RewardsScreen from './src/screens/dashboard/RewardsScreen';
 import ProfileScreen from './src/screens/dashboard/ProfileScreen';
 import TransactionsScreen from './src/screens/dashboard/TransactionsScreen';
-
-// Keep the splash screen visible while we fetch resources
-SplashScreen.preventAutoHideAsync();
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -87,26 +81,6 @@ function DashboardTabs() {
 }
 
 export default function App() {
-  const [fontsLoaded] = useFonts({
-    'Inter-Regular': require('./assets/fonts/Inter-Regular.ttf'),
-    'Inter-Medium': require('./assets/fonts/Inter-Medium.ttf'),
-    'Inter-SemiBold': require('./assets/fonts/Inter-SemiBold.ttf'),
-    'Inter-Bold': require('./assets/fonts/Inter-Bold.ttf'),
-  });
-
-  useEffect(() => {
-    async function prepare() {
-      if (fontsLoaded) {
-        await SplashScreen.hideAsync();
-      }
-    }
-    prepare();
-  }, [fontsLoaded]);
-
-  if (!fontsLoaded) {
-    return null;
-  }
-
   return (
     <SafeAreaView style={styles.container}>
       <NavigationContainer>
