@@ -122,9 +122,10 @@ export default function DashboardLayout() {
         <nav className={`
           fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 lg:shadow-sm
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+          flex flex-col h-full
         `}>
           {/* Mobile sidebar header */}
-          <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200 lg:hidden">
+          <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200 lg:hidden flex-shrink-0">
             <div className="flex items-center space-x-2">
               <img 
                 src="/logo.svg" 
@@ -142,7 +143,7 @@ export default function DashboardLayout() {
           </div>
 
           {/* User info on mobile */}
-          <div className="p-4 border-b border-gray-200 lg:hidden">
+          <div className="p-4 border-b border-gray-200 lg:hidden flex-shrink-0">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
                 <User className="h-5 w-5 text-primary-600" />
@@ -160,8 +161,8 @@ export default function DashboardLayout() {
             </div>
           </div>
 
-          {/* Navigation items */}
-          <div className="p-4 flex-1 overflow-y-auto">
+          {/* Navigation items - Scrollable area */}
+          <div className="flex-1 overflow-y-auto p-4">
             <ul className="space-y-2">
               {navItems.map((item) => {
                 const Icon = item.icon;
@@ -188,7 +189,7 @@ export default function DashboardLayout() {
           </div>
 
           {/* Sign out button on mobile */}
-          <div className="p-4 border-t border-gray-200 lg:hidden">
+          <div className="p-4 border-t border-gray-200 lg:hidden flex-shrink-0">
             <button
               onClick={handleSignOut}
               className="flex items-center space-x-3 w-full px-3 py-3 text-gray-600 hover:bg-gray-100 hover:text-gray-900 rounded-lg transition-colors touch-target"
