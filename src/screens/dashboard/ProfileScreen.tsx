@@ -133,7 +133,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator size="small" color="#2979f2" />
+              <ActivityIndicator size="small\" color="#2979f2" />
             ) : (
               <>
                 <Ionicons

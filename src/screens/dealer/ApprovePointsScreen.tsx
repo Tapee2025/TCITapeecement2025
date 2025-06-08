@@ -196,10 +196,10 @@ export default function ApprovePointsScreen({ navigation }: ApprovePointsScreenP
             disabled={processingId === transaction.id}
           >
             {processingId === transaction.id ? (
-              <ActivityIndicator size="small" color="#ef4444" />
+              <ActivityIndicator size="small\" color="#ef4444" />
             ) : (
               <>
-                <Ionicons name="close" size={16} color="#ef4444" />
+                <Ionicons name="close\" size={16} color="#ef4444" />
                 <Text style={[styles.actionButtonText, { color: '#ef4444' }]}>Reject</Text>
               </>
             )}
@@ -210,10 +210,10 @@ export default function ApprovePointsScreen({ navigation }: ApprovePointsScreenP
             disabled={processingId === transaction.id}
           >
             {processingId === transaction.id ? (
-              <ActivityIndicator size="small" color="#fff" />
+              <ActivityIndicator size="small\" color="#fff" />
             ) : (
               <>
-                <Ionicons name="checkmark" size={16} color="#fff" />
+                <Ionicons name="checkmark\" size={16} color="#fff" />
                 <Text style={[styles.actionButtonText, { color: '#fff' }]}>Approve</Text>
               </>
             )}
