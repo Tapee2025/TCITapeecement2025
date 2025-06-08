@@ -52,24 +52,7 @@ export default function UserProfile() {
       
       if (!profile) return;
 
-      // Create storage bucket if it doesn't exist
-      const { data: buckets } = await supabase.storage.listBuckets();
-      const avatarsBucket = buckets?.find(bucket => bucket.name === 'avatars');
-      
-      if (!avatarsBucket) {
-        const { error: bucketError } = await supabase.storage.createBucket('avatars', {
-          public: true,
-          allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
-          fileSizeLimit: 2097152 // 2MB
-        });
-        
-        if (bucketError) {
-          console.error('Error creating bucket:', bucketError);
-          // Continue anyway, bucket might already exist
-        }
-      }
-
-      // Upload to Supabase Storage
+      // Upload to Supabase Storage (assumes 'avatars' bucket already exists)
       const fileExt = file.name.split('.').pop();
       const fileName = `${profile.id}-${Date.now()}.${fileExt}`;
 
