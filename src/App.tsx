@@ -34,56 +34,58 @@ import AdminMarketing from './pages/admin/AdminMarketing';
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <Routes>
-          {/* Auth Routes */}
-          <Route element={<AuthLayout />}>
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-          </Route>
-          
-          {/* User Routes */}
-          <Route element={<ProtectedRoute allowedRoles={['builder', 'contractor']} />}>
-            <Route element={<DashboardLayout />}>
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/get-points" element={<GetPoints />} />
-              <Route path="/redeem" element={<RedeemRewards />} />
-              <Route path="/transactions" element={<TransactionHistory />} />
-              <Route path="/profile" element={<UserProfile />} />
+    <div className="min-h-screen">
+      <AuthProvider>
+        <Router>
+          <Routes>
+            {/* Auth Routes */}
+            <Route element={<AuthLayout />}>
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
             </Route>
-          </Route>
-          
-          {/* Dealer Routes */}
-          <Route element={<ProtectedRoute allowedRoles={['dealer']} />}>
-            <Route element={<DashboardLayout />}>
-              <Route path="/dealer/dashboard" element={<DealerDashboard />} />
-              <Route path="/dealer/approve-points" element={<ApprovePoints />} />
-              <Route path="/dealer/rewards" element={<DealerRewards />} />
-              <Route path="/transactions" element={<TransactionHistory />} />
-              <Route path="/profile" element={<UserProfile />} />
+            
+            {/* User Routes */}
+            <Route element={<ProtectedRoute allowedRoles={['builder', 'contractor']} />}>
+              <Route element={<DashboardLayout />}>
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/get-points" element={<GetPoints />} />
+                <Route path="/redeem" element={<RedeemRewards />} />
+                <Route path="/transactions" element={<TransactionHistory />} />
+                <Route path="/profile" element={<UserProfile />} />
+              </Route>
             </Route>
-          </Route>
-          
-          {/* Admin Routes */}
-          <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
-            <Route element={<AdminLayout />}>
-              <Route path="/admin/dashboard" element={<AdminDashboard />} />
-              <Route path="/admin/users" element={<AdminUsers />} />
-              <Route path="/admin/rewards" element={<AdminRewards />} />
-              <Route path="/admin/approvals" element={<AdminApprovals />} />
-              <Route path="/admin/marketing" element={<AdminMarketing />} />
+            
+            {/* Dealer Routes */}
+            <Route element={<ProtectedRoute allowedRoles={['dealer']} />}>
+              <Route element={<DashboardLayout />}>
+                <Route path="/dealer/dashboard" element={<DealerDashboard />} />
+                <Route path="/dealer/approve-points" element={<ApprovePoints />} />
+                <Route path="/dealer/rewards" element={<DealerRewards />} />
+                <Route path="/transactions" element={<TransactionHistory />} />
+                <Route path="/profile" element={<UserProfile />} />
+              </Route>
             </Route>
-          </Route>
-          
-          {/* Redirect */}
-          <Route path="/" element={<Navigate to="/login\" replace />} />
-          <Route path="*" element={<Navigate to="/login\" replace />} />
-        </Routes>
-        <ToastContainer position="top-right" autoClose={3000} />
-      </Router>
-    </AuthProvider>
+            
+            {/* Admin Routes */}
+            <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+              <Route element={<AdminLayout />}>
+                <Route path="/admin/dashboard" element={<AdminDashboard />} />
+                <Route path="/admin/users" element={<AdminUsers />} />
+                <Route path="/admin/rewards" element={<AdminRewards />} />
+                <Route path="/admin/approvals" element={<AdminApprovals />} />
+                <Route path="/admin/marketing" element={<AdminMarketing />} />
+              </Route>
+            </Route>
+            
+            {/* Redirect */}
+            <Route path="/" element={<Navigate to="/login" replace />} />
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </Routes>
+          <ToastContainer position="top-right" autoClose={3000} />
+        </Router>
+      </AuthProvider>
+    </div>
   );
 }
 

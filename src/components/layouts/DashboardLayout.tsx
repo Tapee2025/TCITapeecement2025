@@ -76,7 +76,7 @@ export default function DashboardLayout() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-[100vh]">
+      <div className="flex justify-center items-center h-screen">
         <LoadingSpinner size="lg" />
       </div>
     );
@@ -84,7 +84,7 @@ export default function DashboardLayout() {
 
   if (!currentUser) {
     return (
-      <div className="flex justify-center items-center h-[100vh]">
+      <div className="flex justify-center items-center h-screen">
         <div className="text-center">
           <p className="text-gray-600">Please log in to continue</p>
         </div>
@@ -95,7 +95,7 @@ export default function DashboardLayout() {
   const profileImageUrl = currentUser.profile_picture_url ? getProfilePictureUrl(currentUser.profile_picture_url) : null;
 
   return (
-    <div className="min-h-[100vh] h-[100vh] flex bg-gray-50 overflow-hidden">
+    <div className="min-h-screen flex bg-gray-50">
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div 
@@ -107,7 +107,7 @@ export default function DashboardLayout() {
       {/* Sidebar */}
       <aside
         id="mobile-sidebar"
-        className={`fixed lg:static top-0 left-0 z-30 w-64 h-full bg-white border-r border-gray-200 transition-transform duration-300 ease-in-out transform lg:translate-x-0 ${
+        className={`fixed lg:static top-0 left-0 z-30 w-64 h-screen bg-white border-r border-gray-200 transition-transform duration-300 ease-in-out transform lg:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -186,7 +186,7 @@ export default function DashboardLayout() {
       </aside>
       
       {/* Main content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
         <header className="sticky top-0 z-10 bg-white border-b border-gray-200 flex justify-between items-center px-4 py-2 sm:px-6 safe-top">
           <button

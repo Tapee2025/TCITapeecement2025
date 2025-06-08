@@ -10,15 +10,15 @@
   html {
     @apply scroll-smooth antialiased;
     -webkit-tap-highlight-color: transparent;
-    height: var(--app-height);
-    overflow: hidden;
+    height: 100vh;
+    overflow-x: hidden;
   }
   
   body {
     @apply bg-gray-50 text-gray-900 font-sans;
-    height: var(--app-height);
-    overflow: hidden;
-    position: fixed;
+    height: 100vh;
+    overflow-x: hidden;
+    position: relative;
     width: 100%;
     /* Prevent pull-to-refresh on iOS */
     overscroll-behavior-y: none;
@@ -26,7 +26,8 @@
   }
   
   #root {
-    height: var(--app-height);
+    height: 100vh;
+    overflow-x: hidden;
   }
   
   /* Improve touch targets on mobile */
