@@ -1,17 +1,11 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { registerSW } from 'virtual:pwa-register';
 import { Capacitor } from '@capacitor/core';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { App as CapacitorApp } from '@capacitor/app';
 import App from './App.tsx';
 import './index.css';
-
-// Register service worker for PWA
-if (!Capacitor.isNativePlatform()) {
-  registerSW({ immediate: true });
-}
 
 // Configure native app features
 if (Capacitor.isNativePlatform()) {
