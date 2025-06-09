@@ -18,17 +18,29 @@ export default function DealerProfile() {
   const [editedEmail, setEditedEmail] = useState('');
   const [editedPhone, setEditedPhone] = useState('');
   const [performanceData, setPerformanceData] = useState({
-    currentMonth: { bags: 0, points: 0, transactions: 0, customers: 0 },
+    currentMonth: { bags: 0, points: 0, transactions: 0, customers: 0, name: '' },
     last3Months: { bags: 0, points: 0, transactions: 0, customers: 0 },
     last6Months: { bags: 0, points: 0, transactions: 0, customers: 0 },
-    yearly: { bags: 0, points: 0, transactions: 0, customers: 0 }
+    yearly: { bags: 0, points: 0, transactions: 0, customers: 0 },
+    lifetime: { bags: 0, points: 0, transactions: 0, customers: 0 }
   });
   const [selectedPeriod, setSelectedPeriod] = useState('currentMonth');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
+  const [showCustomPeriod, setShowCustomPeriod] = useState(false);
 
   useEffect(() => {
     fetchProfile();
     fetchPerformanceData();
   }, []);
+
+  useEffect(() => {
+    if (selectedPeriod === 'custom') {
+      setShowCustomPeriod(true);
+    } else {
+      setShowCustomPeriod(false);
+    }
+  }, [selectedPeriod]);
 
   async function fetchProfile() {
     try {
@@ -67,7 +79,7 @@ export default function DealerProfile() {
       if (!user) return;
 
       // Fetch performance data for all periods
-      const periods = ['current_month', 'last_3_months', 'last_6_months', 'yearly'];
+      const periods = ['current_month', 'last_3_months', 'last_6_months', 'yearly', 'lifetime'];
       const performancePromises = periods.map(period =>
         supabase.rpc('get_performance_metrics', {
           p_dealer_id: user.id,
@@ -77,12 +89,19 @@ export default function DealerProfile() {
 
       const results = await Promise.all(performancePromises);
       
+      // Get current month name
+      const currentMonthName = new Date().toLocaleDateString('en-US', { 
+        month: 'long', 
+        year: 'numeric' 
+      });
+      
       setPerformanceData({
         currentMonth: {
           bags: results[0].data?.[0]?.total_bags_sold || 0,
           points: results[0].data?.[0]?.total_points_approved || 0,
           transactions: results[0].data?.[0]?.total_transactions || 0,
-          customers: results[0].data?.[0]?.unique_customers || 0
+          customers: results[0].data?.[0]?.unique_customers || 0,
+          name: currentMonthName
         },
         last3Months: {
           bags: results[1].data?.[0]?.total_bags_sold || 0,
@@ -101,10 +120,52 @@ export default function DealerProfile() {
           points: results[3].data?.[0]?.total_points_approved || 0,
           transactions: results[3].data?.[0]?.total_transactions || 0,
           customers: results[3].data?.[0]?.unique_customers || 0
+        },
+        lifetime: {
+          bags: results[4].data?.[0]?.total_bags_sold || 0,
+          points: results[4].data?.[0]?.total_points_approved || 0,
+          transactions: results[4].data?.[0]?.total_transactions || 0,
+          customers: results[4].data?.[0]?.unique_customers || 0
         }
       });
     } catch (error) {
       console.error('Error fetching performance data:', error);
+    }
+  }
+
+  async function fetchCustomPeriodData() {
+    if (!customStartDate || !customEndDate) {
+      toast.error('Please select both start and end dates');
+      return;
+    }
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: customData } = await supabase
+        .rpc('get_performance_metrics', {
+          p_dealer_id: user.id,
+          p_period: 'custom',
+          p_start_date: customStartDate,
+          p_end_date: customEndDate
+        });
+
+      setPerformanceData(prev => ({
+        ...prev,
+        currentMonth: {
+          bags: customData?.[0]?.total_bags_sold || 0,
+          points: customData?.[0]?.total_points_approved || 0,
+          transactions: customData?.[0]?.total_transactions || 0,
+          customers: customData?.[0]?.unique_customers || 0,
+          name: `Custom Period (${customStartDate} to ${customEndDate})`
+        }
+      }));
+
+      toast.success('Custom period data loaded');
+    } catch (error) {
+      console.error('Error fetching custom period data:', error);
+      toast.error('Failed to load custom period data');
     }
   }
 
@@ -221,11 +282,13 @@ export default function DealerProfile() {
 
   const getPeriodLabel = () => {
     switch (selectedPeriod) {
-      case 'currentMonth': return 'This Month';
+      case 'currentMonth': return performanceData.currentMonth.name;
       case 'last3Months': return 'Last 3 Months';
       case 'last6Months': return 'Last 6 Months';
-      case 'yearly': return 'This Year';
-      default: return 'This Month';
+      case 'yearly': return new Date().getFullYear().toString();
+      case 'lifetime': return 'All Time';
+      case 'custom': return performanceData.currentMonth.name;
+      default: return performanceData.currentMonth.name;
     }
   };
 
@@ -422,7 +485,7 @@ export default function DealerProfile() {
           >
             {saving ? (
               <>
-                <LoadingSpinner size="sm\" className="mr-2" />
+                <LoadingSpinner size="sm" className="mr-2" />
                 Saving...
               </>
             ) : (
@@ -454,17 +517,44 @@ export default function DealerProfile() {
             <BarChart3 className="mr-2 text-primary-600" size={20} />
             Performance Metrics
           </h3>
-          <div className="mt-4 sm:mt-0">
+          <div className="mt-4 sm:mt-0 flex flex-col sm:flex-row gap-2">
             <select
               value={selectedPeriod}
               onChange={(e) => setSelectedPeriod(e.target.value)}
               className="form-input text-sm"
             >
-              <option value="currentMonth">This Month</option>
+              <option value="currentMonth">Current Month</option>
               <option value="last3Months">Last 3 Months</option>
               <option value="last6Months">Last 6 Months</option>
               <option value="yearly">This Year</option>
+              <option value="lifetime">Lifetime</option>
+              <option value="custom">Custom Period</option>
             </select>
+            
+            {showCustomPeriod && (
+              <div className="flex gap-2">
+                <input
+                  type="date"
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  className="form-input text-sm"
+                  placeholder="Start Date"
+                />
+                <input
+                  type="date"
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  className="form-input text-sm"
+                  placeholder="End Date"
+                />
+                <button
+                  onClick={fetchCustomPeriodData}
+                  className="btn btn-primary btn-sm"
+                >
+                  Apply
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -517,10 +607,10 @@ export default function DealerProfile() {
         {/* Performance Comparison */}
         <div className="pt-6 border-t border-gray-200">
           <h4 className="text-md font-medium text-gray-900 mb-4">Bags Sold Comparison</h4>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div className="text-center p-3 bg-gray-50 rounded-lg">
               <p className="text-lg font-bold text-gray-900">{performanceData.currentMonth.bags}</p>
-              <p className="text-xs text-gray-600">This Month</p>
+              <p className="text-xs text-gray-600">{performanceData.currentMonth.name.split(' ')[0]}</p>
             </div>
             <div className="text-center p-3 bg-gray-50 rounded-lg">
               <p className="text-lg font-bold text-gray-900">{performanceData.last3Months.bags}</p>
@@ -533,6 +623,10 @@ export default function DealerProfile() {
             <div className="text-center p-3 bg-gray-50 rounded-lg">
               <p className="text-lg font-bold text-gray-900">{performanceData.yearly.bags}</p>
               <p className="text-xs text-gray-600">This Year</p>
+            </div>
+            <div className="text-center p-3 bg-gray-50 rounded-lg">
+              <p className="text-lg font-bold text-gray-900">{performanceData.lifetime.bags}</p>
+              <p className="text-xs text-gray-600">Lifetime</p>
             </div>
           </div>
         </div>

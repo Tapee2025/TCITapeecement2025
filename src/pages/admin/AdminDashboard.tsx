@@ -19,18 +19,34 @@ export default function AdminDashboard() {
     totalContractors: 0,
     totalBagsSold: 0,
     activeSlides: 0,
-    monthlyBagsSold: 0,
+    currentMonthBags: 0,
+    currentMonthName: '',
     quarterlyBagsSold: 0,
     halfYearlyBagsSold: 0,
-    yearlyBagsSold: 0
+    yearlyBagsSold: 0,
+    lifetimeBagsSold: 0
   });
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
-  const [performancePeriod, setPerformancePeriod] = useState('monthly');
+  const [performancePeriod, setPerformancePeriod] = useState('current_month');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
+  const [showCustomPeriod, setShowCustomPeriod] = useState(false);
   
   useEffect(() => {
     fetchDashboardData();
   }, []);
-  
+
+  useEffect(() => {
+    if (performancePeriod === 'custom') {
+      setShowCustomPeriod(true);
+    } else {
+      setShowCustomPeriod(false);
+      if (performancePeriod !== 'current_month') {
+        fetchPerformanceData();
+      }
+    }
+  }, [performancePeriod]);
+
   async function fetchDashboardData() {
     try {
       setLoading(true);
@@ -93,49 +109,42 @@ export default function AdminDashboard() {
 
       if (slidesError) throw slidesError;
 
+      // Get current month performance with month name
+      const { data: currentMonthPerf, error: currentMonthError } = await supabase
+        .rpc('get_performance_metrics', {
+          p_dealer_id: null, // For admin, we'll aggregate all dealers
+          p_period: 'current_month'
+        });
+
+      if (currentMonthError) console.error('Current month error:', currentMonthError);
+
       // Get performance metrics for different periods
-      const currentDate = new Date();
-      const currentYear = currentDate.getFullYear();
-      const currentMonth = currentDate.getMonth() + 1;
-
-      // Monthly performance (current month)
-      const { data: monthlyPerf } = await supabase
-        .from('monthly_performance')
-        .select('total_bags_sold')
-        .eq('year', currentYear)
-        .eq('month', currentMonth);
-
-      const monthlyBagsSold = monthlyPerf?.reduce((sum, p) => sum + p.total_bags_sold, 0) || 0;
-
-      // Quarterly performance (last 3 months)
-      const threeMonthsAgo = new Date();
-      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-      
       const { data: quarterlyPerf } = await supabase
         .from('monthly_performance')
         .select('total_bags_sold')
-        .gte('created_at', threeMonthsAgo.toISOString());
+        .gte('created_at', new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString());
 
       const quarterlyBagsSold = quarterlyPerf?.reduce((sum, p) => sum + p.total_bags_sold, 0) || 0;
 
-      // Half-yearly performance (last 6 months)
-      const sixMonthsAgo = new Date();
-      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-      
       const { data: halfYearlyPerf } = await supabase
         .from('monthly_performance')
         .select('total_bags_sold')
-        .gte('created_at', sixMonthsAgo.toISOString());
+        .gte('created_at', new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString());
 
       const halfYearlyBagsSold = halfYearlyPerf?.reduce((sum, p) => sum + p.total_bags_sold, 0) || 0;
 
-      // Yearly performance
       const { data: yearlyPerf } = await supabase
         .from('monthly_performance')
         .select('total_bags_sold')
-        .eq('year', currentYear);
+        .eq('year', new Date().getFullYear());
 
       const yearlyBagsSold = yearlyPerf?.reduce((sum, p) => sum + p.total_bags_sold, 0) || 0;
+
+      // Get current month name
+      const currentMonthName = new Date().toLocaleDateString('en-US', { 
+        month: 'long', 
+        year: 'numeric' 
+      });
 
       // Get recent activity (all transactions)
       const { data: recentTransactions, error: transactionsError } = await supabase
@@ -170,10 +179,12 @@ export default function AdminDashboard() {
         totalContractors: contractorCount,
         totalBagsSold,
         activeSlides: activeSlides?.length || 0,
-        monthlyBagsSold,
+        currentMonthBags: currentMonthPerf?.[0]?.total_bags_sold || 0,
+        currentMonthName,
         quarterlyBagsSold,
         halfYearlyBagsSold,
-        yearlyBagsSold
+        yearlyBagsSold,
+        lifetimeBagsSold: totalBagsSold
       });
 
       setRecentActivity(recentTransactions || []);
@@ -185,23 +196,70 @@ export default function AdminDashboard() {
     }
   }
 
+  async function fetchPerformanceData() {
+    try {
+      // This would be implemented to fetch aggregated performance data for all dealers
+      // For now, we'll use the existing data
+    } catch (error) {
+      console.error('Error fetching performance data:', error);
+    }
+  }
+
+  async function fetchCustomPeriodData() {
+    if (!customStartDate || !customEndDate) {
+      toast.error('Please select both start and end dates');
+      return;
+    }
+
+    try {
+      // Calculate custom period performance from transactions
+      const { data: customTransactions, error } = await supabase
+        .from('transactions')
+        .select('amount, status')
+        .eq('type', 'earned')
+        .in('status', ['approved', 'dealer_approved'])
+        .gte('created_at', customStartDate)
+        .lte('created_at', customEndDate + 'T23:59:59');
+
+      if (error) throw error;
+
+      const customPeriodPoints = customTransactions?.reduce((sum, t) => sum + t.amount, 0) || 0;
+      const customPeriodBags = Math.floor(customPeriodPoints / 10);
+
+      setStats(prev => ({
+        ...prev,
+        currentMonthBags: customPeriodBags,
+        currentMonthName: `Custom Period (${customStartDate} to ${customEndDate})`
+      }));
+
+      toast.success('Custom period data loaded');
+    } catch (error) {
+      console.error('Error fetching custom period data:', error);
+      toast.error('Failed to load custom period data');
+    }
+  }
+
   const getPerformanceValue = () => {
     switch (performancePeriod) {
-      case 'monthly': return stats.monthlyBagsSold;
+      case 'current_month': return stats.currentMonthBags;
       case 'quarterly': return stats.quarterlyBagsSold;
-      case 'half-yearly': return stats.halfYearlyBagsSold;
+      case 'half_yearly': return stats.halfYearlyBagsSold;
       case 'yearly': return stats.yearlyBagsSold;
-      default: return stats.monthlyBagsSold;
+      case 'lifetime': return stats.lifetimeBagsSold;
+      case 'custom': return stats.currentMonthBags;
+      default: return stats.currentMonthBags;
     }
   };
 
   const getPerformanceLabel = () => {
     switch (performancePeriod) {
-      case 'monthly': return 'This Month';
+      case 'current_month': return stats.currentMonthName;
       case 'quarterly': return 'Last 3 Months';
-      case 'half-yearly': return 'Last 6 Months';
-      case 'yearly': return 'This Year';
-      default: return 'This Month';
+      case 'half_yearly': return 'Last 6 Months';
+      case 'yearly': return new Date().getFullYear().toString();
+      case 'lifetime': return 'All Time';
+      case 'custom': return stats.currentMonthName;
+      default: return stats.currentMonthName;
     }
   };
   
@@ -255,17 +313,44 @@ export default function AdminDashboard() {
             <BarChart3 className="mr-2 text-primary-600" size={20} />
             Performance Metrics
           </h3>
-          <div className="mt-4 sm:mt-0">
+          <div className="mt-4 sm:mt-0 flex flex-col sm:flex-row gap-2">
             <select
               value={performancePeriod}
               onChange={(e) => setPerformancePeriod(e.target.value)}
               className="form-input text-sm"
             >
-              <option value="monthly">Monthly</option>
-              <option value="quarterly">3 Months</option>
-              <option value="half-yearly">6 Months</option>
-              <option value="yearly">Yearly</option>
+              <option value="current_month">Current Month</option>
+              <option value="quarterly">Last 3 Months</option>
+              <option value="half_yearly">Last 6 Months</option>
+              <option value="yearly">This Year</option>
+              <option value="lifetime">Lifetime</option>
+              <option value="custom">Custom Period</option>
             </select>
+            
+            {showCustomPeriod && (
+              <div className="flex gap-2">
+                <input
+                  type="date"
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  className="form-input text-sm"
+                  placeholder="Start Date"
+                />
+                <input
+                  type="date"
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  className="form-input text-sm"
+                  placeholder="End Date"
+                />
+                <button
+                  onClick={fetchCustomPeriodData}
+                  className="btn btn-primary btn-sm"
+                >
+                  Apply
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -318,10 +403,10 @@ export default function AdminDashboard() {
         {/* Performance Comparison */}
         <div className="mt-6 pt-6 border-t border-gray-200">
           <h4 className="text-md font-medium text-gray-900 mb-4">Bags Sold Comparison</h4>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div className="text-center p-3 bg-gray-50 rounded-lg">
-              <p className="text-lg font-bold text-gray-900">{stats.monthlyBagsSold}</p>
-              <p className="text-xs text-gray-600">This Month</p>
+              <p className="text-lg font-bold text-gray-900">{stats.currentMonthBags}</p>
+              <p className="text-xs text-gray-600">{stats.currentMonthName}</p>
             </div>
             <div className="text-center p-3 bg-gray-50 rounded-lg">
               <p className="text-lg font-bold text-gray-900">{stats.quarterlyBagsSold}</p>
@@ -334,6 +419,10 @@ export default function AdminDashboard() {
             <div className="text-center p-3 bg-gray-50 rounded-lg">
               <p className="text-lg font-bold text-gray-900">{stats.yearlyBagsSold}</p>
               <p className="text-xs text-gray-600">This Year</p>
+            </div>
+            <div className="text-center p-3 bg-gray-50 rounded-lg">
+              <p className="text-lg font-bold text-gray-900">{stats.lifetimeBagsSold}</p>
+              <p className="text-xs text-gray-600">All Time</p>
             </div>
           </div>
         </div>
