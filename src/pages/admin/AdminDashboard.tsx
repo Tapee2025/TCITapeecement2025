@@ -109,44 +109,58 @@ export default function AdminDashboard() {
 
       if (slidesError) throw slidesError;
 
-      // Get current month performance with month name - explicitly pass null for optional parameters
-      const { data: currentMonthPerf, error: currentMonthError } = await supabase
-        .rpc('get_performance_metrics', {
-          p_dealer_id: null, // For admin, we'll aggregate all dealers
-          p_period: 'current_month',
-          p_start_date: null,
-          p_end_date: null
-        });
-
-      if (currentMonthError) console.error('Current month error:', currentMonthError);
-
-      // Get performance metrics for different periods
-      const { data: quarterlyPerf } = await supabase
-        .from('monthly_performance')
-        .select('total_bags_sold')
-        .gte('created_at', new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString());
-
-      const quarterlyBagsSold = quarterlyPerf?.reduce((sum, p) => sum + p.total_bags_sold, 0) || 0;
-
-      const { data: halfYearlyPerf } = await supabase
-        .from('monthly_performance')
-        .select('total_bags_sold')
-        .gte('created_at', new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString());
-
-      const halfYearlyBagsSold = halfYearlyPerf?.reduce((sum, p) => sum + p.total_bags_sold, 0) || 0;
-
-      const { data: yearlyPerf } = await supabase
-        .from('monthly_performance')
-        .select('total_bags_sold')
-        .eq('year', new Date().getFullYear());
-
-      const yearlyBagsSold = yearlyPerf?.reduce((sum, p) => sum + p.total_bags_sold, 0) || 0;
-
       // Get current month name
       const currentMonthName = new Date().toLocaleDateString('en-US', { 
         month: 'long', 
         year: 'numeric' 
       });
+
+      // Calculate performance metrics for different periods using direct transaction queries
+      const now = new Date();
+      const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+      const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+      const yearStart = new Date(now.getFullYear(), 0, 1);
+
+      // Current month bags
+      const { data: currentMonthTransactions } = await supabase
+        .from('transactions')
+        .select('amount')
+        .eq('type', 'earned')
+        .eq('status', 'approved')
+        .gte('created_at', currentMonthStart.toISOString());
+
+      const currentMonthBags = Math.floor((currentMonthTransactions?.reduce((sum, t) => sum + t.amount, 0) || 0) / 10);
+
+      // Last 3 months bags
+      const { data: quarterlyTransactions } = await supabase
+        .from('transactions')
+        .select('amount')
+        .eq('type', 'earned')
+        .eq('status', 'approved')
+        .gte('created_at', threeMonthsAgo.toISOString());
+
+      const quarterlyBagsSold = Math.floor((quarterlyTransactions?.reduce((sum, t) => sum + t.amount, 0) || 0) / 10);
+
+      // Last 6 months bags
+      const { data: halfYearlyTransactions } = await supabase
+        .from('transactions')
+        .select('amount')
+        .eq('type', 'earned')
+        .eq('status', 'approved')
+        .gte('created_at', sixMonthsAgo.toISOString());
+
+      const halfYearlyBagsSold = Math.floor((halfYearlyTransactions?.reduce((sum, t) => sum + t.amount, 0) || 0) / 10);
+
+      // This year bags
+      const { data: yearlyTransactions } = await supabase
+        .from('transactions')
+        .select('amount')
+        .eq('type', 'earned')
+        .eq('status', 'approved')
+        .gte('created_at', yearStart.toISOString());
+
+      const yearlyBagsSold = Math.floor((yearlyTransactions?.reduce((sum, t) => sum + t.amount, 0) || 0) / 10);
 
       // Get recent activity (all transactions)
       const { data: recentTransactions, error: transactionsError } = await supabase
@@ -181,7 +195,7 @@ export default function AdminDashboard() {
         totalContractors: contractorCount,
         totalBagsSold,
         activeSlides: activeSlides?.length || 0,
-        currentMonthBags: currentMonthPerf?.[0]?.total_bags_sold || 0,
+        currentMonthBags,
         currentMonthName,
         quarterlyBagsSold,
         halfYearlyBagsSold,
@@ -217,9 +231,9 @@ export default function AdminDashboard() {
       // Calculate custom period performance from transactions
       const { data: customTransactions, error } = await supabase
         .from('transactions')
-        .select('amount, status')
+        .select('amount')
         .eq('type', 'earned')
-        .in('status', ['approved', 'dealer_approved'])
+        .eq('status', 'approved')
         .gte('created_at', customStartDate)
         .lte('created_at', customEndDate + 'T23:59:59');
 
