@@ -1,9 +1,9 @@
-import { DivideIcon as LucideIcon } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 interface DashboardCardProps {
   title: string;
   value: string | number;
-  icon: LucideIcon;
+  icon: typeof LucideIcon;
   bgColor?: string;
   changeValue?: string | number;
   changeType?: 'increase' | 'decrease' | 'neutral';

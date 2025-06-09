@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Upload, X, Image as ImageIcon } from 'lucide-react';
+import { X, Image as ImageIcon } from 'lucide-react';
 import { resizeImage, isValidImageFile, formatFileSize } from '../../utils/imageProcessing';
 import LoadingSpinner from './LoadingSpinner';
 
