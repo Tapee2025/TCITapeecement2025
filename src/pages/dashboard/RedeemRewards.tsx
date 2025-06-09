@@ -231,7 +231,7 @@ export default function RedeemRewards() {
               >
                 {loading ? (
                   <>
-                    <LoadingSpinner size="sm" className="mr-2" />
+                    <LoadingSpinner size="sm\" className="mr-2" />
                     Processing...
                   </>
                 ) : (
