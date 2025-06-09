@@ -82,8 +82,8 @@ function App() {
             </Route>
             
             {/* Redirect */}
-            <Route path="/" element={<Navigate to="/login" replace />} />
-            <Route path="*" element={<Navigate to="/login" replace />} />
+            <Route path="/" element={<Navigate to="/login\" replace />} />
+            <Route path="*" element={<Navigate to="/login\" replace />} />
           </Routes>
           <ToastContainer position="top-right" autoClose={3000} />
         </Router>
