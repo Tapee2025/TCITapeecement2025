@@ -3,7 +3,7 @@ import type { LucideIcon } from 'lucide-react';
 interface DashboardCardProps {
   title: string;
   value: string | number;
-  icon: typeof LucideIcon;
+  icon: React.ComponentType<{ size?: number }>; // ✅ FIXED
   bgColor?: string;
   changeValue?: string | number;
   changeType?: 'increase' | 'decrease' | 'neutral';
