@@ -109,11 +109,13 @@ export default function AdminDashboard() {
 
       if (slidesError) throw slidesError;
 
-      // Get current month performance with month name
+      // Get current month performance with month name - explicitly pass null for optional parameters
       const { data: currentMonthPerf, error: currentMonthError } = await supabase
         .rpc('get_performance_metrics', {
           p_dealer_id: null, // For admin, we'll aggregate all dealers
-          p_period: 'current_month'
+          p_period: 'current_month',
+          p_start_date: null,
+          p_end_date: null
         });
 
       if (currentMonthError) console.error('Current month error:', currentMonthError);

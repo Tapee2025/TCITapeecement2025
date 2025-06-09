@@ -99,35 +99,45 @@ export default function DealerDashboard() {
 
       const uniqueCustomers = new Set(customerData?.map(t => t.user_id)).size;
 
-      // Get performance metrics for different periods
+      // Get performance metrics for different periods - explicitly pass null for optional parameters
       const { data: currentMonthData } = await supabase
         .rpc('get_performance_metrics', {
           p_dealer_id: user.id,
-          p_period: 'current_month'
+          p_period: 'current_month',
+          p_start_date: null,
+          p_end_date: null
         });
 
       const { data: last3MonthsData } = await supabase
         .rpc('get_performance_metrics', {
           p_dealer_id: user.id,
-          p_period: 'last_3_months'
+          p_period: 'last_3_months',
+          p_start_date: null,
+          p_end_date: null
         });
 
       const { data: last6MonthsData } = await supabase
         .rpc('get_performance_metrics', {
           p_dealer_id: user.id,
-          p_period: 'last_6_months'
+          p_period: 'last_6_months',
+          p_start_date: null,
+          p_end_date: null
         });
 
       const { data: yearlyData } = await supabase
         .rpc('get_performance_metrics', {
           p_dealer_id: user.id,
-          p_period: 'yearly'
+          p_period: 'yearly',
+          p_start_date: null,
+          p_end_date: null
         });
 
       const { data: lifetimeData } = await supabase
         .rpc('get_performance_metrics', {
           p_dealer_id: user.id,
-          p_period: 'lifetime'
+          p_period: 'lifetime',
+          p_start_date: null,
+          p_end_date: null
         });
 
       // Get current month name

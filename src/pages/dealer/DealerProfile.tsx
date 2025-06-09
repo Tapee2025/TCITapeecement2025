@@ -78,12 +78,14 @@ export default function DealerProfile() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Fetch performance data for all periods
+      // Fetch performance data for all periods - explicitly pass null for optional parameters
       const periods = ['current_month', 'last_3_months', 'last_6_months', 'yearly', 'lifetime'];
       const performancePromises = periods.map(period =>
         supabase.rpc('get_performance_metrics', {
           p_dealer_id: user.id,
-          p_period: period
+          p_period: period,
+          p_start_date: null,
+          p_end_date: null
         })
       );
 
