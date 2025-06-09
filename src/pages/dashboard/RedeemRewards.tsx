@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Database } from '../../lib/database.types';
 import { formatDate } from '../../utils/helpers';
-import { Gift, Search, Award, CheckCircle } from 'lucide-react';
+import { Gift, Search, Award, CheckCircle, Filter } from 'lucide-react';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { toast } from 'react-toastify';
 
@@ -17,7 +17,7 @@ export default function RedeemRewards() {
   const [confirmationStep, setConfirmationStep] = useState(false);
   const [redemptionComplete, setRedemptionComplete] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [showFilters, setShowFilters] = useState(false);
   
   useEffect(() => {
     fetchUserDataAndRewards();
@@ -120,22 +120,13 @@ export default function RedeemRewards() {
     fetchUserDataAndRewards(); // Refresh data
   };
 
-  // Filter rewards based on search and category
+  // Filter rewards based on search
   const filteredRewards = rewards.filter(reward => {
     const searchString = searchQuery.toLowerCase();
-    const matchesSearch = 
+    return (
       reward.title.toLowerCase().includes(searchString) || 
-      reward.description.toLowerCase().includes(searchString);
-    
-    if (categoryFilter === 'all') return matchesSearch;
-    
-    const categoryMap: Record<string, string[]> = {
-      'discount': ['Cash Discount'],
-      'travel': ['Goa Tour Package'],
-      'merchandise': ['Office Chair', 'Premium Toolbox']
-    };
-    
-    return matchesSearch && categoryMap[categoryFilter]?.includes(reward.title);
+      reward.description.toLowerCase().includes(searchString)
+    );
   });
   
   if (loading) {
@@ -150,18 +141,18 @@ export default function RedeemRewards() {
   if (redemptionComplete) {
     return (
       <div className="max-w-lg mx-auto mt-8">
-        <div className="card p-8 text-center">
+        <div className="bg-white rounded-xl p-6 shadow-sm border text-center">
           <div className="w-16 h-16 bg-success-100 text-success-600 rounded-full flex items-center justify-center mx-auto mb-4">
             <CheckCircle size={32} />
           </div>
-          <h2 className="text-2xl font-bold mb-2">Redemption Request Submitted!</h2>
+          <h2 className="text-xl font-bold mb-2">Request Submitted!</h2>
           <p className="text-gray-600 mb-6">
             Your request to redeem <strong>{selectedReward?.title}</strong> for <strong>{selectedReward?.points_required} points</strong> has
             been submitted. Our team will review and process your redemption shortly.
           </p>
           <button
             onClick={handleResetRedemption}
-            className="btn btn-primary"
+            className="btn btn-primary w-full"
           >
             Browse More Rewards
           </button>
@@ -173,72 +164,70 @@ export default function RedeemRewards() {
   // Confirmation step
   if (confirmationStep && selectedReward) {
     return (
-      <div className="max-w-3xl mx-auto">
+      <div className="space-y-4">
         <button
           onClick={() => setConfirmationStep(false)}
-          className="text-primary-600 flex items-center mb-6"
+          className="text-primary-600 flex items-center text-sm"
         >
-          <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path>
           </svg>
           Back to rewards
         </button>
         
-        <div className="card overflow-hidden">
-          <div className="grid grid-cols-1 md:grid-cols-2">
-            <div className="h-64 md:h-auto">
-              <img
-                src={selectedReward.image_url}
-                alt={selectedReward.title}
-                className="w-full h-full object-cover"
-              />
+        <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+          <div className="h-48">
+            <img
+              src={selectedReward.image_url}
+              alt={selectedReward.title}
+              className="w-full h-full object-cover"
+            />
+          </div>
+          <div className="p-6">
+            <h2 className="text-xl font-bold mb-2">{selectedReward.title}</h2>
+            <div className="flex items-center mb-4">
+              <Gift className="text-primary-600 mr-2" size={20} />
+              <span className="font-semibold text-lg text-primary-700">
+                {selectedReward.points_required} Points
+              </span>
             </div>
-            <div className="p-6">
-              <h2 className="text-2xl font-bold mb-2">{selectedReward.title}</h2>
-              <div className="flex items-center mb-4">
-                <Gift className="text-primary-600 mr-2" size={20} />
-                <span className="font-semibold text-lg text-primary-700">
-                  {selectedReward.points_required} Points
+            <p className="text-gray-600 mb-4">{selectedReward.description}</p>
+            <p className="text-sm text-gray-500 mb-6">
+              Available until: {formatDate(selectedReward.expiry_date)}
+            </p>
+            
+            <div className="bg-gray-50 p-4 rounded-lg mb-6">
+              <div className="flex justify-between mb-2">
+                <span className="text-gray-600">Your Points:</span>
+                <span className="font-semibold">{userData?.points || 0}</span>
+              </div>
+              <div className="flex justify-between mb-2">
+                <span className="text-gray-600">Points Required:</span>
+                <span className="font-semibold">{selectedReward.points_required}</span>
+              </div>
+              <div className="border-t border-gray-200 my-2"></div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Remaining Points:</span>
+                <span className="font-semibold">
+                  {(userData?.points || 0) - selectedReward.points_required}
                 </span>
               </div>
-              <p className="text-gray-600 mb-4">{selectedReward.description}</p>
-              <p className="text-sm text-gray-500 mb-6">
-                Available until: {formatDate(selectedReward.expiry_date)}
-              </p>
-              
-              <div className="bg-gray-50 p-4 rounded-md mb-6">
-                <div className="flex justify-between mb-2">
-                  <span className="text-gray-600">Your Points:</span>
-                  <span className="font-semibold">{userData?.points || 0}</span>
-                </div>
-                <div className="flex justify-between mb-2">
-                  <span className="text-gray-600">Points Required:</span>
-                  <span className="font-semibold">{selectedReward.points_required}</span>
-                </div>
-                <div className="border-t border-gray-200 my-2"></div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Remaining Points:</span>
-                  <span className="font-semibold">
-                    {(userData?.points || 0) - selectedReward.points_required}
-                  </span>
-                </div>
-              </div>
-              
-              <button
-                onClick={handleConfirmRedemption}
-                className="btn btn-primary w-full"
-                disabled={loading}
-              >
-                {loading ? (
-                  <>
-                    <LoadingSpinner size="sm" className="mr-2" />
-                    Processing...
-                  </>
-                ) : (
-                  'Confirm Redemption'
-                )}
-              </button>
             </div>
+            
+            <button
+              onClick={handleConfirmRedemption}
+              className="btn btn-primary w-full"
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <LoadingSpinner size="sm" className="mr-2" />
+                  Processing...
+                </>
+              ) : (
+                'Confirm Redemption'
+              )}
+            </button>
           </div>
         </div>
       </div>
@@ -246,73 +235,66 @@ export default function RedeemRewards() {
   }
   
   return (
-    <div>
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
-        <div>
-          <h1 className="text-2xl font-bold mb-1">Redeem Rewards</h1>
-          <p className="text-gray-600">
-            You have <span className="font-semibold text-primary-700">{userData?.points || 0} points</span> available
-          </p>
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-primary-600 to-primary-700 rounded-xl p-4 text-white">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold">Redeem Rewards</h1>
+            <p className="text-primary-100 text-sm">Choose from available rewards</p>
+          </div>
+          <div className="text-right">
+            <p className="text-primary-100 text-xs">Available Points</p>
+            <p className="text-2xl font-bold">{userData?.points || 0}</p>
+          </div>
         </div>
       </div>
       
-      {/* Filters and Search */}
-      <div className="card p-4 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="md:col-span-1">
-            <label htmlFor="categoryFilter" className="form-label">Filter by Category</label>
-            <select
-              id="categoryFilter"
-              className="form-input"
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-            >
-              <option value="all">All Rewards</option>
-              <option value="discount">Cash Discounts</option>
-              <option value="travel">Travel & Tours</option>
-              <option value="merchandise">Merchandise</option>
-            </select>
+      {/* Search and Filters */}
+      <div className="bg-white rounded-lg shadow-sm border p-4">
+        <div className="flex items-center space-x-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+            <input
+              type="text"
+              className="form-input pl-10 text-sm"
+              placeholder="Search rewards..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
-          
-          <div className="md:col-span-2">
-            <label htmlFor="search" className="form-label">Search Rewards</label>
-            <div className="relative">
-              <input
-                id="search"
-                type="text"
-                className="form-input pl-10"
-                placeholder="Search by name or description..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
-            </div>
-          </div>
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="btn btn-outline btn-sm flex items-center"
+          >
+            <Filter size={16} className="mr-1" />
+            Filter
+          </button>
         </div>
       </div>
       
       {/* Rewards Grid */}
-      {rewards.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {rewards.map((reward) => {
+      {filteredRewards.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {filteredRewards.map((reward) => {
             const canRedeem = (userData?.points || 0) >= reward.points_required;
             
             return (
               <div
                 key={reward.id}
-                className={`card overflow-hidden transition-all duration-300 ${
+                className={`bg-white rounded-lg shadow-sm border overflow-hidden transition-all duration-300 ${
                   canRedeem ? 'hover:shadow-md' : 'opacity-70'
                 }`}
               >
-                <div className="h-40 overflow-hidden relative">
+                <div className="h-32 overflow-hidden relative">
                   <img
                     src={reward.image_url}
                     alt={reward.title}
-                    className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                    className="w-full h-full object-cover"
                   />
                   {!canRedeem && (
                     <div className="absolute inset-0 bg-gray-900/40 flex items-center justify-center">
-                      <div className="bg-white/90 px-3 py-1 rounded-md text-sm font-medium">
+                      <div className="bg-white/90 px-2 py-1 rounded text-xs font-medium">
                         Insufficient Points
                       </div>
                     </div>
@@ -320,23 +302,23 @@ export default function RedeemRewards() {
                 </div>
                 <div className="p-4">
                   <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-semibold">{reward.title}</h3>
-                    <div className="flex items-center bg-primary-50 text-primary-700 px-2 py-1 rounded-md text-sm">
-                      <Award size={14} className="mr-1" />
+                    <h3 className="font-semibold text-sm">{reward.title}</h3>
+                    <div className="flex items-center bg-primary-50 text-primary-700 px-2 py-1 rounded text-xs">
+                      <Award size={12} className="mr-1" />
                       <span>{reward.points_required}</span>
                     </div>
                   </div>
-                  <p className="text-gray-600 text-sm mb-4">{reward.description}</p>
+                  <p className="text-gray-600 text-xs mb-3 line-clamp-2">{reward.description}</p>
                   <div className="flex justify-between items-center">
                     <span className="text-xs text-gray-500">
                       Expires: {formatDate(reward.expiry_date)}
                     </span>
                     <button
                       onClick={() => handleSelectReward(reward)}
-                      className={`btn ${canRedeem ? 'btn-primary' : 'btn-outline'} btn-sm`}
+                      className={`btn ${canRedeem ? 'btn-primary' : 'btn-outline'} btn-sm text-xs`}
                       disabled={!canRedeem}
                     >
-                      {canRedeem ? 'Redeem' : 'Not Enough Points'}
+                      {canRedeem ? 'Redeem' : 'Not Enough'}
                     </button>
                   </div>
                 </div>
@@ -345,7 +327,7 @@ export default function RedeemRewards() {
           })}
         </div>
       ) : (
-        <div className="card p-8 text-center">
+        <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
           <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Gift size={24} className="text-gray-400" />
           </div>
@@ -353,7 +335,7 @@ export default function RedeemRewards() {
           <p className="text-gray-600">
             {searchQuery 
               ? `No rewards match your search for "${searchQuery}"`
-              : 'No rewards available in this category'}
+              : 'No rewards available at the moment'}
           </p>
         </div>
       )}

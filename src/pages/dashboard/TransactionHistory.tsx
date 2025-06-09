@@ -1,25 +1,19 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Database } from '../../lib/database.types';
-import { ArrowDownUp, ArrowUp, ArrowDown, FileText, Download } from 'lucide-react';
+import { ArrowUp, ArrowDown, FileText, Download, Filter, Calendar } from 'lucide-react';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { toast } from 'react-toastify';
 
 type Transaction = Database['public']['Tables']['transactions']['Row'];
-
-// Define a proper type for sortable keys
-type SortableTransactionKey = 'created_at' | 'type' | 'amount' | 'status';
 
 export default function TransactionHistory() {
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
   const [typeFilter, setTypeFilter] = useState('all');
-  const [dateFilter, setDateFilter] = useState('all');
-  const [sortConfig, setSortConfig] = useState<{
-    key: SortableTransactionKey;
-    direction: 'asc' | 'desc';
-  }>({ key: 'created_at', direction: 'desc' });
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [showFilters, setShowFilters] = useState(false);
   
   useEffect(() => {
     fetchTransactions();
@@ -63,7 +57,7 @@ export default function TransactionHistory() {
     }
   }
   
-  // Apply filters and sorting
+  // Apply filters
   useEffect(() => {
     if (!transactions.length) return;
     
@@ -74,53 +68,13 @@ export default function TransactionHistory() {
       filtered = filtered.filter(transaction => transaction.type === typeFilter);
     }
     
-    // Apply date filter
-    if (dateFilter !== 'all') {
-      const now = new Date();
-      let dateThreshold = new Date();
-      
-      switch (dateFilter) {
-        case 'last7days':
-          dateThreshold.setDate(now.getDate() - 7);
-          break;
-        case 'last30days':
-          dateThreshold.setDate(now.getDate() - 30);
-          break;
-        case 'last90days':
-          dateThreshold.setDate(now.getDate() - 90);
-          break;
-      }
-      
-      filtered = filtered.filter(transaction => new Date(transaction.created_at) >= dateThreshold);
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(transaction => transaction.status === statusFilter);
     }
-    
-    // Apply sorting
-    filtered.sort((a, b) => {
-      const aValue = a[sortConfig.key];
-      const bValue = b[sortConfig.key];
-      
-      if (aValue < bValue) {
-        return sortConfig.direction === 'asc' ? -1 : 1;
-      }
-      if (aValue > bValue) {
-        return sortConfig.direction === 'asc' ? 1 : -1;
-      }
-      return 0;
-    });
     
     setFilteredTransactions(filtered);
-  }, [transactions, typeFilter, dateFilter, sortConfig]);
-  
-  // Handle sorting
-  const handleSort = (key: SortableTransactionKey) => {
-    let direction: 'asc' | 'desc' = 'asc';
-    
-    if (sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
-    }
-    
-    setSortConfig({ key, direction });
-  };
+  }, [transactions, typeFilter, statusFilter]);
   
   // Generate CSV for export
   const handleExport = () => {
@@ -160,179 +114,162 @@ export default function TransactionHistory() {
   }
   
   return (
-    <div>
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold mb-1">Transaction History</h1>
-          <p className="text-gray-600">
-            View all your points earned and redeemed
+          <h1 className="text-xl font-bold text-gray-900">Transaction History</h1>
+          <p className="text-sm text-gray-600">
+            {filteredTransactions.length} transactions found
           </p>
         </div>
         
-        <button
-          onClick={handleExport}
-          className="btn btn-outline mt-4 md:mt-0 flex items-center"
-          disabled={filteredTransactions.length === 0}
-        >
-          <Download size={16} className="mr-2" />
-          Export CSV
-        </button>
-      </div>
-      
-      {/* Filters */}
-      <div className="card p-4 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="typeFilter" className="flex items-center text-sm font-medium text-gray-700 mb-1">
-              Transaction Type
-            </label>
-            <select
-              id="typeFilter"
-              className="form-input"
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-            >
-              <option value="all">All Transactions</option>
-              <option value="earned">Points Earned</option>
-              <option value="redeemed">Points Redeemed</option>
-            </select>
-          </div>
-          
-          <div>
-            <label htmlFor="dateFilter" className="flex items-center text-sm font-medium text-gray-700 mb-1">
-              Date Range
-            </label>
-            <select
-              id="dateFilter"
-              className="form-input"
-              value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
-            >
-              <option value="all">All Time</option>
-              <option value="last7days">Last 7 Days</option>
-              <option value="last30days">Last 30 Days</option>
-              <option value="last90days">Last 90 Days</option>
-            </select>
-          </div>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="btn btn-outline btn-sm flex items-center"
+          >
+            <Filter size={16} className="mr-1" />
+            Filters
+          </button>
+          <button
+            onClick={handleExport}
+            className="btn btn-outline btn-sm flex items-center"
+            disabled={filteredTransactions.length === 0}
+          >
+            <Download size={16} className="mr-1" />
+            Export
+          </button>
         </div>
       </div>
       
-      {/* Transactions Table */}
-      <div className="card overflow-hidden">
+      {/* Filters */}
+      {showFilters && (
+        <div className="bg-white rounded-lg shadow-sm border p-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="typeFilter" className="block text-sm font-medium text-gray-700 mb-1">
+                Transaction Type
+              </label>
+              <select
+                id="typeFilter"
+                className="form-input"
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
+              >
+                <option value="all">All Types</option>
+                <option value="earned">Points Earned</option>
+                <option value="redeemed">Points Redeemed</option>
+              </select>
+            </div>
+            
+            <div>
+              <label htmlFor="statusFilter" className="block text-sm font-medium text-gray-700 mb-1">
+                Status
+              </label>
+              <select
+                id="statusFilter"
+                className="form-input"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <option value="all">All Status</option>
+                <option value="pending">Pending</option>
+                <option value="dealer_approved">Dealer Approved</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Transactions List - Mobile Optimized */}
+      <div className="bg-white rounded-lg shadow-sm border">
         {filteredTransactions.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 text-left">
-                <tr>
-                  <th 
-                    className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                    onClick={() => handleSort('created_at')}
-                  >
-                    <div className="flex items-center">
-                      <span>Date</span>
-                      <ArrowDownUp size={14} className="ml-1 text-gray-400" />
+          <div className="divide-y">
+            {filteredTransactions.map((transaction) => (
+              <div key={transaction.id} className="p-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start space-x-3 flex-1">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                      transaction.type === 'earned' ? 'bg-success-100' : 'bg-accent-100'
+                    }`}>
+                      {transaction.type === 'earned' ? (
+                        <ArrowUp className="w-5 h-5 text-success-600" />
+                      ) : (
+                        <ArrowDown className="w-5 h-5 text-accent-600" />
+                      )}
                     </div>
-                  </th>
-                  <th 
-                    className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                    onClick={() => handleSort('type')}
-                  >
-                    <div className="flex items-center">
-                      <span>Type</span>
-                      <ArrowDownUp size={14} className="ml-1 text-gray-400" />
-                    </div>
-                  </th>
-                  <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Description
-                  </th>
-                  <th 
-                    className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                    onClick={() => handleSort('amount')}
-                  >
-                    <div className="flex items-center">
-                      <span>Points</span>
-                      <ArrowDownUp size={14} className="ml-1 text-gray-400" />
-                    </div>
-                  </th>
-                  <th 
-                    className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                    onClick={() => handleSort('status')}
-                  >
-                    <div className="flex items-center">
-                      <span>Status</span>
-                      <ArrowDownUp size={14} className="ml-1 text-gray-400" />
-                    </div>
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {filteredTransactions.map((transaction) => (
-                  <tr key={transaction.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                      {new Date(transaction.created_at).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <div className="flex items-center">
-                        <span className={`badge ${
-                          transaction.type === 'earned' ? 'badge-success' : 'badge-accent'
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-sm font-medium text-gray-900">
+                          {transaction.type === 'earned' ? 'Points Earned' : 'Points Redeemed'}
+                        </p>
+                        <span className={`text-sm font-semibold ${
+                          transaction.type === 'earned' ? 'text-success-600' : 'text-accent-600'
                         }`}>
-                          {transaction.type === 'earned' ? (
-                            <ArrowUp size={12} className="mr-1" />
-                          ) : (
-                            <ArrowDown size={12} className="mr-1" />
-                          )}
-                          {transaction.type === 'earned' ? 'Earned' : 'Redeemed'}
+                          {transaction.type === 'earned' ? '+' : '-'}{transaction.amount}
                         </span>
                       </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-700">
-                      {transaction.description}
-                      {(transaction as any).rewards && (
-                        <div className="text-xs text-gray-400 mt-1">
-                          Reward: {(transaction as any).rewards.title}
+                      
+                      <p className="text-sm text-gray-600 mb-2 break-words">
+                        {transaction.description}
+                      </p>
+                      
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <Calendar className="w-4 h-4 text-gray-400" />
+                          <span className="text-xs text-gray-500">
+                            {new Date(transaction.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                        
+                        <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                          transaction.status === 'approved' || transaction.status === 'completed'
+                            ? 'bg-success-100 text-success-700'
+                            : transaction.status === 'pending'
+                            ? 'bg-warning-100 text-warning-700'
+                            : transaction.status === 'dealer_approved'
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'bg-error-100 text-error-700'
+                        }`}>
+                          {transaction.status === 'dealer_approved' ? 'Pending Admin' : transaction.status}
+                        </span>
+                      </div>
+                      
+                      {/* Additional Info */}
+                      {((transaction as any).rewards || (transaction as any).dealers) && (
+                        <div className="mt-2 pt-2 border-t border-gray-100">
+                          {(transaction as any).rewards && (
+                            <p className="text-xs text-gray-500">
+                              Reward: {(transaction as any).rewards.title}
+                            </p>
+                          )}
+                          {(transaction as any).dealers && (
+                            <p className="text-xs text-gray-500">
+                              Dealer: {(transaction as any).dealers.first_name} {(transaction as any).dealers.last_name}
+                            </p>
+                          )}
                         </div>
                       )}
-                      {(transaction as any).dealers && (
-                        <div className="text-xs text-gray-400 mt-1">
-                          Dealer: {(transaction as any).dealers.first_name} {(transaction as any).dealers.last_name}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <span className={`${
-                        transaction.type === 'earned' ? 'text-success-600' : 'text-accent-600'
-                      }`}>
-                        {transaction.type === 'earned' ? '+' : '-'}{transaction.amount}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <span className={`badge ${
-                        transaction.status === 'approved' || transaction.status === 'completed'
-                          ? 'badge-success'
-                          : transaction.status === 'pending'
-                          ? 'badge-warning'
-                          : transaction.status === 'dealer_approved'
-                          ? 'badge-primary'
-                          : 'badge-error'
-                      }`}>
-                        {transaction.status === 'dealer_approved' ? 'Pending Admin' : transaction.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         ) : (
-          <div className="text-center py-8">
+          <div className="text-center py-12">
             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <FileText size={24} className="text-gray-400" />
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-1">No Transactions Found</h3>
             <p className="text-gray-600">
-              {typeFilter !== 'all' 
-                ? `No ${typeFilter} transactions found`
-                : 'No transactions match your filters'}
+              {typeFilter !== 'all' || statusFilter !== 'all'
+                ? 'No transactions match your current filters'
+                : 'You haven\'t made any transactions yet'}
             </p>
           </div>
         )}
