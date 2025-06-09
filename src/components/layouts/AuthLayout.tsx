@@ -2,57 +2,67 @@ import { Outlet } from 'react-router-dom';
 
 export default function AuthLayout() {
   return (
-    <div className="min-h-screen flex flex-col md:flex-row">
-      {/* Left side - Brand and info */}
-      <div className="bg-primary-600 text-white w-full md:w-1/2 p-8 flex flex-col justify-center">
-        <div className="max-w-md mx-auto">
-          <div className="flex items-center mb-6">
-            <img 
-              src="/logo.png" 
-              alt="Tapee Cement" 
-              className="h-16 w-auto bg-white p-2 rounded-lg"
-            />
-          </div>
-          <h2 className="text-2xl font-semibold mb-4">Loyalty Rewards Program</h2>
-          <p className="text-primary-100 text-lg mb-6">
-            Join our loyalty program and earn rewards for every cement bag purchase. Redeem points for exciting rewards and benefits.
-          </p>
-          <div className="bg-primary-700/50 rounded-lg p-6 backdrop-blur-sm">
-            <h3 className="font-medium text-xl mb-3">Program Benefits</h3>
-            <ul className="space-y-2">
-              <li className="flex items-start">
-                <span className="bg-primary-400 rounded-full p-1 mr-2 mt-0.5">
-                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path>
-                  </svg>
-                </span>
-                <span>Earn 10 points for every cement bag purchased</span>
-              </li>
-              <li className="flex items-start">
-                <span className="bg-primary-400 rounded-full p-1 mr-2 mt-0.5">
-                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path>
-                  </svg>
-                </span>
-                <span>Redeem points for cash discounts, tours, and merchandise</span>
-              </li>
-              <li className="flex items-start">
-                <span className="bg-primary-400 rounded-full p-1 mr-2 mt-0.5">
-                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path>
-                  </svg>
-                </span>
-                <span>Special rewards for loyal customers</span>
-              </li>
-            </ul>
-          </div>
-        </div>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-secondary-50">
+      {/* Background Pattern */}
+      <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
       
-      {/* Right side - Auth forms */}
-      <div className="w-full md:w-1/2 bg-white p-8 flex items-center justify-center overflow-y-auto">
+      <div className="relative min-h-screen flex items-center justify-center p-4">
         <div className="w-full max-w-md">
-          <Outlet />
+          {/* Logo Section */}
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-24 h-24 bg-white rounded-2xl shadow-lg mb-6 border border-gray-100">
+              <img 
+                src="/logo.png" 
+                alt="Tapee Cement" 
+                className="h-16 w-auto"
+              />
+            </div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Tapee Cement</h1>
+            <p className="text-gray-600 text-lg">Loyalty Rewards Program</p>
+          </div>
+
+          {/* Auth Form Card */}
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-8">
+            <Outlet />
+          </div>
+
+          {/* Features Section */}
+          <div className="mt-8 text-center">
+            <p className="text-gray-500 text-sm mb-4">Join thousands of satisfied customers</p>
+            <div className="grid grid-cols-3 gap-4 text-center">
+              <div className="bg-white/60 backdrop-blur-sm rounded-xl p-3 border border-white/30">
+                <div className="w-8 h-8 bg-primary-100 rounded-lg flex items-center justify-center mx-auto mb-2">
+                  <svg className="w-4 h-4 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
+                  </svg>
+                </div>
+                <p className="text-xs font-medium text-gray-700">Earn Points</p>
+              </div>
+              <div className="bg-white/60 backdrop-blur-sm rounded-xl p-3 border border-white/30">
+                <div className="w-8 h-8 bg-accent-100 rounded-lg flex items-center justify-center mx-auto mb-2">
+                  <svg className="w-4 h-4 text-accent-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                  </svg>
+                </div>
+                <p className="text-xs font-medium text-gray-700">Secure</p>
+              </div>
+              <div className="bg-white/60 backdrop-blur-sm rounded-xl p-3 border border-white/30">
+                <div className="w-8 h-8 bg-success-100 rounded-lg flex items-center justify-center mx-auto mb-2">
+                  <svg className="w-4 h-4 text-success-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                </div>
+                <p className="text-xs font-medium text-gray-700">Rewards</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="mt-8 text-center">
+            <p className="text-gray-400 text-xs">
+              © 2024 Tapee Cement. All rights reserved.
+            </p>
+          </div>
         </div>
       </div>
     </div>
