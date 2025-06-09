@@ -7,6 +7,7 @@ type User = Database['public']['Tables']['users']['Row'];
 
 interface AuthContextType {
   currentUser: User | null;
+  userData: User | null; // Added userData property
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
@@ -198,6 +199,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value = {
     currentUser,
+    userData: currentUser, // userData is an alias for currentUser
     loading,
     login,
     register,

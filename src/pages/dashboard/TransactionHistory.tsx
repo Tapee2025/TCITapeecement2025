@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Database } from '../../lib/database.types';
-import { Filter, ArrowDownUp, ArrowUp, ArrowDown, FileText, Download } from 'lucide-react';
+import { ArrowDownUp, ArrowUp, ArrowDown, FileText, Download } from 'lucide-react';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { toast } from 'react-toastify';
 
 type Transaction = Database['public']['Tables']['transactions']['Row'];
+
+// Define a proper type for sortable keys
+type SortableTransactionKey = 'created_at' | 'type' | 'amount' | 'status';
 
 export default function TransactionHistory() {
   const [loading, setLoading] = useState(true);
@@ -14,7 +17,7 @@ export default function TransactionHistory() {
   const [typeFilter, setTypeFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
   const [sortConfig, setSortConfig] = useState<{
-    key: keyof Transaction | '';
+    key: SortableTransactionKey;
     direction: 'asc' | 'desc';
   }>({ key: 'created_at', direction: 'desc' });
   
@@ -92,23 +95,24 @@ export default function TransactionHistory() {
     }
     
     // Apply sorting
-    if (sortConfig.key) {
-      filtered.sort((a, b) => {
-        if (a[sortConfig.key] < b[sortConfig.key]) {
-          return sortConfig.direction === 'asc' ? -1 : 1;
-        }
-        if (a[sortConfig.key] > b[sortConfig.key]) {
-          return sortConfig.direction === 'asc' ? 1 : -1;
-        }
-        return 0;
-      });
-    }
+    filtered.sort((a, b) => {
+      const aValue = a[sortConfig.key];
+      const bValue = b[sortConfig.key];
+      
+      if (aValue < bValue) {
+        return sortConfig.direction === 'asc' ? -1 : 1;
+      }
+      if (aValue > bValue) {
+        return sortConfig.direction === 'asc' ? 1 : -1;
+      }
+      return 0;
+    });
     
     setFilteredTransactions(filtered);
   }, [transactions, typeFilter, dateFilter, sortConfig]);
   
   // Handle sorting
-  const handleSort = (key: keyof Transaction) => {
+  const handleSort = (key: SortableTransactionKey) => {
     let direction: 'asc' | 'desc' = 'asc';
     
     if (sortConfig.key === key && sortConfig.direction === 'asc') {
@@ -180,7 +184,6 @@ export default function TransactionHistory() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label htmlFor="typeFilter" className="flex items-center text-sm font-medium text-gray-700 mb-1">
-              <Filter size={16} className="mr-1" />
               Transaction Type
             </label>
             <select
@@ -197,7 +200,6 @@ export default function TransactionHistory() {
           
           <div>
             <label htmlFor="dateFilter" className="flex items-center text-sm font-medium text-gray-700 mb-1">
-              <FileText size={16} className="mr-1" />
               Date Range
             </label>
             <select

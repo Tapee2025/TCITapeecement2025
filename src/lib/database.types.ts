@@ -107,7 +107,7 @@ export interface Database {
           type: 'earned' | 'redeemed'
           amount: number
           description: string
-          status: 'pending' | 'approved' | 'rejected' | 'completed'
+          status: 'pending' | 'approved' | 'rejected' | 'completed' | 'dealer_approved'
           dealer_id: string | null
           reward_id: string | null
           created_at: string
@@ -119,7 +119,7 @@ export interface Database {
           type: 'earned' | 'redeemed'
           amount: number
           description: string
-          status: 'pending' | 'approved' | 'rejected' | 'completed'
+          status: 'pending' | 'approved' | 'rejected' | 'completed' | 'dealer_approved'
           dealer_id?: string | null
           reward_id?: string | null
           created_at?: string
@@ -131,7 +131,7 @@ export interface Database {
           type?: 'earned' | 'redeemed'
           amount?: number
           description?: string
-          status?: 'pending' | 'approved' | 'rejected' | 'completed'
+          status?: 'pending' | 'approved' | 'rejected' | 'completed' | 'dealer_approved'
           dealer_id?: string | null
           reward_id?: string | null
           created_at?: string
@@ -163,6 +163,41 @@ export interface Database {
           title?: string
           active?: boolean
           order_number?: number
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      dealer_approvals: {
+        Row: {
+          id: string
+          transaction_id: string | null
+          user_id: string | null
+          dealer_id: string | null
+          amount: number
+          description: string
+          status: 'pending' | 'approved' | 'rejected'
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          transaction_id?: string | null
+          user_id?: string | null
+          dealer_id?: string | null
+          amount: number
+          description: string
+          status: 'pending' | 'approved' | 'rejected'
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          transaction_id?: string | null
+          user_id?: string | null
+          dealer_id?: string | null
+          amount?: number
+          description?: string
+          status?: 'pending' | 'approved' | 'rejected'
           created_at?: string
           updated_at?: string
         }
