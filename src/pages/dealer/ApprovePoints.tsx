@@ -29,12 +29,12 @@ export default function ApprovePoints() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No user found');
 
-      // Get transactions with user details
+      // Get transactions with user details - specify the relationship explicitly
       const { data, error } = await supabase
         .from('transactions')
         .select(`
           *,
-          users (
+          users!transactions_user_id_fkey (
             id,
             first_name,
             last_name,
