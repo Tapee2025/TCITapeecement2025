@@ -107,6 +107,7 @@ export const ADMIN_NAVIGATION = [
   { name: 'Users', path: '/admin/users', icon: 'Users' },
   { name: 'Rewards', path: '/admin/rewards', icon: 'Gift' },
   { name: 'Approvals', path: '/admin/approvals', icon: 'CheckCircle' },
+  { name: 'To Order', path: '/admin/to-order', icon: 'Package' },
   { name: 'Marketing', path: '/admin/marketing', icon: 'Image' }
 ];
 

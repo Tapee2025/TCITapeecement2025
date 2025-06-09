@@ -31,6 +31,7 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminUsers from './pages/admin/AdminUsers';
 import AdminRewards from './pages/admin/AdminRewards';
 import AdminApprovals from './pages/admin/AdminApprovals';
+import AdminToOrder from './pages/admin/AdminToOrder';
 import AdminMarketing from './pages/admin/AdminMarketing';
 
 function App() {
@@ -75,13 +76,14 @@ function App() {
                 <Route path="/admin/users" element={<AdminUsers />} />
                 <Route path="/admin/rewards" element={<AdminRewards />} />
                 <Route path="/admin/approvals" element={<AdminApprovals />} />
+                <Route path="/admin/to-order" element={<AdminToOrder />} />
                 <Route path="/admin/marketing" element={<AdminMarketing />} />
               </Route>
             </Route>
             
             {/* Redirect */}
-            <Route path="/" element={<Navigate to="/login\" replace />} />
-            <Route path="*" element={<Navigate to="/login\" replace />} />
+            <Route path="/" element={<Navigate to="/login" replace />} />
+            <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
           <ToastContainer position="top-right" autoClose={3000} />
         </Router>

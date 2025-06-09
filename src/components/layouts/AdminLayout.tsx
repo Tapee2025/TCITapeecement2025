@@ -11,7 +11,8 @@ import {
   CheckCircle,
   Image,
   Settings,
-  Building2
+  Building2,
+  Package
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { ADMIN_NAVIGATION } from '../../utils/constants';
@@ -39,6 +40,7 @@ export default function AdminLayout() {
       case 'Users': return <Users {...props} />;
       case 'Gift': return <Gift {...props} />;
       case 'CheckCircle': return <CheckCircle {...props} />;
+      case 'Package': return <Package {...props} />;
       case 'Image': return <Image {...props} />;
       case 'Settings': return <Settings {...props} />;
       default: return <LayoutDashboard {...props} />;

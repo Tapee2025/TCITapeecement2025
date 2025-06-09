@@ -24,7 +24,8 @@ export default function AdminDashboard() {
     quarterlyBagsSold: 0,
     halfYearlyBagsSold: 0,
     yearlyBagsSold: 0,
-    lifetimeBagsSold: 0
+    lifetimeBagsSold: 0,
+    pendingDispatch: 0
   });
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [performancePeriod, setPerformancePeriod] = useState('current_month');
@@ -100,6 +101,15 @@ export default function AdminDashboard() {
         .in('status', ['approved', 'completed']);
 
       if (redemptionsError) throw redemptionsError;
+
+      // Get pending dispatch count (redeemed rewards not yet completed)
+      const { data: pendingDispatchData, error: pendingDispatchError } = await supabase
+        .from('transactions')
+        .select('*', { count: 'exact' })
+        .eq('type', 'redeemed')
+        .in('status', ['pending', 'approved']);
+
+      if (pendingDispatchError) throw pendingDispatchError;
 
       // Get active marketing slides
       const { data: activeSlides, error: slidesError } = await supabase
@@ -200,7 +210,8 @@ export default function AdminDashboard() {
         quarterlyBagsSold,
         halfYearlyBagsSold,
         yearlyBagsSold,
-        lifetimeBagsSold: totalBagsSold
+        lifetimeBagsSold: totalBagsSold,
+        pendingDispatch: pendingDispatchData?.length || 0
       });
 
       setRecentActivity(recentTransactions || []);
@@ -315,10 +326,10 @@ export default function AdminDashboard() {
           bgColor="bg-accent-500"
         />
         <DashboardCard
-          title="Total Redemptions"
-          value={stats.totalRedemptions}
-          icon={ShoppingBag}
-          bgColor="bg-success-500"
+          title="Pending Dispatch"
+          value={stats.pendingDispatch}
+          icon={Package}
+          bgColor="bg-error-500"
         />
       </div>
 
@@ -462,6 +473,21 @@ export default function AdminDashboard() {
         </Link>
         
         <Link
+          to="/admin/to-order"
+          className="bg-white rounded-lg p-6 shadow border hover:shadow-md transition-all flex items-center space-x-4"
+        >
+          <div className="bg-error-100 text-error-700 p-3 rounded-full">
+            <Package size={24} />
+          </div>
+          <div>
+            <h3 className="font-semibold text-lg">To Order</h3>
+            <p className="text-gray-600 text-sm">
+              {stats.pendingDispatch} rewards pending dispatch
+            </p>
+          </div>
+        </Link>
+        
+        <Link
           to="/admin/users"
           className="bg-white rounded-lg p-6 shadow border hover:shadow-md transition-all flex items-center space-x-4"
         >
@@ -487,21 +513,6 @@ export default function AdminDashboard() {
             <h3 className="font-semibold text-lg">Manage Rewards</h3>
             <p className="text-gray-600 text-sm">
               Add, edit or remove available rewards
-            </p>
-          </div>
-        </Link>
-        
-        <Link
-          to="/admin/marketing"
-          className="bg-white rounded-lg p-6 shadow border hover:shadow-md transition-all flex items-center space-x-4"
-        >
-          <div className="bg-blue-100 text-blue-700 p-3 rounded-full">
-            <TrendingUp size={24} />
-          </div>
-          <div>
-            <h3 className="font-semibold text-lg">Marketing Slides</h3>
-            <p className="text-gray-600 text-sm">
-              {stats.activeSlides} active slides
             </p>
           </div>
         </Link>
