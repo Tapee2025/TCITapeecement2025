@@ -1,4 +1,3 @@
-import React from 'react';
 import DashboardCard from '../../components/ui/DashboardCard';
 import { Gift, CreditCard, PenTool as Tool } from 'lucide-react';
 

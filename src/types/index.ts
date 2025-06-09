@@ -4,8 +4,8 @@ export type UserRole = 'builder' | 'dealer' | 'contractor' | 'admin';
 export interface User {
   uid: string;
   email: string;
-  firstName: string;
-  lastName: string;
+  first_name: string;
+  last_name: string;
   role: UserRole;
   city: string;
   address: string;
@@ -91,8 +91,8 @@ export interface LoginFormData {
 }
 
 export interface RegisterFormData {
-  firstName: string;
-  lastName: string;
+  first_name: string;
+  last_name: string;
   email: string;
   password: string;
   confirmPassword: string;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { User, Camera, Save } from 'lucide-react';
 import { supabase, getProfilePictureUrl } from '../../lib/supabase';
 import { Database } from '../../lib/database.types';
@@ -351,7 +351,7 @@ export default function UserProfile() {
           >
             {saving ? (
               <>
-                <LoadingSpinner size="sm\" className="mr-2" />
+                <LoadingSpinner size="sm" className="mr-2" />
                 Saving...
               </>
             ) : (

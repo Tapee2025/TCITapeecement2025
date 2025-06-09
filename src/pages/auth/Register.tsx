@@ -11,8 +11,8 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { generateUserCode } from '../../utils/helpers';
 
 const registerSchema = z.object({
-  firstName: z.string().min(2, 'First name is required'),
-  lastName: z.string().min(2, 'Last name is required'),
+  first_name: z.string().min(2, 'First name is required'),
+  last_name: z.string().min(2, 'Last name is required'),
   email: z.string().email('Please enter a valid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
   confirmPassword: z.string().min(6, 'Password must be at least 6 characters'),
@@ -88,8 +88,8 @@ export default function Register() {
         .insert([{
           id: authData.user.id,
           email: data.email,
-          first_name: data.firstName,
-          last_name: data.lastName,
+          first_name: data.first_name,
+          last_name: data.last_name,
           role: data.role,
           city: data.city,
           address: data.address,
@@ -134,27 +134,27 @@ export default function Register() {
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label htmlFor="firstName" className="form-label">First Name</label>
+            <label htmlFor="first_name" className="form-label">First Name</label>
             <input
-              id="firstName"
+              id="first_name"
               type="text"
               className="form-input"
               placeholder="John"
-              {...register('firstName')}
+              {...register('first_name')}
             />
-            {errors.firstName && <p className="form-error">{errors.firstName.message}</p>}
+            {errors.first_name && <p className="form-error">{errors.first_name.message}</p>}
           </div>
           
           <div>
-            <label htmlFor="lastName" className="form-label">Last Name</label>
+            <label htmlFor="last_name" className="form-label">Last Name</label>
             <input
-              id="lastName"
+              id="last_name"
               type="text"
               className="form-input"
               placeholder="Doe"
-              {...register('lastName')}
+              {...register('last_name')}
             />
-            {errors.lastName && <p className="form-error">{errors.lastName.message}</p>}
+            {errors.last_name && <p className="form-error">{errors.last_name.message}</p>}
           </div>
         </div>
         
@@ -286,7 +286,7 @@ export default function Register() {
           className="btn btn-primary w-full"
           disabled={loading}
         >
-          {loading ? <LoadingSpinner size="sm\" className="mr-2" /> : null}
+          {loading ? <LoadingSpinner size="sm" className="mr-2" /> : null}
           Create Account
         </button>
       </form>

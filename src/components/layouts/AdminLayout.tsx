@@ -84,10 +84,10 @@ export default function AdminLayout() {
         <div className="p-4 border-b border-gray-800">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-full bg-accent-400/20 flex items-center justify-center text-accent-400 font-semibold">
-              {userData?.firstName?.charAt(0)}{userData?.lastName?.charAt(0)}
+              {userData?.first_name?.charAt(0)}{userData?.last_name?.charAt(0)}
             </div>
             <div>
-              <p className="font-medium">{userData?.firstName} {userData?.lastName}</p>
+              <p className="font-medium">{userData?.first_name} {userData?.last_name}</p>
               <p className="text-xs text-gray-400 capitalize">{userData?.role}</p>
             </div>
           </div>
