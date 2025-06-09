@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Database } from '../../lib/database.types';
-import { Check, X, Search, Package, Clock, CheckCircle, Users } from 'lucide-react';
+import { Check, X, Search, Package, Clock, CheckCircle, Users, ShoppingBag } from 'lucide-react';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { toast } from 'react-toastify';
 
@@ -16,7 +16,8 @@ export default function ApprovePoints() {
   const [stats, setStats] = useState({
     pendingCount: 0,
     approvedToday: 0,
-    totalPoints: 0
+    totalPoints: 0,
+    totalBagsSold: 0
   });
 
   useEffect(() => {
@@ -73,11 +74,13 @@ export default function ApprovePoints() {
         .eq('status', 'approved');
 
       const totalPoints = totalPointsData?.reduce((sum, t) => sum + t.amount, 0) || 0;
+      const totalBagsSold = Math.floor(totalPoints / 10);
 
       setStats({
         pendingCount: pendingCount || 0,
         approvedToday: approvedTodayCount || 0,
-        totalPoints
+        totalPoints,
+        totalBagsSold
       });
 
       setTransactions(data || []);
@@ -189,8 +192,8 @@ export default function ApprovePoints() {
         <p className="text-sm text-gray-600">Review and approve points requests</p>
       </div>
 
-      {/* Stats Cards - Compact 3-column */}
-      <div className="grid grid-cols-3 gap-3">
+      {/* Stats Cards - Enhanced with bags sold */}
+      <div className="grid grid-cols-2 gap-3">
         <div className="bg-white rounded-lg p-3 shadow-sm border">
           <div className="text-center">
             <Clock className="w-6 h-6 text-warning-600 mx-auto mb-1" />
@@ -204,6 +207,14 @@ export default function ApprovePoints() {
             <CheckCircle className="w-6 h-6 text-success-600 mx-auto mb-1" />
             <p className="text-lg font-bold text-gray-900">{stats.approvedToday}</p>
             <p className="text-xs text-gray-500">Today</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg p-3 shadow-sm border">
+          <div className="text-center">
+            <ShoppingBag className="w-6 h-6 text-success-600 mx-auto mb-1" />
+            <p className="text-lg font-bold text-gray-900">{stats.totalBagsSold}</p>
+            <p className="text-xs text-gray-500">Bags Sold</p>
           </div>
         </div>
 

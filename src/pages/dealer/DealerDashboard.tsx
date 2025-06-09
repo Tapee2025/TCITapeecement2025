@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { Database } from '../../lib/database.types';
 import { Link } from 'react-router-dom';
-import { Clock, CheckCircle, ArrowRight, Check, X, Users, Package, TrendingUp, Building2 } from 'lucide-react';
+import { Clock, CheckCircle, ArrowRight, Check, X, Users, Package, TrendingUp, Building2, ShoppingBag } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 type Transaction = Database['public']['Tables']['transactions']['Row'];
@@ -17,7 +17,8 @@ export default function DealerDashboard() {
     totalTransactions: 0,
     pendingApprovals: 0,
     approvedToday: 0,
-    totalCustomers: 0
+    totalCustomers: 0,
+    totalBagsSold: 0
   });
   const [processingId, setProcessingId] = useState<string | null>(null);
 
@@ -81,12 +82,23 @@ export default function DealerDashboard() {
 
       const uniqueCustomers = new Set(customerData?.map(t => t.user_id)).size;
 
+      // Calculate total bags sold (total points approved divided by 10)
+      const { data: approvedPointsData } = await supabase
+        .from('transactions')
+        .select('amount')
+        .eq('dealer_id', user.id)
+        .in('status', ['dealer_approved', 'approved']);
+
+      const totalPointsApproved = approvedPointsData?.reduce((sum, t) => sum + t.amount, 0) || 0;
+      const totalBagsSold = Math.floor(totalPointsApproved / 10);
+
       setRecentTransactions(dealerTransactions || []);
       setStats({
         totalTransactions: totalCount || 0,
         pendingApprovals: pendingCount || 0,
         approvedToday: approvedTodayCount || 0,
-        totalCustomers: uniqueCustomers
+        totalCustomers: uniqueCustomers,
+        totalBagsSold
       });
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -191,15 +203,15 @@ export default function DealerDashboard() {
         </div>
       </div>
       
-      {/* Stats Grid - 2x2 layout */}
+      {/* Stats Grid - Enhanced with bags sold */}
       <div className="grid grid-cols-2 gap-3">
         <div className="bg-white rounded-lg p-4 shadow-sm border">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-gray-500">Total Transactions</p>
-              <p className="text-xl font-bold text-gray-900">{stats.totalTransactions}</p>
+              <p className="text-xs text-gray-500">Total Bags Sold</p>
+              <p className="text-xl font-bold text-gray-900">{stats.totalBagsSold}</p>
             </div>
-            <Package className="w-8 h-8 text-blue-500" />
+            <ShoppingBag className="w-8 h-8 text-success-500" />
           </div>
         </div>
 
@@ -265,28 +277,28 @@ export default function DealerDashboard() {
         </Link>
       </div>
 
-      {/* Dealer Info Card - Compact */}
+      {/* Performance Summary - Compact */}
       <div className="bg-white rounded-lg shadow-sm border p-4">
         <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
           <Building2 className="mr-2 text-primary-600" size={18} />
-          Dealer Information
+          Performance Summary
         </h3>
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
-            <p className="text-gray-500">GST Number</p>
-            <p className="font-medium">{dealerData?.gst_number || 'Not provided'}</p>
+            <p className="text-gray-500">Total Transactions</p>
+            <p className="font-medium text-lg">{stats.totalTransactions}</p>
+          </div>
+          <div>
+            <p className="text-gray-500">Total Bags Sold</p>
+            <p className="font-medium text-lg text-success-600">{stats.totalBagsSold}</p>
           </div>
           <div>
             <p className="text-gray-500">District</p>
             <p className="font-medium">{dealerData?.district}</p>
           </div>
           <div>
-            <p className="text-gray-500">Contact</p>
-            <p className="font-medium">{dealerData?.mobile_number}</p>
-          </div>
-          <div>
-            <p className="text-gray-500">City</p>
-            <p className="font-medium">{dealerData?.city}</p>
+            <p className="text-gray-500">GST Number</p>
+            <p className="font-medium text-xs">{dealerData?.gst_number || 'Not provided'}</p>
           </div>
         </div>
       </div>

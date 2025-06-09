@@ -46,9 +46,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const initializeAuth = async () => {
       try {
+        // Get the current session
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
         if (sessionError) {
+          console.error('Session error:', sessionError);
           if (mounted) {
             setCurrentUser(null);
             setLoading(false);
@@ -63,21 +65,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setLoading(false);
         }
 
+        // Listen for auth state changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
           if (!mounted) return;
+
+          console.log('Auth state changed:', event, session?.user?.id);
 
           if (event === 'SIGNED_IN' && session?.user) {
             await fetchUserProfile(session.user.id);
           } else if (event === 'SIGNED_OUT') {
             setCurrentUser(null);
             setLoading(false);
+          } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+            // Keep user logged in when token is refreshed
+            await fetchUserProfile(session.user.id);
           }
         });
 
         return () => {
           subscription.unsubscribe();
         };
-      } catch {
+      } catch (error) {
+        console.error('Auth initialization error:', error);
         if (mounted) {
           setCurrentUser(null);
           setLoading(false);
@@ -101,11 +110,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .single();
 
       if (error) {
+        console.error('Profile fetch error:', error);
         setCurrentUser(null);
       } else {
         setCurrentUser(profile);
       }
-    } catch {
+    } catch (error) {
+      console.error('Profile fetch error:', error);
       setCurrentUser(null);
     } finally {
       setLoading(false);
@@ -115,11 +126,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function login(email: string, password: string) {
     try {
       setLoading(true);
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ 
+        email, 
+        password 
+      });
+      
       if (error) throw error;
-      if (data.user) await fetchUserProfile(data.user.id);
-    } finally {
+      
+      if (data.user) {
+        await fetchUserProfile(data.user.id);
+      }
+    } catch (error) {
       setLoading(false);
+      throw error;
     }
   }
 
@@ -127,12 +146,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { email, password, ...profileData } = data;
     try {
       setLoading(true);
-      const { data: authData, error: signUpError } = await supabase.auth.signUp({ email, password });
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({ 
+        email, 
+        password 
+      });
+      
       if (signUpError) throw signUpError;
       if (!authData.user) throw new Error('Failed to create user');
+      
       const { error: profileError } = await supabase
         .from('users')
-        .insert([{ id: authData.user.id, email, ...profileData, points: 0 }]);
+        .insert([{ 
+          id: authData.user.id, 
+          email, 
+          ...profileData, 
+          points: 0 
+        }]);
+      
       if (profileError) throw profileError;
     } finally {
       setLoading(false);
@@ -145,13 +175,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       setCurrentUser(null);
+    } catch (error) {
+      throw error;
     } finally {
       setLoading(false);
     }
   }
 
   async function resetPassword(email: string) {
-    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
     if (error) throw error;
   }
 

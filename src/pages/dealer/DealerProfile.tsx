@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, Camera, Save, Building2, Phone, Mail, MapPin, CreditCard, Calendar, BarChart3 } from 'lucide-react';
+import { User, Camera, Save, Building2, Phone, Mail, MapPin, CreditCard, Calendar, BarChart3, ShoppingBag } from 'lucide-react';
 import { supabase, getProfilePictureUrl } from '../../lib/supabase';
 import { Database } from '../../lib/database.types';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
@@ -21,7 +21,8 @@ export default function DealerProfile() {
     totalTransactions: 0,
     pendingApprovals: 0,
     approvedThisMonth: 0,
-    totalPointsApproved: 0
+    totalPointsApproved: 0,
+    totalBagsSold: 0
   });
 
   useEffect(() => {
@@ -98,12 +99,14 @@ export default function DealerProfile() {
         .in('status', ['dealer_approved', 'approved']);
 
       const totalPointsApproved = approvedTransactions?.reduce((sum, t) => sum + t.amount, 0) || 0;
+      const totalBagsSold = Math.floor(totalPointsApproved / 10);
 
       setStats({
         totalTransactions: totalTransactions || 0,
         pendingApprovals: pendingApprovals || 0,
         approvedThisMonth: approvedThisMonth || 0,
-        totalPointsApproved
+        totalPointsApproved,
+        totalBagsSold
       });
     } catch (error) {
       console.error('Error fetching dealer stats:', error);
@@ -409,7 +412,7 @@ export default function DealerProfile() {
           >
             {saving ? (
               <>
-                <LoadingSpinner size="sm\" className="mr-2" />
+                <LoadingSpinner size="sm" className="mr-2" />
                 Saving...
               </>
             ) : (
@@ -440,7 +443,17 @@ export default function DealerProfile() {
           <BarChart3 className="mr-2 text-primary-600" size={20} />
           Performance Metrics
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="bg-green-50 p-4 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-green-600 font-medium">Total Bags Sold</p>
+                <p className="text-2xl font-bold text-green-700">{stats.totalBagsSold}</p>
+              </div>
+              <ShoppingBag className="text-green-600" size={24} />
+            </div>
+          </div>
+          
           <div className="bg-blue-50 p-4 rounded-lg">
             <div className="flex items-center justify-between">
               <div>
@@ -461,23 +474,23 @@ export default function DealerProfile() {
             </div>
           </div>
           
-          <div className="bg-green-50 p-4 rounded-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-green-600 font-medium">Approved This Month</p>
-                <p className="text-2xl font-bold text-green-700">{stats.approvedThisMonth}</p>
-              </div>
-              <Calendar className="text-green-600" size={24} />
-            </div>
-          </div>
-          
           <div className="bg-purple-50 p-4 rounded-lg">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-purple-600 font-medium">Total Points Approved</p>
-                <p className="text-2xl font-bold text-purple-700">{stats.totalPointsApproved}</p>
+                <p className="text-sm text-purple-600 font-medium">Approved This Month</p>
+                <p className="text-2xl font-bold text-purple-700">{stats.approvedThisMonth}</p>
               </div>
-              <BarChart3 className="text-purple-600" size={24} />
+              <Calendar className="text-purple-600" size={24} />
+            </div>
+          </div>
+          
+          <div className="bg-indigo-50 p-4 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-indigo-600 font-medium">Total Points Approved</p>
+                <p className="text-2xl font-bold text-indigo-700">{stats.totalPointsApproved}</p>
+              </div>
+              <BarChart3 className="text-indigo-600" size={24} />
             </div>
           </div>
         </div>
