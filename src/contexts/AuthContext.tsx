@@ -1,13 +1,12 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
 import { Database } from '../lib/database.types';
-import { toast } from 'react-toastify';
 
 type User = Database['public']['Tables']['users']['Row'];
 
 interface AuthContextType {
   currentUser: User | null;
-  userData: User | null; // Added userData property
+  userData: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
@@ -44,14 +43,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
-    
+
     const initializeAuth = async () => {
       try {
-        // Get initial session
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
+
         if (sessionError) {
-          console.error('Session error:', sessionError);
           if (mounted) {
             setCurrentUser(null);
             setLoading(false);
@@ -66,10 +63,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setLoading(false);
         }
 
-        // Listen for auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
           if (!mounted) return;
-          
+
           if (event === 'SIGNED_IN' && session?.user) {
             await fetchUserProfile(session.user.id);
           } else if (event === 'SIGNED_OUT') {
@@ -81,8 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return () => {
           subscription.unsubscribe();
         };
-      } catch (error) {
-        console.error('Auth initialization error:', error);
+      } catch {
         if (mounted) {
           setCurrentUser(null);
           setLoading(false);
@@ -106,13 +101,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .single();
 
       if (error) {
-        console.error('Profile fetch error:', error);
         setCurrentUser(null);
       } else {
         setCurrentUser(profile);
       }
-    } catch (error) {
-      console.error('Error fetching user profile:', error);
+    } catch {
       setCurrentUser(null);
     } finally {
       setLoading(false);
@@ -122,20 +115,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function login(email: string, password: string) {
     try {
       setLoading(true);
-      
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
-
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-
-      if (data.user) {
-        await fetchUserProfile(data.user.id);
-      }
-    } catch (error) {
-      console.error('Login error:', error);
-      throw error;
+      if (data.user) await fetchUserProfile(data.user.id);
     } finally {
       setLoading(false);
     }
@@ -143,31 +125,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function register(data: RegisterData) {
     const { email, password, ...profileData } = data;
-    
     try {
       setLoading(true);
-      
-      const { data: authData, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password
-      });
-
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({ email, password });
       if (signUpError) throw signUpError;
       if (!authData.user) throw new Error('Failed to create user');
-
       const { error: profileError } = await supabase
         .from('users')
-        .insert([{
-          id: authData.user.id,
-          email,
-          ...profileData,
-          points: 0
-        }]);
-
+        .insert([{ id: authData.user.id, email, ...profileData, points: 0 }]);
       if (profileError) throw profileError;
-    } catch (error) {
-      console.error('Registration error:', error);
-      throw error;
     } finally {
       setLoading(false);
     }
@@ -179,27 +145,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       setCurrentUser(null);
-    } catch (error) {
-      console.error('Logout error:', error);
-      throw error;
     } finally {
       setLoading(false);
     }
   }
 
   async function resetPassword(email: string) {
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email);
-      if (error) throw error;
-    } catch (error) {
-      console.error('Password reset error:', error);
-      throw error;
-    }
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    if (error) throw error;
   }
 
   const value = {
     currentUser,
-    userData: currentUser, // userData is an alias for currentUser
+    userData: currentUser,
     loading,
     login,
     register,
@@ -207,9 +165,5 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     resetPassword
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
