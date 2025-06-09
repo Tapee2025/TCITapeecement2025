@@ -59,11 +59,11 @@ export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
   if (userData && !allowedRoles.includes(userData.role as UserRole)) {
     // Redirect to appropriate dashboard based on role
     if (userData.role === 'admin') {
-      return <Navigate to="/admin/dashboard" replace />;
+      return <Navigate to="/admin/dashboard\" replace />;
     } else if (userData.role === 'dealer') {
       return <Navigate to="/dealer/dashboard" replace />;
     } else {
-      return <Navigate to="/dashboard" replace />;
+      return <Navigate to="/dashboard\" replace />;
     }
   }
 
