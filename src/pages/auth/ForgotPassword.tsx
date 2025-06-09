@@ -78,7 +78,7 @@ export default function ForgotPassword() {
             className="btn btn-primary w-full"
             disabled={loading}
           >
-            {loading ? <LoadingSpinner size="sm" className="mr-2" /> : null}
+            {loading ? <LoadingSpinner size="sm\" className="mr-2" /> : null}
             Send Reset Link
           </button>
         </form>
