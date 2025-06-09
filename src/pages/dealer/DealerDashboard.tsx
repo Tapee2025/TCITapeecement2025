@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { Database } from '../../lib/database.types';
 import { Link } from 'react-router-dom';
-import { Clock, CheckCircle, ArrowRight, Check, X, Users, Package, TrendingUp, Building2, ShoppingBag } from 'lucide-react';
+import { Clock, CheckCircle, ArrowRight, Check, X, Users, Package, TrendingUp, Building2, ShoppingBag, BarChart3, Calendar } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 type Transaction = Database['public']['Tables']['transactions']['Row'];
@@ -18,9 +18,13 @@ export default function DealerDashboard() {
     pendingApprovals: 0,
     approvedToday: 0,
     totalCustomers: 0,
-    totalBagsSold: 0
+    currentMonthBags: 0,
+    last3MonthsBags: 0,
+    last6MonthsBags: 0,
+    yearlyBags: 0
   });
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [performancePeriod, setPerformancePeriod] = useState('current_month');
 
   useEffect(() => {
     fetchDashboardData();
@@ -82,15 +86,30 @@ export default function DealerDashboard() {
 
       const uniqueCustomers = new Set(customerData?.map(t => t.user_id)).size;
 
-      // Calculate total bags sold (total points approved divided by 10)
-      const { data: approvedPointsData } = await supabase
-        .from('transactions')
-        .select('amount')
-        .eq('dealer_id', user.id)
-        .in('status', ['dealer_approved', 'approved']);
+      // Get performance metrics for different periods using the new function
+      const { data: currentMonthData } = await supabase
+        .rpc('get_performance_metrics', {
+          p_dealer_id: user.id,
+          p_period: 'current_month'
+        });
 
-      const totalPointsApproved = approvedPointsData?.reduce((sum, t) => sum + t.amount, 0) || 0;
-      const totalBagsSold = Math.floor(totalPointsApproved / 10);
+      const { data: last3MonthsData } = await supabase
+        .rpc('get_performance_metrics', {
+          p_dealer_id: user.id,
+          p_period: 'last_3_months'
+        });
+
+      const { data: last6MonthsData } = await supabase
+        .rpc('get_performance_metrics', {
+          p_dealer_id: user.id,
+          p_period: 'last_6_months'
+        });
+
+      const { data: yearlyData } = await supabase
+        .rpc('get_performance_metrics', {
+          p_dealer_id: user.id,
+          p_period: 'yearly'
+        });
 
       setRecentTransactions(dealerTransactions || []);
       setStats({
@@ -98,7 +117,10 @@ export default function DealerDashboard() {
         pendingApprovals: pendingCount || 0,
         approvedToday: approvedTodayCount || 0,
         totalCustomers: uniqueCustomers,
-        totalBagsSold
+        currentMonthBags: currentMonthData?.[0]?.total_bags_sold || 0,
+        last3MonthsBags: last3MonthsData?.[0]?.total_bags_sold || 0,
+        last6MonthsBags: last6MonthsData?.[0]?.total_bags_sold || 0,
+        yearlyBags: yearlyData?.[0]?.total_bags_sold || 0
       });
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -179,6 +201,26 @@ export default function DealerDashboard() {
     }
   }
 
+  const getPerformanceValue = () => {
+    switch (performancePeriod) {
+      case 'current_month': return stats.currentMonthBags;
+      case 'last_3_months': return stats.last3MonthsBags;
+      case 'last_6_months': return stats.last6MonthsBags;
+      case 'yearly': return stats.yearlyBags;
+      default: return stats.currentMonthBags;
+    }
+  };
+
+  const getPerformanceLabel = () => {
+    switch (performancePeriod) {
+      case 'current_month': return 'This Month';
+      case 'last_3_months': return 'Last 3 Months';
+      case 'last_6_months': return 'Last 6 Months';
+      case 'yearly': return 'This Year';
+      default: return 'This Month';
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -202,19 +244,63 @@ export default function DealerDashboard() {
           </div>
         </div>
       </div>
-      
-      {/* Stats Grid - Enhanced with bags sold */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="bg-white rounded-lg p-4 shadow-sm border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-gray-500">Total Bags Sold</p>
-              <p className="text-xl font-bold text-gray-900">{stats.totalBagsSold}</p>
-            </div>
-            <ShoppingBag className="w-8 h-8 text-success-500" />
+
+      {/* Performance Metrics with Period Selector */}
+      <div className="bg-white rounded-lg shadow-sm border p-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
+          <h3 className="font-semibold text-gray-900 flex items-center">
+            <BarChart3 className="mr-2 text-primary-600" size={18} />
+            Performance Metrics
+          </h3>
+          <div className="mt-2 sm:mt-0">
+            <select
+              value={performancePeriod}
+              onChange={(e) => setPerformancePeriod(e.target.value)}
+              className="form-input text-sm"
+            >
+              <option value="current_month">This Month</option>
+              <option value="last_3_months">Last 3 Months</option>
+              <option value="last_6_months">Last 6 Months</option>
+              <option value="yearly">This Year</option>
+            </select>
           </div>
         </div>
 
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="bg-gradient-to-r from-green-50 to-green-100 p-3 rounded-lg border border-green-200">
+            <div className="text-center">
+              <ShoppingBag className="w-6 h-6 text-green-600 mx-auto mb-1" />
+              <p className="text-xl font-bold text-green-700">{getPerformanceValue()}</p>
+              <p className="text-xs text-green-600">Bags Sold</p>
+              <p className="text-xs text-green-500">{getPerformanceLabel()}</p>
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-3 rounded-lg border border-blue-200">
+            <div className="text-center">
+              <Users className="w-6 h-6 text-blue-600 mx-auto mb-1" />
+              <p className="text-xl font-bold text-blue-700">{stats.totalCustomers}</p>
+              <p className="text-xs text-blue-600">Total Customers</p>
+              <p className="text-xs text-blue-500">All Time</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Performance Comparison */}
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div className="text-center p-2 bg-gray-50 rounded">
+            <p className="font-medium text-gray-900">{stats.currentMonthBags}</p>
+            <p className="text-gray-600">This Month</p>
+          </div>
+          <div className="text-center p-2 bg-gray-50 rounded">
+            <p className="font-medium text-gray-900">{stats.yearlyBags}</p>
+            <p className="text-gray-600">This Year</p>
+          </div>
+        </div>
+      </div>
+      
+      {/* Stats Grid */}
+      <div className="grid grid-cols-2 gap-3">
         <div className="bg-white rounded-lg p-4 shadow-sm border">
           <div className="flex items-center justify-between">
             <div>
@@ -232,16 +318,6 @@ export default function DealerDashboard() {
               <p className="text-xl font-bold text-gray-900">{stats.approvedToday}</p>
             </div>
             <CheckCircle className="w-8 h-8 text-success-500" />
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg p-4 shadow-sm border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-gray-500">Total Customers</p>
-              <p className="text-xl font-bold text-gray-900">{stats.totalCustomers}</p>
-            </div>
-            <Users className="w-8 h-8 text-primary-500" />
           </div>
         </div>
       </div>
@@ -277,28 +353,28 @@ export default function DealerDashboard() {
         </Link>
       </div>
 
-      {/* Performance Summary - Compact */}
+      {/* Dealer Information - Compact */}
       <div className="bg-white rounded-lg shadow-sm border p-4">
         <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
           <Building2 className="mr-2 text-primary-600" size={18} />
-          Performance Summary
+          Dealer Information
         </h3>
         <div className="grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <p className="text-gray-500">Total Transactions</p>
-            <p className="font-medium text-lg">{stats.totalTransactions}</p>
-          </div>
-          <div>
-            <p className="text-gray-500">Total Bags Sold</p>
-            <p className="font-medium text-lg text-success-600">{stats.totalBagsSold}</p>
-          </div>
           <div>
             <p className="text-gray-500">District</p>
             <p className="font-medium">{dealerData?.district}</p>
           </div>
           <div>
+            <p className="text-gray-500">City</p>
+            <p className="font-medium">{dealerData?.city}</p>
+          </div>
+          <div>
             <p className="text-gray-500">GST Number</p>
             <p className="font-medium text-xs">{dealerData?.gst_number || 'Not provided'}</p>
+          </div>
+          <div>
+            <p className="text-gray-500">Total Transactions</p>
+            <p className="font-medium">{stats.totalTransactions}</p>
           </div>
         </div>
       </div>

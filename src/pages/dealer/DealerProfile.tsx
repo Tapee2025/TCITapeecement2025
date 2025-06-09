@@ -17,17 +17,17 @@ export default function DealerProfile() {
   const [showImageUpload, setShowImageUpload] = useState(false);
   const [editedEmail, setEditedEmail] = useState('');
   const [editedPhone, setEditedPhone] = useState('');
-  const [stats, setStats] = useState({
-    totalTransactions: 0,
-    pendingApprovals: 0,
-    approvedThisMonth: 0,
-    totalPointsApproved: 0,
-    totalBagsSold: 0
+  const [performanceData, setPerformanceData] = useState({
+    currentMonth: { bags: 0, points: 0, transactions: 0, customers: 0 },
+    last3Months: { bags: 0, points: 0, transactions: 0, customers: 0 },
+    last6Months: { bags: 0, points: 0, transactions: 0, customers: 0 },
+    yearly: { bags: 0, points: 0, transactions: 0, customers: 0 }
   });
+  const [selectedPeriod, setSelectedPeriod] = useState('currentMonth');
 
   useEffect(() => {
     fetchProfile();
-    fetchDealerStats();
+    fetchPerformanceData();
   }, []);
 
   async function fetchProfile() {
@@ -61,55 +61,50 @@ export default function DealerProfile() {
     }
   }
 
-  async function fetchDealerStats() {
+  async function fetchPerformanceData() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Get total transactions
-      const { count: totalTransactions } = await supabase
-        .from('transactions')
-        .select('*', { count: 'exact', head: true })
-        .eq('dealer_id', user.id);
+      // Fetch performance data for all periods
+      const periods = ['current_month', 'last_3_months', 'last_6_months', 'yearly'];
+      const performancePromises = periods.map(period =>
+        supabase.rpc('get_performance_metrics', {
+          p_dealer_id: user.id,
+          p_period: period
+        })
+      );
 
-      // Get pending approvals
-      const { count: pendingApprovals } = await supabase
-        .from('transactions')
-        .select('*', { count: 'exact', head: true })
-        .eq('dealer_id', user.id)
-        .eq('status', 'pending');
-
-      // Get approved this month
-      const startOfMonth = new Date();
-      startOfMonth.setDate(1);
-      startOfMonth.setHours(0, 0, 0, 0);
-
-      const { count: approvedThisMonth } = await supabase
-        .from('transactions')
-        .select('*', { count: 'exact', head: true })
-        .eq('dealer_id', user.id)
-        .in('status', ['dealer_approved', 'approved'])
-        .gte('created_at', startOfMonth.toISOString());
-
-      // Get total points approved
-      const { data: approvedTransactions } = await supabase
-        .from('transactions')
-        .select('amount')
-        .eq('dealer_id', user.id)
-        .in('status', ['dealer_approved', 'approved']);
-
-      const totalPointsApproved = approvedTransactions?.reduce((sum, t) => sum + t.amount, 0) || 0;
-      const totalBagsSold = Math.floor(totalPointsApproved / 10);
-
-      setStats({
-        totalTransactions: totalTransactions || 0,
-        pendingApprovals: pendingApprovals || 0,
-        approvedThisMonth: approvedThisMonth || 0,
-        totalPointsApproved,
-        totalBagsSold
+      const results = await Promise.all(performancePromises);
+      
+      setPerformanceData({
+        currentMonth: {
+          bags: results[0].data?.[0]?.total_bags_sold || 0,
+          points: results[0].data?.[0]?.total_points_approved || 0,
+          transactions: results[0].data?.[0]?.total_transactions || 0,
+          customers: results[0].data?.[0]?.unique_customers || 0
+        },
+        last3Months: {
+          bags: results[1].data?.[0]?.total_bags_sold || 0,
+          points: results[1].data?.[0]?.total_points_approved || 0,
+          transactions: results[1].data?.[0]?.total_transactions || 0,
+          customers: results[1].data?.[0]?.unique_customers || 0
+        },
+        last6Months: {
+          bags: results[2].data?.[0]?.total_bags_sold || 0,
+          points: results[2].data?.[0]?.total_points_approved || 0,
+          transactions: results[2].data?.[0]?.total_transactions || 0,
+          customers: results[2].data?.[0]?.unique_customers || 0
+        },
+        yearly: {
+          bags: results[3].data?.[0]?.total_bags_sold || 0,
+          points: results[3].data?.[0]?.total_points_approved || 0,
+          transactions: results[3].data?.[0]?.total_transactions || 0,
+          customers: results[3].data?.[0]?.unique_customers || 0
+        }
       });
     } catch (error) {
-      console.error('Error fetching dealer stats:', error);
+      console.error('Error fetching performance data:', error);
     }
   }
 
@@ -220,6 +215,20 @@ export default function DealerProfile() {
     }
   }
 
+  const getCurrentPeriodData = () => {
+    return performanceData[selectedPeriod as keyof typeof performanceData];
+  };
+
+  const getPeriodLabel = () => {
+    switch (selectedPeriod) {
+      case 'currentMonth': return 'This Month';
+      case 'last3Months': return 'Last 3 Months';
+      case 'last6Months': return 'Last 6 Months';
+      case 'yearly': return 'This Year';
+      default: return 'This Month';
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -243,6 +252,7 @@ export default function DealerProfile() {
   }
 
   const profileImageUrl = profile.profile_picture_url ? getProfilePictureUrl(profile.profile_picture_url) : null;
+  const currentData = getCurrentPeriodData();
 
   return (
     <div className="space-y-6">
@@ -412,7 +422,7 @@ export default function DealerProfile() {
           >
             {saving ? (
               <>
-                <LoadingSpinner size="sm\" className="mr-2" />
+                <LoadingSpinner size="sm" className="mr-2" />
                 Saving...
               </>
             ) : (
@@ -437,60 +447,92 @@ export default function DealerProfile() {
         </div>
       </div>
 
-      {/* Performance Metrics */}
+      {/* Performance Metrics with Period Selector */}
       <div className="bg-white rounded-lg shadow-md p-6">
-        <h3 className="text-lg font-semibold mb-4 flex items-center">
-          <BarChart3 className="mr-2 text-primary-600" size={20} />
-          Performance Metrics
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          <div className="bg-green-50 p-4 rounded-lg">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
+          <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+            <BarChart3 className="mr-2 text-primary-600" size={20} />
+            Performance Metrics
+          </h3>
+          <div className="mt-4 sm:mt-0">
+            <select
+              value={selectedPeriod}
+              onChange={(e) => setSelectedPeriod(e.target.value)}
+              className="form-input text-sm"
+            >
+              <option value="currentMonth">This Month</option>
+              <option value="last3Months">Last 3 Months</option>
+              <option value="last6Months">Last 6 Months</option>
+              <option value="yearly">This Year</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="bg-gradient-to-r from-green-50 to-green-100 p-4 rounded-lg border border-green-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-green-600 font-medium">Total Bags Sold</p>
-                <p className="text-2xl font-bold text-green-700">{stats.totalBagsSold}</p>
+                <p className="text-sm text-green-600 font-medium">Bags Sold</p>
+                <p className="text-2xl font-bold text-green-700">{currentData.bags}</p>
+                <p className="text-xs text-green-600">{getPeriodLabel()}</p>
               </div>
               <ShoppingBag className="text-green-600" size={24} />
             </div>
           </div>
           
-          <div className="bg-blue-50 p-4 rounded-lg">
+          <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-blue-600 font-medium">Total Transactions</p>
-                <p className="text-2xl font-bold text-blue-700">{stats.totalTransactions}</p>
+                <p className="text-sm text-blue-600 font-medium">Points Approved</p>
+                <p className="text-2xl font-bold text-blue-700">{currentData.points}</p>
+                <p className="text-xs text-blue-600">{getPeriodLabel()}</p>
               </div>
               <BarChart3 className="text-blue-600" size={24} />
             </div>
           </div>
           
-          <div className="bg-yellow-50 p-4 rounded-lg">
+          <div className="bg-gradient-to-r from-purple-50 to-purple-100 p-4 rounded-lg border border-purple-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-yellow-600 font-medium">Pending Approvals</p>
-                <p className="text-2xl font-bold text-yellow-700">{stats.pendingApprovals}</p>
-              </div>
-              <Calendar className="text-yellow-600" size={24} />
-            </div>
-          </div>
-          
-          <div className="bg-purple-50 p-4 rounded-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-purple-600 font-medium">Approved This Month</p>
-                <p className="text-2xl font-bold text-purple-700">{stats.approvedThisMonth}</p>
+                <p className="text-sm text-purple-600 font-medium">Transactions</p>
+                <p className="text-2xl font-bold text-purple-700">{currentData.transactions}</p>
+                <p className="text-xs text-purple-600">{getPeriodLabel()}</p>
               </div>
               <Calendar className="text-purple-600" size={24} />
             </div>
           </div>
           
-          <div className="bg-indigo-50 p-4 rounded-lg">
+          <div className="bg-gradient-to-r from-orange-50 to-orange-100 p-4 rounded-lg border border-orange-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-indigo-600 font-medium">Total Points Approved</p>
-                <p className="text-2xl font-bold text-indigo-700">{stats.totalPointsApproved}</p>
+                <p className="text-sm text-orange-600 font-medium">Unique Customers</p>
+                <p className="text-2xl font-bold text-orange-700">{currentData.customers}</p>
+                <p className="text-xs text-orange-600">{getPeriodLabel()}</p>
               </div>
-              <BarChart3 className="text-indigo-600" size={24} />
+              <Calendar className="text-orange-600" size={24} />
+            </div>
+          </div>
+        </div>
+
+        {/* Performance Comparison */}
+        <div className="pt-6 border-t border-gray-200">
+          <h4 className="text-md font-medium text-gray-900 mb-4">Bags Sold Comparison</h4>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="text-center p-3 bg-gray-50 rounded-lg">
+              <p className="text-lg font-bold text-gray-900">{performanceData.currentMonth.bags}</p>
+              <p className="text-xs text-gray-600">This Month</p>
+            </div>
+            <div className="text-center p-3 bg-gray-50 rounded-lg">
+              <p className="text-lg font-bold text-gray-900">{performanceData.last3Months.bags}</p>
+              <p className="text-xs text-gray-600">Last 3 Months</p>
+            </div>
+            <div className="text-center p-3 bg-gray-50 rounded-lg">
+              <p className="text-lg font-bold text-gray-900">{performanceData.last6Months.bags}</p>
+              <p className="text-xs text-gray-600">Last 6 Months</p>
+            </div>
+            <div className="text-center p-3 bg-gray-50 rounded-lg">
+              <p className="text-lg font-bold text-gray-900">{performanceData.yearly.bags}</p>
+              <p className="text-xs text-gray-600">This Year</p>
             </div>
           </div>
         </div>

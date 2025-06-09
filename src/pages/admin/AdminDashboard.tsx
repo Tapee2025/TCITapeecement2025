@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, ShoppingBag, Award, ClipboardCheck, Calendar, TrendingUp, Package, Building2 } from 'lucide-react';
+import { Users, ShoppingBag, Award, ClipboardCheck, Calendar, TrendingUp, Package, Building2, BarChart3 } from 'lucide-react';
 import DashboardCard from '../../components/ui/DashboardCard';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { Link } from 'react-router-dom';
@@ -18,9 +18,14 @@ export default function AdminDashboard() {
     totalBuilders: 0,
     totalContractors: 0,
     totalBagsSold: 0,
-    activeSlides: 0
+    activeSlides: 0,
+    monthlyBagsSold: 0,
+    quarterlyBagsSold: 0,
+    halfYearlyBagsSold: 0,
+    yearlyBagsSold: 0
   });
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const [performancePeriod, setPerformancePeriod] = useState('monthly');
   
   useEffect(() => {
     fetchDashboardData();
@@ -88,6 +93,50 @@ export default function AdminDashboard() {
 
       if (slidesError) throw slidesError;
 
+      // Get performance metrics for different periods
+      const currentDate = new Date();
+      const currentYear = currentDate.getFullYear();
+      const currentMonth = currentDate.getMonth() + 1;
+
+      // Monthly performance (current month)
+      const { data: monthlyPerf } = await supabase
+        .from('monthly_performance')
+        .select('total_bags_sold')
+        .eq('year', currentYear)
+        .eq('month', currentMonth);
+
+      const monthlyBagsSold = monthlyPerf?.reduce((sum, p) => sum + p.total_bags_sold, 0) || 0;
+
+      // Quarterly performance (last 3 months)
+      const threeMonthsAgo = new Date();
+      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+      
+      const { data: quarterlyPerf } = await supabase
+        .from('monthly_performance')
+        .select('total_bags_sold')
+        .gte('created_at', threeMonthsAgo.toISOString());
+
+      const quarterlyBagsSold = quarterlyPerf?.reduce((sum, p) => sum + p.total_bags_sold, 0) || 0;
+
+      // Half-yearly performance (last 6 months)
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+      
+      const { data: halfYearlyPerf } = await supabase
+        .from('monthly_performance')
+        .select('total_bags_sold')
+        .gte('created_at', sixMonthsAgo.toISOString());
+
+      const halfYearlyBagsSold = halfYearlyPerf?.reduce((sum, p) => sum + p.total_bags_sold, 0) || 0;
+
+      // Yearly performance
+      const { data: yearlyPerf } = await supabase
+        .from('monthly_performance')
+        .select('total_bags_sold')
+        .eq('year', currentYear);
+
+      const yearlyBagsSold = yearlyPerf?.reduce((sum, p) => sum + p.total_bags_sold, 0) || 0;
+
       // Get recent activity (all transactions)
       const { data: recentTransactions, error: transactionsError } = await supabase
         .from('transactions')
@@ -120,7 +169,11 @@ export default function AdminDashboard() {
         totalBuilders: builderCount,
         totalContractors: contractorCount,
         totalBagsSold,
-        activeSlides: activeSlides?.length || 0
+        activeSlides: activeSlides?.length || 0,
+        monthlyBagsSold,
+        quarterlyBagsSold,
+        halfYearlyBagsSold,
+        yearlyBagsSold
       });
 
       setRecentActivity(recentTransactions || []);
@@ -131,6 +184,26 @@ export default function AdminDashboard() {
       setLoading(false);
     }
   }
+
+  const getPerformanceValue = () => {
+    switch (performancePeriod) {
+      case 'monthly': return stats.monthlyBagsSold;
+      case 'quarterly': return stats.quarterlyBagsSold;
+      case 'half-yearly': return stats.halfYearlyBagsSold;
+      case 'yearly': return stats.yearlyBagsSold;
+      default: return stats.monthlyBagsSold;
+    }
+  };
+
+  const getPerformanceLabel = () => {
+    switch (performancePeriod) {
+      case 'monthly': return 'This Month';
+      case 'quarterly': return 'Last 3 Months';
+      case 'half-yearly': return 'Last 6 Months';
+      case 'yearly': return 'This Year';
+      default: return 'This Month';
+    }
+  };
   
   if (loading) {
     return (
@@ -162,21 +235,112 @@ export default function AdminDashboard() {
           bgColor="bg-warning-500"
         />
         <DashboardCard
-          title="Total Bags Sold"
-          value={stats.totalBagsSold}
-          icon={Package}
-          bgColor="bg-success-500"
-        />
-        <DashboardCard
           title="Total Rewards"
           value={stats.totalRewards}
           icon={Award}
           bgColor="bg-accent-500"
         />
+        <DashboardCard
+          title="Total Redemptions"
+          value={stats.totalRedemptions}
+          icon={ShoppingBag}
+          bgColor="bg-success-500"
+        />
+      </div>
+
+      {/* Performance Metrics with Period Selector */}
+      <div className="bg-white rounded-lg shadow border p-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
+          <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+            <BarChart3 className="mr-2 text-primary-600" size={20} />
+            Performance Metrics
+          </h3>
+          <div className="mt-4 sm:mt-0">
+            <select
+              value={performancePeriod}
+              onChange={(e) => setPerformancePeriod(e.target.value)}
+              className="form-input text-sm"
+            >
+              <option value="monthly">Monthly</option>
+              <option value="quarterly">3 Months</option>
+              <option value="half-yearly">6 Months</option>
+              <option value="yearly">Yearly</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-gradient-to-r from-green-50 to-green-100 p-4 rounded-lg border border-green-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-green-600 font-medium">Bags Sold</p>
+                <p className="text-2xl font-bold text-green-700">{getPerformanceValue()}</p>
+                <p className="text-xs text-green-600">{getPerformanceLabel()}</p>
+              </div>
+              <Package className="text-green-600" size={24} />
+            </div>
+          </div>
+          
+          <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-blue-600 font-medium">Total Points Issued</p>
+                <p className="text-2xl font-bold text-blue-700">{stats.totalPoints}</p>
+                <p className="text-xs text-blue-600">All Time</p>
+              </div>
+              <TrendingUp className="text-blue-600" size={24} />
+            </div>
+          </div>
+          
+          <div className="bg-gradient-to-r from-purple-50 to-purple-100 p-4 rounded-lg border border-purple-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-purple-600 font-medium">Active Dealers</p>
+                <p className="text-2xl font-bold text-purple-700">{stats.totalDealers}</p>
+                <p className="text-xs text-purple-600">Registered</p>
+              </div>
+              <Building2 className="text-purple-600" size={24} />
+            </div>
+          </div>
+          
+          <div className="bg-gradient-to-r from-orange-50 to-orange-100 p-4 rounded-lg border border-orange-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-orange-600 font-medium">Marketing Slides</p>
+                <p className="text-2xl font-bold text-orange-700">{stats.activeSlides}</p>
+                <p className="text-xs text-orange-600">Active</p>
+              </div>
+              <Calendar className="text-orange-600" size={24} />
+            </div>
+          </div>
+        </div>
+
+        {/* Performance Comparison */}
+        <div className="mt-6 pt-6 border-t border-gray-200">
+          <h4 className="text-md font-medium text-gray-900 mb-4">Bags Sold Comparison</h4>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="text-center p-3 bg-gray-50 rounded-lg">
+              <p className="text-lg font-bold text-gray-900">{stats.monthlyBagsSold}</p>
+              <p className="text-xs text-gray-600">This Month</p>
+            </div>
+            <div className="text-center p-3 bg-gray-50 rounded-lg">
+              <p className="text-lg font-bold text-gray-900">{stats.quarterlyBagsSold}</p>
+              <p className="text-xs text-gray-600">Last 3 Months</p>
+            </div>
+            <div className="text-center p-3 bg-gray-50 rounded-lg">
+              <p className="text-lg font-bold text-gray-900">{stats.halfYearlyBagsSold}</p>
+              <p className="text-xs text-gray-600">Last 6 Months</p>
+            </div>
+            <div className="text-center p-3 bg-gray-50 rounded-lg">
+              <p className="text-lg font-bold text-gray-900">{stats.yearlyBagsSold}</p>
+              <p className="text-xs text-gray-600">This Year</p>
+            </div>
+          </div>
+        </div>
       </div>
       
       {/* Quick Links */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Link
           to="/admin/approvals"
           className="bg-white rounded-lg p-6 shadow border hover:shadow-md transition-all flex items-center space-x-4"
@@ -330,32 +494,6 @@ export default function AdminDashboard() {
             {recentActivity.length === 0 && (
               <p className="text-center text-gray-500">No recent activity</p>
             )}
-          </div>
-        </div>
-      </div>
-
-      {/* Performance Summary */}
-      <div className="bg-white rounded-lg shadow border p-6">
-        <h3 className="text-lg font-semibold mb-4 flex items-center">
-          <Building2 className="mr-2 text-primary-600" size={20} />
-          Performance Summary
-        </h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="text-center p-4 bg-gray-50 rounded-lg">
-            <p className="text-2xl font-bold text-gray-900">{stats.totalPoints}</p>
-            <p className="text-sm text-gray-600">Total Points Issued</p>
-          </div>
-          <div className="text-center p-4 bg-gray-50 rounded-lg">
-            <p className="text-2xl font-bold text-gray-900">{stats.totalBagsSold}</p>
-            <p className="text-sm text-gray-600">Total Bags Sold</p>
-          </div>
-          <div className="text-center p-4 bg-gray-50 rounded-lg">
-            <p className="text-2xl font-bold text-gray-900">{stats.totalRedemptions}</p>
-            <p className="text-sm text-gray-600">Total Redemptions</p>
-          </div>
-          <div className="text-center p-4 bg-gray-50 rounded-lg">
-            <p className="text-2xl font-bold text-gray-900">{stats.activeSlides}</p>
-            <p className="text-sm text-gray-600">Active Marketing Slides</p>
           </div>
         </div>
       </div>
