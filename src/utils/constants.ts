@@ -99,7 +99,7 @@ export const DEALER_NAVIGATION = [
   { name: 'Approve Points', path: '/dealer/approve-points', icon: 'CheckCircle' },
   { name: 'Rewards', path: '/dealer/rewards', icon: 'Gift' },
   { name: 'Transaction History', path: '/transactions', icon: 'History' },
-  { name: 'Profile', path: '/profile', icon: 'User' }
+  { name: 'Profile', path: '/dealer/profile', icon: 'User' }
 ];
 
 export const ADMIN_NAVIGATION = [

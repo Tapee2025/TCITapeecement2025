@@ -24,6 +24,7 @@ import UserProfile from './pages/dashboard/UserProfile';
 import DealerDashboard from './pages/dealer/DealerDashboard';
 import ApprovePoints from './pages/dealer/ApprovePoints';
 import DealerRewards from './pages/dealer/DealerRewards';
+import DealerProfile from './pages/dealer/DealerProfile';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -62,8 +63,8 @@ function App() {
                 <Route path="/dealer/dashboard" element={<DealerDashboard />} />
                 <Route path="/dealer/approve-points" element={<ApprovePoints />} />
                 <Route path="/dealer/rewards" element={<DealerRewards />} />
+                <Route path="/dealer/profile" element={<DealerProfile />} />
                 <Route path="/transactions" element={<TransactionHistory />} />
-                <Route path="/profile" element={<UserProfile />} />
               </Route>
             </Route>
             
@@ -79,8 +80,8 @@ function App() {
             </Route>
             
             {/* Redirect */}
-            <Route path="/" element={<Navigate to="/login\" replace />} />
-            <Route path="*" element={<Navigate to="/login\" replace />} />
+            <Route path="/" element={<Navigate to="/login" replace />} />
+            <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
           <ToastContainer position="top-right" autoClose={3000} />
         </Router>

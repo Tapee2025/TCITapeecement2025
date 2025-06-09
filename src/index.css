@@ -12,6 +12,9 @@
     -webkit-tap-highlight-color: transparent;
     height: 100vh;
     overflow-x: hidden;
+    /* Prevent zoom on iOS */
+    -webkit-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
   }
   
   body {
@@ -23,6 +26,8 @@
     /* Prevent pull-to-refresh on iOS */
     overscroll-behavior-y: none;
     -webkit-overflow-scrolling: touch;
+    /* Prevent zoom on double tap */
+    touch-action: manipulation;
   }
   
   #root {
@@ -110,6 +115,8 @@
     @apply w-full rounded-md border border-gray-300 px-3 py-2 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50;
     min-height: 44px; /* Better touch targets */
     touch-action: manipulation;
+    /* Prevent zoom on iOS */
+    font-size: 16px;
   }
   
   .form-label {
@@ -188,6 +195,14 @@
       @apply max-h-[80vh];
     }
   }
+
+  /* PWA specific styles */
+  @media (display-mode: standalone) {
+    body {
+      /* Remove any browser chrome padding when in standalone mode */
+      padding-top: env(safe-area-inset-top);
+    }
+  }
 }
 
 /* Animation Classes */
@@ -197,6 +212,10 @@
 
 .slide-up {
   animation: slideUp 0.3s ease-in-out;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out;
 }
 
 .pulse {
@@ -217,4 +236,28 @@
   0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4); }
   70% { box-shadow: 0 0 0 10px rgba(37, 99, 235, 0); }
   100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+}
+
+/* Prevent text selection on buttons and interactive elements */
+button, .btn {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Improve tap targets for mobile */
+@media (pointer: coarse) {
+  .btn {
+    min-height: 48px;
+    min-width: 48px;
+  }
+  
+  .nav-link {
+    min-height: 48px;
+  }
+  
+  .form-input {
+    min-height: 48px;
+  }
 }
