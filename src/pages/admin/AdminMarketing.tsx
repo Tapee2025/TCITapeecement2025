@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Database } from '../../lib/database.types';
-import { Plus, Edit, Trash, ArrowUp, ArrowDown, Image as ImageIcon } from 'lucide-react';
+import { Plus, Edit, Trash, ArrowUp, ArrowDown, Image as ImageIcon, Eye, EyeOff } from 'lucide-react';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { toast } from 'react-toastify';
 
@@ -102,6 +102,22 @@ export default function AdminMarketing() {
     }
   }
 
+  async function handleToggleActive(slideId: string, currentActive: boolean) {
+    try {
+      const { error } = await supabase
+        .from('marketing_slides')
+        .update({ active: !currentActive })
+        .eq('id', slideId);
+
+      if (error) throw error;
+      toast.success(`Slide ${!currentActive ? 'activated' : 'deactivated'} successfully`);
+      fetchSlides();
+    } catch (error) {
+      console.error('Error toggling slide status:', error);
+      toast.error('Failed to update slide status');
+    }
+  }
+
   async function handleMoveSlide(slideId: string, direction: 'up' | 'down') {
     const currentIndex = slides.findIndex(slide => slide.id === slideId);
     if (
@@ -144,6 +160,17 @@ export default function AdminMarketing() {
     setShowAddModal(true);
   }
 
+  function openAddModal() {
+    setEditingSlide(null);
+    setFormData({
+      title: '',
+      image_url: '',
+      active: true,
+      order_number: slides.length + 1
+    });
+    setShowAddModal(true);
+  }
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -153,11 +180,14 @@ export default function AdminMarketing() {
   }
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Marketing Slides</h1>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Marketing Slides</h1>
+          <p className="text-gray-600">Manage promotional slides for the dashboard</p>
+        </div>
         <button
-          onClick={() => setShowAddModal(true)}
+          onClick={openAddModal}
           className="btn btn-primary flex items-center"
         >
           <Plus size={20} className="mr-2" />
@@ -168,28 +198,44 @@ export default function AdminMarketing() {
       {/* Slides Grid */}
       <div className="grid grid-cols-1 gap-6">
         {slides.map((slide, index) => (
-          <div key={slide.id} className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="flex">
-              <div className="w-64 h-40">
+          <div key={slide.id} className="bg-white rounded-lg shadow border overflow-hidden">
+            <div className="flex flex-col md:flex-row">
+              <div className="w-full md:w-64 h-40">
                 <img
                   src={slide.image_url}
                   alt={slide.title}
                   className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.src = 'https://via.placeholder.com/400x200?text=Image+Not+Found';
+                  }}
                 />
               </div>
               <div className="flex-1 p-4">
-                <div className="flex justify-between items-start">
+                <div className="flex justify-between items-start mb-4">
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">{slide.title}</h3>
                     <p className="text-sm text-gray-500">Order: {slide.order_number}</p>
                   </div>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    slide.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                  }`}>
-                    {slide.active ? 'Active' : 'Inactive'}
-                  </span>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => handleToggleActive(slide.id, slide.active)}
+                      className={`p-2 rounded-lg transition-colors ${
+                        slide.active 
+                          ? 'bg-success-100 text-success-600 hover:bg-success-200' 
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                      title={slide.active ? 'Deactivate slide' : 'Activate slide'}
+                    >
+                      {slide.active ? <Eye size={16} /> : <EyeOff size={16} />}
+                    </button>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      slide.active ? 'bg-success-100 text-success-800' : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {slide.active ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
                 </div>
-                <div className="mt-4 flex items-center space-x-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     onClick={() => handleEdit(slide)}
                     className="btn btn-outline btn-sm"
@@ -199,23 +245,25 @@ export default function AdminMarketing() {
                   </button>
                   <button
                     onClick={() => handleDeleteSlide(slide.id)}
-                    className="btn btn-error btn-sm"
+                    className="btn btn-sm bg-red-600 text-white hover:bg-red-700"
                   >
                     <Trash size={16} className="mr-1" />
                     Delete
                   </button>
-                  <div className="ml-4 space-x-1">
+                  <div className="flex space-x-1">
                     <button
                       onClick={() => handleMoveSlide(slide.id, 'up')}
                       disabled={index === 0}
-                      className="btn btn-ghost btn-sm"
+                      className="btn btn-outline btn-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Move up"
                     >
                       <ArrowUp size={16} />
                     </button>
                     <button
                       onClick={() => handleMoveSlide(slide.id, 'down')}
                       disabled={index === slides.length - 1}
-                      className="btn btn-ghost btn-sm"
+                      className="btn btn-outline btn-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Move down"
                     >
                       <ArrowDown size={16} />
                     </button>
@@ -227,18 +275,25 @@ export default function AdminMarketing() {
         ))}
 
         {slides.length === 0 && (
-          <div className="text-center py-8 bg-white rounded-lg shadow">
+          <div className="text-center py-12 bg-white rounded-lg shadow border">
             <ImageIcon size={48} className="mx-auto text-gray-400 mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-1">No Marketing Slides</h3>
-            <p className="text-gray-500">Start by adding your first marketing slide</p>
+            <p className="text-gray-500 mb-4">Start by adding your first marketing slide</p>
+            <button
+              onClick={openAddModal}
+              className="btn btn-primary"
+            >
+              <Plus size={20} className="mr-2" />
+              Add First Slide
+            </button>
           </div>
         )}
       </div>
 
       {/* Add/Edit Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <h2 className="text-xl font-semibold mb-4">
                 {editingSlide ? 'Edit Slide' : 'Add New Slide'}
@@ -252,6 +307,7 @@ export default function AdminMarketing() {
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                     required
+                    placeholder="Enter slide title"
                   />
                 </div>
                 <div>
@@ -262,7 +318,11 @@ export default function AdminMarketing() {
                     value={formData.image_url}
                     onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
                     required
+                    placeholder="https://example.com/image.jpg"
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Use high-quality images (recommended: 1200x400px)
+                  </p>
                 </div>
                 <div>
                   <label className="form-label">Order Number</label>
@@ -274,6 +334,9 @@ export default function AdminMarketing() {
                     required
                     min="1"
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Lower numbers appear first in the slideshow
+                  </p>
                 </div>
                 <div className="flex items-center">
                   <input
@@ -284,10 +347,33 @@ export default function AdminMarketing() {
                     onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
                   />
                   <label htmlFor="active" className="text-sm text-gray-700">
-                    Make slide active
+                    Make slide active (visible to users)
                   </label>
                 </div>
-                <div className="flex justify-end space-x-2 pt-4">
+                
+                {/* Preview */}
+                {formData.image_url && (
+                  <div>
+                    <label className="form-label">Preview</label>
+                    <div className="border rounded-lg overflow-hidden">
+                      <img
+                        src={formData.image_url}
+                        alt="Preview"
+                        className="w-full h-32 object-cover"
+                        onError={(e) => {
+                          e.currentTarget.src = 'https://via.placeholder.com/400x200?text=Invalid+Image+URL';
+                        }}
+                      />
+                      {formData.title && (
+                        <div className="p-3 bg-gray-50">
+                          <p className="font-medium text-gray-900">{formData.title}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
+                <div className="flex justify-end space-x-2 pt-4 border-t">
                   <button
                     type="button"
                     onClick={() => {

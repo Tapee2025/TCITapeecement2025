@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, ShoppingBag, Award, ClipboardCheck, Calendar } from 'lucide-react';
+import { Users, ShoppingBag, Award, ClipboardCheck, Calendar, TrendingUp, Package, Building2 } from 'lucide-react';
 import DashboardCard from '../../components/ui/DashboardCard';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { Link } from 'react-router-dom';
@@ -16,7 +16,9 @@ export default function AdminDashboard() {
     totalRedemptions: 0,
     totalDealers: 0,
     totalBuilders: 0,
-    totalContractors: 0
+    totalContractors: 0,
+    totalBagsSold: 0,
+    activeSlides: 0
   });
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
   
@@ -67,6 +69,24 @@ export default function AdminDashboard() {
       if (pointsError) throw pointsError;
 
       const totalPointsIssued = approvedTransactions?.reduce((sum, t) => sum + t.amount, 0) || 0;
+      const totalBagsSold = Math.floor(totalPointsIssued / 10);
+
+      // Get total redemptions
+      const { data: redemptions, error: redemptionsError } = await supabase
+        .from('transactions')
+        .select('*', { count: 'exact' })
+        .eq('type', 'redeemed')
+        .in('status', ['approved', 'completed']);
+
+      if (redemptionsError) throw redemptionsError;
+
+      // Get active marketing slides
+      const { data: activeSlides, error: slidesError } = await supabase
+        .from('marketing_slides')
+        .select('*', { count: 'exact' })
+        .eq('active', true);
+
+      if (slidesError) throw slidesError;
 
       // Get recent activity (all transactions)
       const { data: recentTransactions, error: transactionsError } = await supabase
@@ -95,10 +115,12 @@ export default function AdminDashboard() {
         pendingApprovals: pendingApprovals?.length || 0,
         totalRewards: rewards?.length || 0,
         totalPoints: totalPointsIssued,
-        totalRedemptions: 0,
+        totalRedemptions: redemptions?.length || 0,
         totalDealers: dealerCount,
         totalBuilders: builderCount,
-        totalContractors: contractorCount
+        totalContractors: contractorCount,
+        totalBagsSold,
+        activeSlides: activeSlides?.length || 0
       });
 
       setRecentActivity(recentTransactions || []);
@@ -119,7 +141,7 @@ export default function AdminDashboard() {
   }
   
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
         <p className="text-gray-600">Welcome to the Tapee Cement Loyalty Program admin panel</p>
@@ -140,16 +162,16 @@ export default function AdminDashboard() {
           bgColor="bg-warning-500"
         />
         <DashboardCard
+          title="Total Bags Sold"
+          value={stats.totalBagsSold}
+          icon={Package}
+          bgColor="bg-success-500"
+        />
+        <DashboardCard
           title="Total Rewards"
           value={stats.totalRewards}
           icon={Award}
           bgColor="bg-accent-500"
-        />
-        <DashboardCard
-          title="Total Points Issued"
-          value={stats.totalPoints}
-          icon={ShoppingBag}
-          bgColor="bg-success-500"
         />
       </div>
       
@@ -157,7 +179,7 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <Link
           to="/admin/approvals"
-          className="card p-6 hover:shadow-md transition-all flex items-center space-x-4"
+          className="bg-white rounded-lg p-6 shadow border hover:shadow-md transition-all flex items-center space-x-4"
         >
           <div className="bg-warning-100 text-warning-700 p-3 rounded-full">
             <ClipboardCheck size={24} />
@@ -172,7 +194,7 @@ export default function AdminDashboard() {
         
         <Link
           to="/admin/users"
-          className="card p-6 hover:shadow-md transition-all flex items-center space-x-4"
+          className="bg-white rounded-lg p-6 shadow border hover:shadow-md transition-all flex items-center space-x-4"
         >
           <div className="bg-primary-100 text-primary-700 p-3 rounded-full">
             <Users size={24} />
@@ -187,7 +209,7 @@ export default function AdminDashboard() {
         
         <Link
           to="/admin/rewards"
-          className="card p-6 hover:shadow-md transition-all flex items-center space-x-4"
+          className="bg-white rounded-lg p-6 shadow border hover:shadow-md transition-all flex items-center space-x-4"
         >
           <div className="bg-accent-100 text-accent-700 p-3 rounded-full">
             <Award size={24} />
@@ -199,11 +221,26 @@ export default function AdminDashboard() {
             </p>
           </div>
         </Link>
+        
+        <Link
+          to="/admin/marketing"
+          className="bg-white rounded-lg p-6 shadow border hover:shadow-md transition-all flex items-center space-x-4"
+        >
+          <div className="bg-blue-100 text-blue-700 p-3 rounded-full">
+            <TrendingUp size={24} />
+          </div>
+          <div>
+            <h3 className="font-semibold text-lg">Marketing Slides</h3>
+            <p className="text-gray-600 text-sm">
+              {stats.activeSlides} active slides
+            </p>
+          </div>
+        </Link>
       </div>
       
-      {/* User Distribution */}
+      {/* User Distribution and Recent Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="card p-6">
+        <div className="bg-white rounded-lg shadow border p-6">
           <h3 className="text-lg font-semibold mb-4">User Distribution</h3>
           <div className="space-y-4">
             <div>
@@ -214,7 +251,7 @@ export default function AdminDashboard() {
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div
                   className="bg-primary-600 h-2 rounded-full"
-                  style={{ width: `${(stats.totalDealers / stats.totalUsers) * 100}%` }}
+                  style={{ width: `${stats.totalUsers > 0 ? (stats.totalDealers / stats.totalUsers) * 100 : 0}%` }}
                 ></div>
               </div>
             </div>
@@ -227,7 +264,7 @@ export default function AdminDashboard() {
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div
                   className="bg-secondary-600 h-2 rounded-full"
-                  style={{ width: `${(stats.totalBuilders / stats.totalUsers) * 100}%` }}
+                  style={{ width: `${stats.totalUsers > 0 ? (stats.totalBuilders / stats.totalUsers) * 100 : 0}%` }}
                 ></div>
               </div>
             </div>
@@ -240,7 +277,7 @@ export default function AdminDashboard() {
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div
                   className="bg-accent-600 h-2 rounded-full"
-                  style={{ width: `${(stats.totalContractors / stats.totalUsers) * 100}%` }}
+                  style={{ width: `${stats.totalUsers > 0 ? (stats.totalContractors / stats.totalUsers) * 100 : 0}%` }}
                 ></div>
               </div>
             </div>
@@ -248,17 +285,21 @@ export default function AdminDashboard() {
         </div>
         
         {/* Recent Activity */}
-        <div className="card p-6">
+        <div className="bg-white rounded-lg shadow border p-6">
           <h3 className="text-lg font-semibold mb-4">Recent Activity</h3>
           <div className="space-y-4">
             {recentActivity.map((activity) => (
               <div key={activity.id} className="flex">
                 <div className="mr-4 flex-shrink-0">
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100">
-                    <Calendar size={16} className="text-gray-500" />
+                    {activity.type === 'earned' ? (
+                      <TrendingUp size={16} className="text-success-500" />
+                    ) : (
+                      <Award size={16} className="text-accent-500" />
+                    )}
                   </div>
                 </div>
-                <div>
+                <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900">
                     {activity.type === 'earned' ? 'Points request: ' : 'Points redeemed: '}
                     {activity.amount} points by {activity.users?.first_name || 'Unknown'} {activity.users?.last_name || 'User'}
@@ -268,10 +309,10 @@ export default function AdminDashboard() {
                     <span>{new Date(activity.created_at).toLocaleDateString()}</span>
                     <span>•</span>
                     <span className={`px-1.5 py-0.5 rounded-full ${
-                      activity.status === 'approved' ? 'bg-green-100 text-green-800' :
+                      activity.status === 'approved' ? 'bg-success-100 text-success-800' :
                       activity.status === 'dealer_approved' ? 'bg-blue-100 text-blue-800' :
-                      activity.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800'
+                      activity.status === 'pending' ? 'bg-warning-100 text-warning-800' :
+                      'bg-error-100 text-error-800'
                     }`}>
                       {activity.status}
                     </span>
@@ -289,6 +330,32 @@ export default function AdminDashboard() {
             {recentActivity.length === 0 && (
               <p className="text-center text-gray-500">No recent activity</p>
             )}
+          </div>
+        </div>
+      </div>
+
+      {/* Performance Summary */}
+      <div className="bg-white rounded-lg shadow border p-6">
+        <h3 className="text-lg font-semibold mb-4 flex items-center">
+          <Building2 className="mr-2 text-primary-600" size={20} />
+          Performance Summary
+        </h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="text-center p-4 bg-gray-50 rounded-lg">
+            <p className="text-2xl font-bold text-gray-900">{stats.totalPoints}</p>
+            <p className="text-sm text-gray-600">Total Points Issued</p>
+          </div>
+          <div className="text-center p-4 bg-gray-50 rounded-lg">
+            <p className="text-2xl font-bold text-gray-900">{stats.totalBagsSold}</p>
+            <p className="text-sm text-gray-600">Total Bags Sold</p>
+          </div>
+          <div className="text-center p-4 bg-gray-50 rounded-lg">
+            <p className="text-2xl font-bold text-gray-900">{stats.totalRedemptions}</p>
+            <p className="text-sm text-gray-600">Total Redemptions</p>
+          </div>
+          <div className="text-center p-4 bg-gray-50 rounded-lg">
+            <p className="text-2xl font-bold text-gray-900">{stats.activeSlides}</p>
+            <p className="text-sm text-gray-600">Active Marketing Slides</p>
           </div>
         </div>
       </div>
