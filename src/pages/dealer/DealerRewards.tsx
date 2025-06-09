@@ -7,11 +7,9 @@ import { toast } from 'react-toastify';
 import { formatDate } from '../../utils/helpers';
 
 type Reward = Database['public']['Tables']['rewards']['Row'];
-type User = Database['public']['Tables']['users']['Row'];
 
 export default function DealerRewards() {
   const [loading, setLoading] = useState(true);
-  const [userData, setUserData] = useState<User | null>(null);
   const [rewards, setRewards] = useState<Reward[]>([]);
 
   useEffect(() => {
@@ -25,16 +23,6 @@ export default function DealerRewards() {
       // Get current user
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
-
-      // Get user profile
-      const { data: profile, error: profileError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      if (profileError) throw profileError;
-      setUserData(profile);
 
       // Get available rewards visible to dealers
       const { data: rewardsData, error: rewardsError } = await supabase

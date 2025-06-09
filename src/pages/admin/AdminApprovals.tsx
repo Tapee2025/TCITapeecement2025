@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Database } from '../../lib/database.types';
-import { Search, Filter, Check, X, AlertCircle } from 'lucide-react';
+import { Search, Check, X, AlertCircle } from 'lucide-react';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { toast } from 'react-toastify';
 
@@ -75,7 +75,7 @@ export default function AdminApprovals() {
         return;
       }
 
-      const { data: updatedTransaction, error: transactionError } = await supabase.rpc(
+      const { error: transactionError } = await supabase.rpc(
         'approve_transaction',
         {
           p_transaction_id: transactionId,
