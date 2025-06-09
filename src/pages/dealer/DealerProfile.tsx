@@ -422,7 +422,7 @@ export default function DealerProfile() {
           >
             {saving ? (
               <>
-                <LoadingSpinner size="sm" className="mr-2" />
+                <LoadingSpinner size="sm\" className="mr-2" />
                 Saving...
               </>
             ) : (
