@@ -26,7 +26,12 @@ export default function UserProfile() {
     try {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        console.error('No authenticated user found');
+        return;
+      }
+
+      console.log('Fetching profile for user:', user.id);
 
       const { data, error } = await supabase
         .from('users')
@@ -34,7 +39,12 @@ export default function UserProfile() {
         .eq('id', user.id)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching profile:', error);
+        throw error;
+      }
+
+      console.log('Profile data:', data);
       setProfile(data);
       setEditedEmail(data.email);
       setEditedPhone(data.mobile_number);
@@ -50,7 +60,12 @@ export default function UserProfile() {
     try {
       setUploading(true);
       
-      if (!profile) return;
+      if (!profile) {
+        toast.error('Profile not loaded');
+        return;
+      }
+
+      console.log('Uploading image for user:', profile.id);
 
       // Upload to Supabase Storage (assumes 'avatars' bucket already exists)
       const fileExt = file.name.split('.').pop();
@@ -78,7 +93,10 @@ export default function UserProfile() {
           upsert: true
         });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        throw uploadError;
+      }
 
       // Update user profile with just the filename
       const { error: updateError } = await supabase
@@ -89,7 +107,10 @@ export default function UserProfile() {
         })
         .eq('id', profile.id);
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error('Update error:', updateError);
+        throw updateError;
+      }
 
       setProfile({ ...profile, profile_picture_url: fileName });
       toast.success('Profile picture updated successfully');
@@ -103,10 +124,15 @@ export default function UserProfile() {
   }
 
   async function handleSaveProfile() {
-    if (!profile) return;
+    if (!profile) {
+      toast.error('Profile not loaded');
+      return;
+    }
 
     try {
       setSaving(true);
+
+      console.log('Saving profile for user:', profile.id);
 
       const { error } = await supabase
         .from('users')
@@ -117,7 +143,10 @@ export default function UserProfile() {
         })
         .eq('id', profile.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Profile update error:', error);
+        throw error;
+      }
 
       // Update auth email if changed
       if (editedEmail !== profile.email) {
@@ -151,6 +180,12 @@ export default function UserProfile() {
     return (
       <div className="text-center py-8">
         <p className="text-gray-500">Failed to load profile data</p>
+        <button 
+          onClick={fetchProfile}
+          className="btn btn-primary mt-4"
+        >
+          Retry
+        </button>
       </div>
     );
   }
@@ -190,6 +225,7 @@ export default function UserProfile() {
             {profile.first_name} {profile.last_name}
           </h2>
           <p className="text-gray-500">{profile.email}</p>
+          <p className="text-sm text-gray-400 capitalize">{profile.role}</p>
         </div>
 
         {/* Image Upload Modal */}
@@ -220,7 +256,7 @@ export default function UserProfile() {
         <div className="grid md:grid-cols-2 gap-6">
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium text-gray-700 mb-1">Full Name</label>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">Full Name</label>
               <input
                 type="text"
                 className="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-50"
@@ -230,7 +266,7 @@ export default function UserProfile() {
             </div>
             
             <div>
-              <label className="text-sm font-medium text-gray-700 mb-1">Email</label>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">Email</label>
               <input
                 type="email"
                 className="form-input"
@@ -240,7 +276,7 @@ export default function UserProfile() {
             </div>
             
             <div>
-              <label className="text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">Phone Number</label>
               <input
                 type="tel"
                 className="form-input"
@@ -250,11 +286,23 @@ export default function UserProfile() {
                 maxLength={10}
               />
             </div>
+
+            {profile.role === 'dealer' && (
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">GST Number</label>
+                <input
+                  type="text"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-50"
+                  value={profile.gst_number || 'Not provided'}
+                  disabled
+                />
+              </div>
+            )}
           </div>
           
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium text-gray-700 mb-1">User Code</label>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">User Code</label>
               <input
                 type="text"
                 className="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-50"
@@ -264,7 +312,7 @@ export default function UserProfile() {
             </div>
             
             <div>
-              <label className="text-sm font-medium text-gray-700 mb-1">Role</label>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">Role</label>
               <input
                 type="text"
                 className="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-50"
@@ -274,11 +322,21 @@ export default function UserProfile() {
             </div>
             
             <div>
-              <label className="text-sm font-medium text-gray-700 mb-1">Member Since</label>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">Member Since</label>
               <input
                 type="text"
                 className="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-50"
                 value={format(new Date(profile.created_at), 'MMMM d, yyyy')}
+                disabled
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">District</label>
+              <input
+                type="text"
+                className="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-50"
+                value={profile.district}
                 disabled
               />
             </div>
@@ -293,7 +351,7 @@ export default function UserProfile() {
           >
             {saving ? (
               <>
-                <LoadingSpinner size="sm\" className="mr-2" />
+                <LoadingSpinner size="sm" className="mr-2" />
                 Saving...
               </>
             ) : (
@@ -306,19 +364,21 @@ export default function UserProfile() {
         </div>
         
         <div className="mt-8 pt-6 border-t border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">Account Statistics</h2>
+          <h2 className="text-lg font-semibold text-gray-800 mb-4">Account Information</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <p className="text-sm text-blue-600 font-medium">Total Points</p>
-              <p className="text-2xl font-bold text-blue-700">{profile.points}</p>
-            </div>
+            {profile.role !== 'dealer' && (
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <p className="text-sm text-blue-600 font-medium">Total Points</p>
+                <p className="text-2xl font-bold text-blue-700">{profile.points}</p>
+              </div>
+            )}
             <div className="bg-green-50 p-4 rounded-lg">
-              <p className="text-sm text-green-600 font-medium">District</p>
-              <p className="text-2xl font-bold text-green-700">{profile.district}</p>
+              <p className="text-sm text-green-600 font-medium">City</p>
+              <p className="text-2xl font-bold text-green-700">{profile.city}</p>
             </div>
             <div className="bg-purple-50 p-4 rounded-lg">
-              <p className="text-sm text-purple-600 font-medium">City</p>
-              <p className="text-2xl font-bold text-purple-700">{profile.city}</p>
+              <p className="text-sm text-purple-600 font-medium">Address</p>
+              <p className="text-sm font-medium text-purple-700 break-words">{profile.address}</p>
             </div>
           </div>
         </div>
