@@ -4,7 +4,6 @@ import {
   Menu, 
   X, 
   LogOut, 
-  Bell, 
   ChevronDown,
   LayoutDashboard,
   PlusCircle,
@@ -24,7 +23,6 @@ export default function DashboardLayout() {
   const { currentUser, loading, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [notificationOpen, setNotificationOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -196,30 +194,7 @@ export default function DashboardLayout() {
             <Menu size={24} />
           </button>
           
-          <div className="flex items-center space-x-4">
-            {/* Notifications */}
-            <div className="relative">
-              <button
-                onClick={() => setNotificationOpen(!notificationOpen)}
-                className="p-1 rounded-full text-gray-500 hover:bg-gray-100 relative"
-              >
-                <Bell size={20} />
-              </button>
-              
-              {notificationOpen && (
-                <div className="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg py-1 z-10 border border-gray-200">
-                  <div className="px-4 py-2 border-b border-gray-200">
-                    <h3 className="text-sm font-medium text-gray-700">Notifications</h3>
-                  </div>
-                  <div className="max-h-60 overflow-y-auto">
-                    <div className="px-4 py-2 text-sm text-gray-500">
-                      No notifications
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-            
+          <div className="flex items-center space-x-4">            
             {/* User menu */}
             <div className="relative">
               <button
@@ -235,7 +210,7 @@ export default function DashboardLayout() {
               {userMenuOpen && (
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10 border border-gray-200">
                   <NavLink
-                    to="/profile"
+                    to={currentUser.role === 'dealer' ? '/dealer/profile' : '/profile'}
                     className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     onClick={() => setUserMenuOpen(false)}
                   >

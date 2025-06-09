@@ -19,7 +19,8 @@ export function usePWA() {
     // Check if app is already installed
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
     const isInWebAppiOS = (window.navigator as any).standalone === true;
-    setIsInstalled(isStandalone || isInWebAppiOS);
+    const isInstalled = isStandalone || isInWebAppiOS;
+    setIsInstalled(isInstalled);
 
     // Check notification permission
     if ('Notification' in window) {
@@ -80,24 +81,21 @@ export function usePWA() {
       setNotificationPermission(permission);
       
       if (permission === 'granted') {
+        // Show a test notification
+        new Notification('Tapee Cement', {
+          body: 'Notifications enabled! You\'ll receive updates about your rewards.',
+          icon: '/logo.png',
+          badge: '/logo.png'
+        });
+
         // Register for push notifications if service worker is available
         if ('serviceWorker' in navigator && 'PushManager' in window) {
-          const registration = await navigator.serviceWorker.ready;
-          
-          // You would typically get this from your backend
-          const vapidPublicKey = 'your-vapid-public-key';
-          
           try {
-            const subscription = await registration.pushManager.subscribe({
-              userVisibleOnly: true,
-              applicationServerKey: vapidPublicKey
-            });
-            
-            // Send subscription to your backend
-            console.log('Push subscription:', subscription);
-            return true;
+            const registration = await navigator.serviceWorker.ready;
+            console.log('Service worker ready for push notifications');
+            // Note: You would implement push subscription here with your backend
           } catch (pushError) {
-            console.log('Push subscription failed:', pushError);
+            console.log('Push subscription setup failed:', pushError);
           }
         }
         return true;
