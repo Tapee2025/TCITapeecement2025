@@ -24,8 +24,80 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     headers: {
       'X-Client-Info': 'supabase-js-web'
     }
+  },
+  db: {
+    schema: 'public'
+  },
+  realtime: {
+    params: {
+      eventsPerSecond: 10
+    }
   }
 });
+
+// Add connection monitoring
+let isOnline = navigator.onLine;
+let reconnectAttempts = 0;
+const maxReconnectAttempts = 5;
+
+// Monitor online/offline status
+window.addEventListener('online', () => {
+  console.log('Connection restored');
+  isOnline = true;
+  reconnectAttempts = 0;
+});
+
+window.addEventListener('offline', () => {
+  console.log('Connection lost');
+  isOnline = false;
+});
+
+// Enhanced error handling for network issues
+const originalFrom = supabase.from;
+supabase.from = function(table: string) {
+  const query = originalFrom.call(this, table);
+  
+  // Wrap query methods with retry logic
+  const originalSelect = query.select;
+  query.select = function(...args: any[]) {
+    const selectQuery = originalSelect.apply(this, args);
+    
+    // Add retry logic to the query execution
+    const originalThen = selectQuery.then;
+    selectQuery.then = function(onFulfilled?: any, onRejected?: any) {
+      return originalThen.call(this, onFulfilled, (error: any) => {
+        // Check if it's a network error and we should retry
+        if (error && (
+          error.message?.includes('Failed to fetch') ||
+          error.message?.includes('network') ||
+          error.message?.includes('timeout') ||
+          !isOnline
+        ) && reconnectAttempts < maxReconnectAttempts) {
+          
+          reconnectAttempts++;
+          console.log(`Retrying query... Attempt ${reconnectAttempts}/${maxReconnectAttempts}`);
+          
+          return new Promise((resolve, reject) => {
+            setTimeout(() => {
+              // Retry the original query
+              originalThen.call(selectQuery, resolve, reject);
+            }, 1000 * reconnectAttempts); // Exponential backoff
+          });
+        }
+        
+        // If not a retryable error or max attempts reached, reject
+        if (onRejected) {
+          return onRejected(error);
+        }
+        throw error;
+      });
+    };
+    
+    return selectQuery;
+  };
+  
+  return query;
+};
 
 // Helper function to get profile picture URL
 export function getProfilePictureUrl(fileName: string | null): string {
@@ -48,3 +120,24 @@ export function getProfilePictureUrl(fileName: string | null): string {
     return '';
   }
 }
+
+// Connection health check
+export async function checkConnection(): Promise<boolean> {
+  try {
+    const { error } = await supabase.from('users').select('id').limit(1);
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+// Periodic connection check
+setInterval(async () => {
+  if (isOnline && reconnectAttempts > 0) {
+    const isConnected = await checkConnection();
+    if (isConnected) {
+      console.log('Supabase connection restored');
+      reconnectAttempts = 0;
+    }
+  }
+}, 30000); // Check every 30 seconds
