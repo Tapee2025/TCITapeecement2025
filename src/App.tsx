@@ -71,7 +71,7 @@ function App() {
                   <Route path="/dealer/get-points" element={<DealerGetPoints />} />
                   <Route path="/dealer/rewards" element={<DealerRewards />} />
                   <Route path="/dealer/profile" element={<DealerProfile />} />
-                  <Route path="/transactions" element={<TransactionHistory />} />
+                  <Route path="/dealer/transactions" element={<TransactionHistory />} />
                 </Route>
               </Route>
               

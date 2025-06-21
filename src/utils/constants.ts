@@ -100,7 +100,7 @@ export const DEALER_NAVIGATION = [
   { name: 'My Customers', path: '/dealer/customers', icon: 'Users' },
   { name: 'Get Points', path: '/dealer/get-points', icon: 'PlusCircle' },
   { name: 'Rewards', path: '/dealer/rewards', icon: 'Gift' },
-  { name: 'Transaction History', path: '/transactions', icon: 'History' },
+  { name: 'Transaction History', path: '/dealer/transactions', icon: 'History' },
   { name: 'Profile', path: '/dealer/profile', icon: 'User' }
 ];
 

@@ -31,8 +31,10 @@ export default function TransactionHistory() {
         throw new Error('User not authenticated');
       }
 
+      console.log('Fetching transactions for user:', currentUser.id, 'role:', currentUser.role);
+
       // Fetch transactions with related data
-      const { data, error } = await supabase
+      let query = supabase
         .from('transactions')
         .select(`
           *,
@@ -48,6 +50,8 @@ export default function TransactionHistory() {
         `)
         .eq('user_id', currentUser.id)
         .order('created_at', { ascending: false });
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('Transaction fetch error:', error);
