@@ -18,8 +18,7 @@ const pointsRequestSchema = z.object({
       return !isNaN(num) && num > 0;
     },
     { message: 'Please enter a valid number of bags' }
-  ),
-  description: z.string().min(10, 'Please provide a detailed description')
+  )
 });
 
 type PointsRequestFormData = z.infer<typeof pointsRequestSchema>;
@@ -106,7 +105,8 @@ export default function DealerGetPoints() {
     setSubmitting(true);
     
     try {
-      const pointsAmount = calculatePoints(parseInt(data.bagsCount));
+      const bagsCount = parseInt(data.bagsCount);
+      const pointsAmount = calculatePoints(bagsCount);
       
       // Create the transaction request to admin
       const { error: transactionError } = await supabase
@@ -115,7 +115,7 @@ export default function DealerGetPoints() {
           user_id: currentUser.id,
           type: 'earned',
           amount: pointsAmount,
-          description: `Dealer request: ${data.bagsCount} bags sold - ${data.description}`,
+          description: `Dealer request: ${bagsCount} bags sold by ${currentUser.first_name} ${currentUser.last_name} (${currentUser.user_code})`,
           status: 'pending', // Will be approved by admin
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
@@ -210,9 +210,9 @@ export default function DealerGetPoints() {
                   <Building2 size={20} />
                 </div>
                 <div>
-                  <h3 className="font-medium">2. Provide Details</h3>
+                  <h3 className="font-medium">2. Submit Request</h3>
                   <p className="text-sm text-gray-600">
-                    Add description about the sales
+                    Submit your points request to admin
                   </p>
                 </div>
               </div>
@@ -272,22 +272,6 @@ export default function DealerGetPoints() {
                 )}
               </div>
               
-              <div>
-                <label htmlFor="description" className="form-label">
-                  Description
-                </label>
-                <textarea
-                  id="description"
-                  className="form-input"
-                  rows={4}
-                  placeholder="Provide details about the bags sold (e.g., customer names, sale period, etc.)"
-                  {...register('description')}
-                />
-                {errors.description && (
-                  <p className="form-error">{errors.description.message}</p>
-                )}
-              </div>
-              
               <button
                 type="submit"
                 className="btn btn-primary w-full"
@@ -314,7 +298,7 @@ export default function DealerGetPoints() {
                   <div key={request.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div>
                       <p className="text-sm font-medium text-gray-900">
-                        {request.amount} points requested
+                        {request.amount} points requested ({request.amount / 10} bags)
                       </p>
                       <p className="text-xs text-gray-500">
                         {new Date(request.created_at).toLocaleDateString()}
