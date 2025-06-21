@@ -402,7 +402,7 @@ export default function DealerDashboard() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
           <h3 className="font-semibold text-gray-900 flex items-center">
             <BarChart3 className="mr-2 text-primary-600" size={18} />
-            Sales Performance (Bags Sold to Customers)
+            Sales Performance (Bags Sold by Dealer)
           </h3>
           <div className="mt-2 sm:mt-0 flex flex-col sm:flex-row gap-2">
             <select
