@@ -68,13 +68,6 @@ export default function Register() {
       const userCode = generateUserCode();
       console.log('Generated user code:', userCode);
 
-      // First, check if email already exists in auth
-      const { data: existingUser } = await supabase.auth.getUser();
-      if (existingUser?.user?.email === data.email) {
-        setAuthError('This email is already registered. Please use a different email or try logging in.');
-        return;
-      }
-
       // Create the auth user with email confirmation disabled
       console.log('Creating auth user...');
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
@@ -136,28 +129,6 @@ export default function Register() {
 
       if (profileError) {
         console.error('Profile creation error:', profileError);
-        
-        // If profile creation fails, clean up the auth user
-        console.log('Cleaning up auth user due to profile creation failure...');
-        try {
-          // Sign in the user first to be able to delete them
-          await supabase.auth.signInWithPassword({
-            email: data.email,
-            password: data.password
-          });
-          
-          // Delete the auth user
-          const { error: deleteError } = await supabase.auth.admin.deleteUser(authData.user.id);
-          if (deleteError) {
-            console.error('Failed to cleanup auth user:', deleteError);
-          }
-          
-          // Sign out
-          await supabase.auth.signOut();
-        } catch (cleanupError) {
-          console.error('Error during cleanup:', cleanupError);
-        }
-        
         setAuthError('Failed to create user profile. Please try again.');
         return;
       }
