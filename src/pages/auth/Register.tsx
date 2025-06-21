@@ -62,17 +62,34 @@ export default function Register() {
     setAuthError(null);
     
     try {
+      console.log('Starting registration process...');
+      
       // Generate user code
       const userCode = generateUserCode();
+      console.log('Generated user code:', userCode);
 
-      // First create the auth user
+      // First, check if email already exists in auth
+      const { data: existingUser } = await supabase.auth.getUser();
+      if (existingUser?.user?.email === data.email) {
+        setAuthError('This email is already registered. Please use a different email or try logging in.');
+        return;
+      }
+
+      // Create the auth user with email confirmation disabled
+      console.log('Creating auth user...');
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
+        options: {
+          emailRedirectTo: undefined, // Disable email confirmation
+        }
       });
 
+      console.log('Auth signup result:', { authData, signUpError });
+
       if (signUpError) {
-        if (signUpError.message.includes('already registered')) {
+        console.error('Auth signup error:', signUpError);
+        if (signUpError.message.includes('already registered') || signUpError.message.includes('already been registered')) {
           setAuthError('This email is already registered. Please use a different email or try logging in.');
         } else {
           setAuthError('An error occurred during registration. Please try again.');
@@ -81,40 +98,80 @@ export default function Register() {
       }
 
       if (!authData.user) {
+        console.error('No user returned from auth signup');
         setAuthError('Failed to create user account. Please try again.');
         return;
       }
 
-      // Then create the public user profile
-      const { error: profileError } = await supabase
+      console.log('Auth user created successfully:', authData.user.id);
+
+      // Prepare profile data
+      const profileData = {
+        id: authData.user.id,
+        email: data.email,
+        first_name: data.first_name,
+        last_name: data.last_name,
+        role: data.role,
+        city: data.city,
+        address: data.address,
+        district: data.district,
+        gst_number: data.gstNumber || null,
+        mobile_number: data.mobileNumber,
+        user_code: userCode,
+        points: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      console.log('Creating user profile with data:', profileData);
+
+      // Create the public user profile
+      const { data: profileResult, error: profileError } = await supabase
         .from('users')
-        .insert([{
-          id: authData.user.id,
-          email: data.email,
-          first_name: data.first_name,
-          last_name: data.last_name,
-          role: data.role,
-          city: data.city,
-          address: data.address,
-          district: data.district,
-          gst_number: data.gstNumber,
-          mobile_number: data.mobileNumber,
-          user_code: userCode,
-          points: 0
-        }]);
+        .insert([profileData])
+        .select()
+        .single();
+
+      console.log('Profile creation result:', { profileResult, profileError });
 
       if (profileError) {
         console.error('Profile creation error:', profileError);
-        // Try to clean up the auth user since profile creation failed
-        await supabase.auth.signOut();
+        
+        // If profile creation fails, clean up the auth user
+        console.log('Cleaning up auth user due to profile creation failure...');
+        try {
+          // Sign in the user first to be able to delete them
+          await supabase.auth.signInWithPassword({
+            email: data.email,
+            password: data.password
+          });
+          
+          // Delete the auth user
+          const { error: deleteError } = await supabase.auth.admin.deleteUser(authData.user.id);
+          if (deleteError) {
+            console.error('Failed to cleanup auth user:', deleteError);
+          }
+          
+          // Sign out
+          await supabase.auth.signOut();
+        } catch (cleanupError) {
+          console.error('Error during cleanup:', cleanupError);
+        }
+        
         setAuthError('Failed to create user profile. Please try again.');
         return;
       }
 
-      toast.success('Account created successfully! Please sign in.');
+      console.log('User profile created successfully:', profileResult);
+      
+      // Sign out the user so they can log in normally
+      await supabase.auth.signOut();
+      
+      toast.success('Account created successfully! Please sign in with your credentials.');
       navigate('/login');
+      
     } catch (error) {
-      console.error('Registration error:', error);
+      console.error('Unexpected registration error:', error);
       setAuthError('An unexpected error occurred. Please try again later.');
     } finally {
       setLoading(false);
@@ -131,8 +188,8 @@ export default function Register() {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {authError && (
           <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm flex items-center">
-            <svg className="w-5 h-5 mr-2 flex-shrink-0\" fill="currentColor\" viewBox="0 0 20 20">
-              <path fillRule="evenodd\" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z\" clipRule="evenodd" />
+            <svg className="w-5 h-5 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
             </svg>
             {authError}
           </div>
@@ -405,7 +462,7 @@ export default function Register() {
         >
           {loading ? (
             <>
-              <LoadingSpinner size="sm\" className="mr-2" />
+              <LoadingSpinner size="sm" className="mr-2" />
               Creating Account...
             </>
           ) : (

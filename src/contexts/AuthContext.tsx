@@ -114,6 +114,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function fetchUserProfile(userId: string) {
     try {
+      console.log('Fetching user profile for:', userId);
+      
       const { data: profile, error } = await supabase
         .from('users')
         .select('*')
@@ -128,7 +130,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await supabase.auth.signOut();
         setCurrentUser(null);
       } else {
+        console.log('User profile loaded:', profile);
         setCurrentUser(profile);
+        
+        // Navigate to appropriate dashboard based on role
+        if (typeof window !== 'undefined') {
+          const currentPath = window.location.pathname;
+          
+          // Only redirect if we're on the login page or root
+          if (currentPath === '/login' || currentPath === '/') {
+            if (profile.role === 'admin') {
+              window.location.href = '/admin/dashboard';
+            } else if (profile.role === 'dealer') {
+              window.location.href = '/dealer/dashboard';
+            } else {
+              window.location.href = '/dashboard';
+            }
+          }
+        }
       }
     } catch (error) {
       console.error('Profile fetch error:', error);
@@ -152,12 +171,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function login(email: string, password: string) {
     try {
       setLoading(true);
+      console.log('Attempting login...');
+      
       const { data, error } = await supabase.auth.signInWithPassword({ 
         email, 
         password 
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Login error:', error);
+        throw error;
+      }
+      
+      console.log('Login successful, user:', data.user?.id);
       
       if (data.user) {
         await fetchUserProfile(data.user.id);
