@@ -62,11 +62,12 @@ export default function DealerDashboard() {
       if (profileError) throw profileError;
       setDealerData(profile);
 
-      // Get recent transactions (limited to 3 for compact view)
+      // Get recent customer transactions (pending approvals from customers)
       const { data: dealerTransactions, error: transactionError } = await supabase
         .from('transactions')
         .select('*, users!transactions_user_id_fkey(*)')
         .eq('dealer_id', user.id)
+        .eq('type', 'earned') // Only customer point requests
         .eq('status', 'pending')
         .order('created_at', { ascending: false })
         .limit(3);
@@ -83,16 +84,18 @@ export default function DealerDashboard() {
 
       if (rewardsError) throw rewardsError;
 
-      // Get all stats
+      // Get all stats - focusing on customer transactions through this dealer
       const { count: totalCount } = await supabase
         .from('transactions')
         .select('*', { count: 'exact', head: true })
-        .eq('dealer_id', user.id);
+        .eq('dealer_id', user.id)
+        .eq('type', 'earned'); // Only customer transactions
 
       const { count: pendingCount } = await supabase
         .from('transactions')
         .select('*', { count: 'exact', head: true })
         .eq('dealer_id', user.id)
+        .eq('type', 'earned') // Only customer transactions
         .eq('status', 'pending');
 
       const today = new Date();
@@ -102,14 +105,16 @@ export default function DealerDashboard() {
         .from('transactions')
         .select('*', { count: 'exact', head: true })
         .eq('dealer_id', user.id)
+        .eq('type', 'earned') // Only customer transactions
         .eq('status', 'dealer_approved')
         .gte('created_at', today.toISOString());
 
-      // Get unique customers count
+      // Get unique customers count (customers who have made transactions through this dealer)
       const { data: customerData } = await supabase
         .from('transactions')
         .select('user_id')
-        .eq('dealer_id', user.id);
+        .eq('dealer_id', user.id)
+        .eq('type', 'earned'); // Only customer transactions
 
       const uniqueCustomers = new Set(customerData?.map(t => t.user_id)).size;
 
@@ -260,7 +265,7 @@ export default function DealerDashboard() {
 
       if (updateError) throw updateError;
 
-      toast.success('Transaction approved successfully');
+      toast.success('Customer transaction approved successfully');
       fetchDashboardData();
     } catch (error) {
       console.error('Error approving transaction:', error);
@@ -282,7 +287,7 @@ export default function DealerDashboard() {
         .eq('id', transactionId);
 
       if (error) throw error;
-      toast.success('Transaction rejected');
+      toast.success('Customer transaction rejected');
       fetchDashboardData();
     } catch (error) {
       console.error('Error rejecting transaction:', error);
@@ -397,7 +402,7 @@ export default function DealerDashboard() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
           <h3 className="font-semibold text-gray-900 flex items-center">
             <BarChart3 className="mr-2 text-primary-600" size={18} />
-            Performance Metrics
+            Sales Performance (Bags Sold to Customers)
           </h3>
           <div className="mt-2 sm:mt-0 flex flex-col sm:flex-row gap-2">
             <select
@@ -490,7 +495,7 @@ export default function DealerDashboard() {
         <div className="bg-white rounded-lg p-4 shadow-sm border">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-gray-500">Pending Approvals</p>
+              <p className="text-xs text-gray-500">Customer Requests</p>
               <p className="text-xl font-bold text-gray-900">{stats.pendingApprovals}</p>
             </div>
             <Clock className="w-8 h-8 text-warning-500" />
@@ -565,7 +570,7 @@ export default function DealerDashboard() {
             <Clock size={20} />
           </div>
           <div className="flex-1">
-            <h3 className="font-semibold text-sm">Approve Points</h3>
+            <h3 className="font-semibold text-sm">Customer Requests</h3>
             <p className="text-xs text-gray-600">{stats.pendingApprovals} pending</p>
           </div>
           <ArrowRight className="text-gray-400" size={16} />
@@ -606,16 +611,16 @@ export default function DealerDashboard() {
             <p className="font-medium text-xs">{dealerData?.gst_number || 'Not provided'}</p>
           </div>
           <div>
-            <p className="text-gray-500">Total Transactions</p>
+            <p className="text-gray-500">Customer Sales</p>
             <p className="font-medium">{stats.totalTransactions}</p>
           </div>
         </div>
       </div>
 
-      {/* Pending Approvals */}
+      {/* Customer Requests (Pending Approvals) */}
       <div className="bg-white rounded-lg shadow-sm border">
         <div className="flex justify-between items-center p-4 border-b">
-          <h3 className="font-semibold text-gray-900">Pending Approvals</h3>
+          <h3 className="font-semibold text-gray-900">Customer Requests</h3>
           <Link to="/dealer/approve-points" className="text-primary-600 text-sm flex items-center">
             View all <ArrowRight size={14} className="ml-1" />
           </Link>
@@ -673,7 +678,7 @@ export default function DealerDashboard() {
           ) : (
             <div className="p-6 text-center text-gray-500">
               <CheckCircle className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-              <p className="text-sm">No pending approvals</p>
+              <p className="text-sm">No pending customer requests</p>
             </div>
           )}
         </div>
