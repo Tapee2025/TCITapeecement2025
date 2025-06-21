@@ -1,10 +1,9 @@
-const CACHE_NAME = 'tapee-cement-v2';
+const CACHE_NAME = 'tapee-cement-v3';
 const urlsToCache = [
   '/',
   '/static/js/bundle.js',
   '/static/css/main.css',
   '/logo.png',
-  '/logo.svg',
   '/manifest.json'
 ];
 
