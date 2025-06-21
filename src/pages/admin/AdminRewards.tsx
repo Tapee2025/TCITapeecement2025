@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Database } from '../../lib/database.types';
-import { Search, Plus, Edit, Trash, Calendar, Award } from 'lucide-react';
+import { Search, Plus, Edit, Trash, Calendar, Award, AlertCircle } from 'lucide-react';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { toast } from 'react-toastify';
 import { format } from 'date-fns';
@@ -33,12 +33,19 @@ export default function AdminRewards() {
   async function fetchRewards() {
     try {
       setLoading(true);
+      console.log('Fetching rewards...');
+      
       const { data, error } = await supabase
         .from('rewards')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching rewards:', error);
+        throw error;
+      }
+      
+      console.log('Rewards fetched successfully:', data?.length || 0);
       setRewards(data || []);
     } catch (error) {
       console.error('Error fetching rewards:', error);
@@ -58,6 +65,8 @@ export default function AdminRewards() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    
+    console.log('Form submitted with data:', formData);
     
     // Validate form data
     if (!formData.title.trim()) {
@@ -103,6 +112,8 @@ export default function AdminRewards() {
     setSubmitting(true);
     
     try {
+      console.log('Preparing reward data...');
+      
       const rewardData = {
         title: formData.title.trim(),
         description: formData.description.trim(),
@@ -113,7 +124,11 @@ export default function AdminRewards() {
         visible_to: formData.visible_to
       };
 
+      console.log('Reward data prepared:', rewardData);
+
       if (editingReward) {
+        console.log('Updating existing reward:', editingReward.id);
+        
         const { error } = await supabase
           .from('rewards')
           .update({
@@ -122,28 +137,57 @@ export default function AdminRewards() {
           })
           .eq('id', editingReward.id);
 
-        if (error) throw error;
+        if (error) {
+          console.error('Update error:', error);
+          throw error;
+        }
+        
+        console.log('Reward updated successfully');
         toast.success('Reward updated successfully');
       } else {
-        const { error } = await supabase
+        console.log('Creating new reward...');
+        
+        const { data: insertData, error } = await supabase
           .from('rewards')
           .insert([{
             ...rewardData,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
-          }]);
+          }])
+          .select();
 
-        if (error) throw error;
+        if (error) {
+          console.error('Insert error:', error);
+          console.error('Error details:', {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code
+          });
+          throw error;
+        }
+        
+        console.log('Reward created successfully:', insertData);
         toast.success('Reward created successfully');
       }
 
       setShowAddModal(false);
       setEditingReward(null);
       resetForm();
-      fetchRewards();
-    } catch (error) {
+      await fetchRewards(); // Refresh the list
+    } catch (error: any) {
       console.error('Error saving reward:', error);
-      toast.error('Failed to save reward. Please try again.');
+      
+      // Provide more specific error messages
+      if (error.message?.includes('permission')) {
+        toast.error('Permission denied. Please check your admin privileges.');
+      } else if (error.message?.includes('network')) {
+        toast.error('Network error. Please check your connection and try again.');
+      } else if (error.code === '23505') {
+        toast.error('A reward with this information already exists.');
+      } else {
+        toast.error(`Failed to save reward: ${error.message || 'Unknown error'}`);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -153,21 +197,29 @@ export default function AdminRewards() {
     if (!confirm('Are you sure you want to delete this reward?')) return;
 
     try {
+      console.log('Deleting reward:', rewardId);
+      
       const { error } = await supabase
         .from('rewards')
         .delete()
         .eq('id', rewardId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Delete error:', error);
+        throw error;
+      }
+      
+      console.log('Reward deleted successfully');
       toast.success('Reward deleted successfully');
       fetchRewards();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting reward:', error);
-      toast.error('Failed to delete reward');
+      toast.error(`Failed to delete reward: ${error.message || 'Unknown error'}`);
     }
   }
 
   function handleEdit(reward: Reward) {
+    console.log('Editing reward:', reward);
     setEditingReward(reward);
     setFormData({
       title: reward.title,
@@ -194,6 +246,7 @@ export default function AdminRewards() {
   }
 
   function openAddModal() {
+    console.log('Opening add modal');
     setEditingReward(null);
     resetForm();
     setShowAddModal(true);
@@ -339,6 +392,14 @@ export default function AdminRewards() {
               <h2 className="text-xl font-semibold mb-4">
                 {editingReward ? 'Edit Reward' : 'Add New Reward'}
               </h2>
+              
+              {/* Debug Info (remove in production) */}
+              {process.env.NODE_ENV === 'development' && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded text-sm">
+                  <p><strong>Debug:</strong> Form submission will be logged to console</p>
+                </div>
+              )}
+              
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label className="form-label">Title *</label>
@@ -415,7 +476,8 @@ export default function AdminRewards() {
                     ))}
                   </div>
                   {formData.visible_to.length === 0 && (
-                    <p className="text-sm text-error-600 mt-1">
+                    <p className="text-sm text-error-600 mt-1 flex items-center">
+                      <AlertCircle size={14} className="mr-1" />
                       Please select at least one user type
                     </p>
                   )}
