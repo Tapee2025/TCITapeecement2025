@@ -3,16 +3,18 @@ import { supabase } from '../../lib/supabase';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { Database } from '../../lib/database.types';
 import { Link } from 'react-router-dom';
-import { Clock, CheckCircle, ArrowRight, Check, X, Users, Package, TrendingUp, Building2, ShoppingBag, BarChart3, Calendar } from 'lucide-react';
+import { Clock, CheckCircle, ArrowRight, Check, X, Users, Package, TrendingUp, Building2, ShoppingBag, BarChart3, Calendar, Gift, Target, Star, Zap, Award } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 type Transaction = Database['public']['Tables']['transactions']['Row'];
 type User = Database['public']['Tables']['users']['Row'];
+type Reward = Database['public']['Tables']['rewards']['Row'];
 
 export default function DealerDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [dealerData, setDealerData] = useState<User | null>(null);
+  const [availableRewards, setAvailableRewards] = useState<Reward[]>([]);
   const [stats, setStats] = useState({
     totalTransactions: 0,
     pendingApprovals: 0,
@@ -23,7 +25,9 @@ export default function DealerDashboard() {
     last3MonthsBags: 0,
     last6MonthsBags: 0,
     yearlyBags: 0,
-    lifetimeBags: 0
+    lifetimeBags: 0,
+    rewardsAvailable: 0,
+    rewardsReady: 0
   });
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [performancePeriod, setPerformancePeriod] = useState('current_month');
@@ -68,6 +72,16 @@ export default function DealerDashboard() {
         .limit(3);
 
       if (transactionError) throw transactionError;
+
+      // Get available rewards for dealers
+      const { data: rewardsData, error: rewardsError } = await supabase
+        .from('rewards')
+        .select('*')
+        .eq('available', true)
+        .contains('visible_to', ['dealer'])
+        .order('points_required', { ascending: true });
+
+      if (rewardsError) throw rewardsError;
 
       // Get all stats
       const { count: totalCount } = await supabase
@@ -146,7 +160,14 @@ export default function DealerDashboard() {
         year: 'numeric' 
       });
 
+      // Calculate rewards stats
+      const rewardsAvailable = rewardsData?.length || 0;
+      const rewardsReady = rewardsData?.filter(reward => 
+        (profile?.points || 0) >= reward.points_required
+      ).length || 0;
+
       setRecentTransactions(dealerTransactions || []);
+      setAvailableRewards(rewardsData || []);
       setStats({
         totalTransactions: totalCount || 0,
         pendingApprovals: pendingCount || 0,
@@ -157,7 +178,9 @@ export default function DealerDashboard() {
         last3MonthsBags: last3MonthsData?.[0]?.total_bags_sold || 0,
         last6MonthsBags: last6MonthsData?.[0]?.total_bags_sold || 0,
         yearlyBags: yearlyData?.[0]?.total_bags_sold || 0,
-        lifetimeBags: lifetimeData?.[0]?.total_bags_sold || 0
+        lifetimeBags: lifetimeData?.[0]?.total_bags_sold || 0,
+        rewardsAvailable,
+        rewardsReady
       });
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -293,6 +316,18 @@ export default function DealerDashboard() {
     }
   };
 
+  // Get achievement level based on points
+  const getAchievementLevel = () => {
+    if (!dealerData) return { level: 'Bronze', icon: Star, color: 'text-amber-600' };
+    
+    const points = dealerData.points;
+    if (points >= 10000) return { level: 'Diamond', icon: Zap, color: 'text-purple-600' };
+    if (points >= 5000) return { level: 'Platinum', icon: Award, color: 'text-blue-600' };
+    if (points >= 2000) return { level: 'Gold', icon: Target, color: 'text-yellow-600' };
+    if (points >= 500) return { level: 'Silver', icon: TrendingUp, color: 'text-gray-600' };
+    return { level: 'Bronze', icon: Star, color: 'text-amber-600' };
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -301,18 +336,58 @@ export default function DealerDashboard() {
     );
   }
 
+  const achievementLevel = getAchievementLevel();
+  const AchievementIcon = achievementLevel.icon;
+
   return (
     <div className="space-y-4">
-      {/* Welcome Header */}
-      <div className="bg-gradient-to-r from-primary-600 to-primary-700 rounded-xl p-4 text-white">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold">Welcome, {dealerData?.first_name}!</h1>
-            <p className="text-primary-100 text-sm">Dealer Dashboard</p>
+      {/* Welcome Header with Achievement */}
+      <div className="bg-gradient-to-r from-primary-600 via-primary-700 to-purple-700 rounded-xl p-4 text-white relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-purple-600/20"></div>
+        <div className="relative z-10">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                <AchievementIcon className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold">Welcome, {dealerData?.first_name}!</h1>
+                <p className="text-primary-100 text-sm">{achievementLevel.level} Dealer</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-primary-100 text-xs">Available Points</p>
+              <p className="text-2xl font-bold">{dealerData?.points || 0}</p>
+            </div>
           </div>
-          <div className="text-right">
-            <p className="text-primary-100 text-xs">Dealer Code</p>
-            <p className="text-lg font-bold">{dealerData?.user_code}</p>
+          
+          {/* Achievement Progress */}
+          <div className="bg-white/10 rounded-lg p-3">
+            <div className="flex justify-between items-center mb-1">
+              <span className="text-xs text-white/80">Next Level Progress</span>
+              <span className="text-xs text-white/80">
+                {dealerData?.points || 0} / {
+                  dealerData?.points >= 10000 ? '∞' :
+                  dealerData?.points >= 5000 ? '10,000' :
+                  dealerData?.points >= 2000 ? '5,000' :
+                  dealerData?.points >= 500 ? '2,000' : '500'
+                }
+              </span>
+            </div>
+            <div className="w-full bg-white/20 rounded-full h-1.5">
+              <div 
+                className="bg-white h-1.5 rounded-full transition-all duration-500"
+                style={{ 
+                  width: `${Math.min(
+                    dealerData?.points >= 10000 ? 100 :
+                    dealerData?.points >= 5000 ? ((dealerData.points - 5000) / 5000) * 100 :
+                    dealerData?.points >= 2000 ? ((dealerData.points - 2000) / 3000) * 100 :
+                    dealerData?.points >= 500 ? ((dealerData.points - 500) / 1500) * 100 :
+                    (dealerData?.points || 0) / 500 * 100, 100
+                  )}%` 
+                }}
+              ></div>
+            </div>
           </div>
         </div>
       </div>
@@ -433,6 +508,53 @@ export default function DealerDashboard() {
         </div>
       </div>
 
+      {/* Rewards Motivation Section */}
+      <div className="bg-gradient-to-r from-accent-50 to-warning-50 rounded-lg p-4 border border-accent-200">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center space-x-2">
+            <Gift className="w-5 h-5 text-accent-600" />
+            <h3 className="font-semibold text-gray-900">Rewards Available</h3>
+          </div>
+          <Link to="/dealer/rewards" className="text-accent-600 text-sm font-medium">
+            View All →
+          </Link>
+        </div>
+        
+        <div className="grid grid-cols-2 gap-4 mb-3">
+          <div className="text-center">
+            <div className="text-2xl font-bold text-accent-600">{stats.rewardsReady}</div>
+            <div className="text-xs text-gray-600">Ready to Redeem</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-gray-700">{stats.rewardsAvailable}</div>
+            <div className="text-xs text-gray-600">Total Available</div>
+          </div>
+        </div>
+
+        {stats.rewardsReady > 0 && (
+          <div className="bg-white/60 rounded-lg p-3 text-center">
+            <p className="text-sm text-gray-700 mb-2">
+              🎉 Congratulations! You have <strong>{stats.rewardsReady}</strong> rewards ready to redeem!
+            </p>
+            <Link to="/dealer/rewards" className="btn btn-accent btn-sm">
+              Redeem Now
+            </Link>
+          </div>
+        )}
+
+        {stats.rewardsReady === 0 && availableRewards.length > 0 && (
+          <div className="bg-white/60 rounded-lg p-3">
+            <p className="text-sm text-gray-700 mb-2">
+              Keep earning points! Your next reward is just{' '}
+              <strong>
+                {Math.min(...availableRewards.map(r => r.points_required - (dealerData?.points || 0)).filter(diff => diff > 0))} points
+              </strong>{' '}
+              away.
+            </p>
+          </div>
+        )}
+      </div>
+
       {/* Quick Actions */}
       <div className="grid grid-cols-2 gap-3">
         <Link
@@ -454,11 +576,11 @@ export default function DealerDashboard() {
           className="bg-white rounded-lg p-4 shadow-sm border hover:shadow-md transition-all flex items-center space-x-3"
         >
           <div className="bg-accent-100 text-accent-700 p-2 rounded-lg">
-            <TrendingUp size={20} />
+            <Gift size={20} />
           </div>
           <div className="flex-1">
             <h3 className="font-semibold text-sm">View Rewards</h3>
-            <p className="text-xs text-gray-600">Browse catalog</p>
+            <p className="text-xs text-gray-600">{stats.rewardsReady} ready</p>
           </div>
           <ArrowRight className="text-gray-400" size={16} />
         </Link>
