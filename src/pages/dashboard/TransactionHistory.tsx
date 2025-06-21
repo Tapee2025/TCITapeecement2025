@@ -4,6 +4,7 @@ import { Database } from '../../lib/database.types';
 import { ArrowUp, ArrowDown, FileText, Download, Filter, Calendar } from 'lucide-react';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { toast } from 'react-toastify';
+import { useAuth } from '../../contexts/AuthContext';
 
 type Transaction = Database['public']['Tables']['transactions']['Row'];
 
@@ -14,18 +15,21 @@ export default function TransactionHistory() {
   const [typeFilter, setTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
+  const { currentUser } = useAuth();
   
   useEffect(() => {
-    fetchTransactions();
-  }, []);
+    if (currentUser) {
+      fetchTransactions();
+    }
+  }, [currentUser]);
   
   async function fetchTransactions() {
     try {
       setLoading(true);
       
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      if (!currentUser) {
+        throw new Error('User not authenticated');
+      }
 
       // Fetch transactions with related data
       const { data, error } = await supabase
@@ -42,11 +46,15 @@ export default function TransactionHistory() {
             points_required
           )
         `)
-        .eq('user_id', user.id)
+        .eq('user_id', currentUser.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Transaction fetch error:', error);
+        throw error;
+      }
       
+      console.log('Transactions fetched:', data?.length || 0);
       setTransactions(data || []);
       setFilteredTransactions(data || []);
     } catch (error) {
@@ -104,11 +112,23 @@ export default function TransactionHistory() {
     link.click();
     document.body.removeChild(link);
   };
-  
+
+  // Show loading state
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
         <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+
+  // Show error state if user not found
+  if (!currentUser) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="text-center">
+          <p className="text-gray-600">Please log in to view your transaction history</p>
+        </div>
       </div>
     );
   }
@@ -178,6 +198,7 @@ export default function TransactionHistory() {
                 <option value="dealer_approved">Dealer Approved</option>
                 <option value="approved">Approved</option>
                 <option value="rejected">Rejected</option>
+                <option value="completed">Completed</option>
               </select>
             </div>
           </div>

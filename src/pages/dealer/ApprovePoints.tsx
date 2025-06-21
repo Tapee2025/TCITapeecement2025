@@ -30,7 +30,7 @@ export default function ApprovePoints() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No user found');
 
-      // Get transactions with user details
+      // Get transactions with user details - only customer transactions that need dealer approval
       const { data, error } = await supabase
         .from('transactions')
         .select(`
@@ -41,10 +41,12 @@ export default function ApprovePoints() {
             last_name,
             user_code,
             role,
-            district
+            district,
+            points
           )
         `)
         .eq('dealer_id', user.id)
+        .eq('type', 'earned') // Only earned points (customer requests)
         .eq('status', statusFilter)
         .order('created_at', { ascending: false });
 
@@ -58,20 +60,23 @@ export default function ApprovePoints() {
         .from('transactions')
         .select('*', { count: 'exact', head: true })
         .eq('dealer_id', user.id)
+        .eq('type', 'earned')
         .eq('status', 'pending');
 
       const { count: approvedTodayCount } = await supabase
-        .from('dealer_approvals')
+        .from('transactions')
         .select('*', { count: 'exact', head: true })
         .eq('dealer_id', user.id)
-        .eq('status', 'approved')
+        .eq('type', 'earned')
+        .eq('status', 'dealer_approved')
         .gte('created_at', today.toISOString());
 
       const { data: totalPointsData } = await supabase
-        .from('dealer_approvals')
+        .from('transactions')
         .select('amount')
         .eq('dealer_id', user.id)
-        .eq('status', 'approved');
+        .eq('type', 'earned')
+        .in('status', ['approved', 'dealer_approved']);
 
       const totalPoints = totalPointsData?.reduce((sum, t) => sum + t.amount, 0) || 0;
       const totalBagsSold = Math.floor(totalPoints / 10);
@@ -103,25 +108,11 @@ export default function ApprovePoints() {
 
       const user = (transaction as any).users;
       if (!user) {
-        toast.error('User not found');
+        toast.error('User information not found');
         return;
       }
 
-      // Create dealer approval record
-      const { error: approvalError } = await supabase
-        .from('dealer_approvals')
-        .insert({
-          transaction_id: transaction.id,
-          user_id: user.id,
-          dealer_id: transaction.dealer_id,
-          amount: transaction.amount,
-          description: transaction.description,
-          status: 'pending'
-        });
-
-      if (approvalError) throw approvalError;
-
-      // Update transaction status
+      // Update transaction status to dealer_approved (will be sent to admin for final approval)
       const { error: updateError } = await supabase
         .from('transactions')
         .update({ 
@@ -132,7 +123,7 @@ export default function ApprovePoints() {
 
       if (updateError) throw updateError;
 
-      toast.success('Transaction approved and sent to admin');
+      toast.success(`Approved ${transaction.amount} points for ${user.first_name} ${user.last_name}. Sent to admin for final approval.`);
       fetchTransactions();
     } catch (error) {
       console.error('Error approving transaction:', error);
@@ -188,17 +179,17 @@ export default function ApprovePoints() {
     <div className="space-y-4">
       {/* Header */}
       <div>
-        <h1 className="text-xl font-bold text-gray-900">Approve Points</h1>
-        <p className="text-sm text-gray-600">Review and approve points requests</p>
+        <h1 className="text-xl font-bold text-gray-900">Approve Customer Points</h1>
+        <p className="text-sm text-gray-600">Review and approve points requests from your customers</p>
       </div>
 
-      {/* Stats Cards - Enhanced with bags sold */}
+      {/* Stats Cards */}
       <div className="grid grid-cols-2 gap-3">
         <div className="bg-white rounded-lg p-3 shadow-sm border">
           <div className="text-center">
             <Clock className="w-6 h-6 text-warning-600 mx-auto mb-1" />
             <p className="text-lg font-bold text-gray-900">{stats.pendingCount}</p>
-            <p className="text-xs text-gray-500">Pending</p>
+            <p className="text-xs text-gray-500">Pending Approval</p>
           </div>
         </div>
 
@@ -206,28 +197,12 @@ export default function ApprovePoints() {
           <div className="text-center">
             <CheckCircle className="w-6 h-6 text-success-600 mx-auto mb-1" />
             <p className="text-lg font-bold text-gray-900">{stats.approvedToday}</p>
-            <p className="text-xs text-gray-500">Today</p>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg p-3 shadow-sm border">
-          <div className="text-center">
-            <ShoppingBag className="w-6 h-6 text-success-600 mx-auto mb-1" />
-            <p className="text-lg font-bold text-gray-900">{stats.totalBagsSold}</p>
-            <p className="text-xs text-gray-500">Bags Sold</p>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg p-3 shadow-sm border">
-          <div className="text-center">
-            <Package className="w-6 h-6 text-primary-600 mx-auto mb-1" />
-            <p className="text-lg font-bold text-gray-900">{stats.totalPoints}</p>
-            <p className="text-xs text-gray-500">Total Points</p>
+            <p className="text-xs text-gray-500">Approved Today</p>
           </div>
         </div>
       </div>
 
-      {/* Filters - Compact */}
+      {/* Filters */}
       <div className="bg-white rounded-lg shadow-sm border p-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="relative">
@@ -248,13 +223,13 @@ export default function ApprovePoints() {
           >
             <option value="pending">Pending Approval</option>
             <option value="dealer_approved">Sent to Admin</option>
-            <option value="approved">Approved</option>
+            <option value="approved">Admin Approved</option>
             <option value="rejected">Rejected</option>
           </select>
         </div>
       </div>
 
-      {/* Transactions List - Mobile Optimized */}
+      {/* Transactions List */}
       <div className="bg-white rounded-lg shadow-sm border">
         <div className="divide-y">
           {filteredTransactions.length > 0 ? (
@@ -268,7 +243,7 @@ export default function ApprovePoints() {
                     <div className="flex items-center space-x-3 flex-1">
                       <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
                         <span className="text-primary-700 font-medium text-sm">
-                          {user.first_name[0]}{user.last_name[0]}
+                          {user.first_name?.[0] || 'U'}{user.last_name?.[0] || 'U'}
                         </span>
                       </div>
                       <div className="flex-1 min-w-0">
@@ -291,6 +266,7 @@ export default function ApprovePoints() {
                             {new Date(transaction.created_at).toLocaleDateString()}
                           </span>
                         </div>
+                        <p className="text-xs text-gray-600 mt-1">{transaction.description}</p>
                         <span className={`inline-block mt-1 text-xs px-2 py-1 rounded-full ${
                           transaction.status === 'approved' ? 'bg-success-100 text-success-700' :
                           transaction.status === 'pending' ? 'bg-warning-100 text-warning-700' :
@@ -335,11 +311,11 @@ export default function ApprovePoints() {
               <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Users className="w-8 h-8 text-gray-400" />
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-1">No Transactions Found</h3>
+              <h3 className="text-lg font-medium text-gray-900 mb-1">No Customer Requests Found</h3>
               <p className="text-gray-500">
                 {searchQuery 
-                  ? `No transactions match your search for "${searchQuery}"`
-                  : `No ${statusFilter} transactions found`}
+                  ? `No requests match your search for "${searchQuery}"`
+                  : `No ${statusFilter} customer requests found`}
               </p>
             </div>
           )}

@@ -65,7 +65,18 @@ export default function DealerDashboard() {
       // Get recent customer transactions (pending approvals from customers)
       const { data: dealerTransactions, error: transactionError } = await supabase
         .from('transactions')
-        .select('*, users!transactions_user_id_fkey(*)')
+        .select(`
+          *,
+          users!transactions_user_id_fkey (
+            id,
+            first_name,
+            last_name,
+            user_code,
+            role,
+            district,
+            points
+          )
+        `)
         .eq('dealer_id', user.id)
         .eq('type', 'earned') // Only customer point requests
         .eq('status', 'pending')
@@ -118,52 +129,58 @@ export default function DealerDashboard() {
 
       const uniqueCustomers = new Set(customerData?.map(t => t.user_id)).size;
 
-      // Get performance metrics for different periods - explicitly pass null for optional parameters
+      // Get performance metrics for different periods - dealer's own transactions
       const { data: currentMonthData } = await supabase
-        .rpc('get_performance_metrics', {
-          p_dealer_id: user.id,
-          p_period: 'current_month',
-          p_start_date: null,
-          p_end_date: null
-        });
+        .from('transactions')
+        .select('amount')
+        .eq('user_id', user.id) // Dealer's own transactions
+        .eq('type', 'earned')
+        .eq('status', 'approved')
+        .gte('created_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString());
 
       const { data: last3MonthsData } = await supabase
-        .rpc('get_performance_metrics', {
-          p_dealer_id: user.id,
-          p_period: 'last_3_months',
-          p_start_date: null,
-          p_end_date: null
-        });
+        .from('transactions')
+        .select('amount')
+        .eq('user_id', user.id) // Dealer's own transactions
+        .eq('type', 'earned')
+        .eq('status', 'approved')
+        .gte('created_at', new Date(new Date().getFullYear(), new Date().getMonth() - 3, 1).toISOString());
 
       const { data: last6MonthsData } = await supabase
-        .rpc('get_performance_metrics', {
-          p_dealer_id: user.id,
-          p_period: 'last_6_months',
-          p_start_date: null,
-          p_end_date: null
-        });
+        .from('transactions')
+        .select('amount')
+        .eq('user_id', user.id) // Dealer's own transactions
+        .eq('type', 'earned')
+        .eq('status', 'approved')
+        .gte('created_at', new Date(new Date().getFullYear(), new Date().getMonth() - 6, 1).toISOString());
 
       const { data: yearlyData } = await supabase
-        .rpc('get_performance_metrics', {
-          p_dealer_id: user.id,
-          p_period: 'yearly',
-          p_start_date: null,
-          p_end_date: null
-        });
+        .from('transactions')
+        .select('amount')
+        .eq('user_id', user.id) // Dealer's own transactions
+        .eq('type', 'earned')
+        .eq('status', 'approved')
+        .gte('created_at', new Date(new Date().getFullYear(), 0, 1).toISOString());
 
       const { data: lifetimeData } = await supabase
-        .rpc('get_performance_metrics', {
-          p_dealer_id: user.id,
-          p_period: 'lifetime',
-          p_start_date: null,
-          p_end_date: null
-        });
+        .from('transactions')
+        .select('amount')
+        .eq('user_id', user.id) // Dealer's own transactions
+        .eq('type', 'earned')
+        .eq('status', 'approved');
 
       // Get current month name
       const currentMonthName = new Date().toLocaleDateString('en-US', { 
         month: 'long', 
         year: 'numeric' 
       });
+
+      // Calculate bags sold from dealer's own transactions
+      const currentMonthBags = Math.floor((currentMonthData?.reduce((sum, t) => sum + t.amount, 0) || 0) / 10);
+      const last3MonthsBags = Math.floor((last3MonthsData?.reduce((sum, t) => sum + t.amount, 0) || 0) / 10);
+      const last6MonthsBags = Math.floor((last6MonthsData?.reduce((sum, t) => sum + t.amount, 0) || 0) / 10);
+      const yearlyBags = Math.floor((yearlyData?.reduce((sum, t) => sum + t.amount, 0) || 0) / 10);
+      const lifetimeBags = Math.floor((lifetimeData?.reduce((sum, t) => sum + t.amount, 0) || 0) / 10);
 
       // Calculate rewards stats
       const rewardsAvailable = rewardsData?.length || 0;
@@ -178,12 +195,12 @@ export default function DealerDashboard() {
         pendingApprovals: pendingCount || 0,
         approvedToday: approvedTodayCount || 0,
         totalCustomers: uniqueCustomers,
-        currentMonthBags: currentMonthData?.[0]?.total_bags_sold || 0,
+        currentMonthBags,
         currentMonthName,
-        last3MonthsBags: last3MonthsData?.[0]?.total_bags_sold || 0,
-        last6MonthsBags: last6MonthsData?.[0]?.total_bags_sold || 0,
-        yearlyBags: yearlyData?.[0]?.total_bags_sold || 0,
-        lifetimeBags: lifetimeData?.[0]?.total_bags_sold || 0,
+        last3MonthsBags,
+        last6MonthsBags,
+        yearlyBags,
+        lifetimeBags,
         rewardsAvailable,
         rewardsReady
       });
@@ -205,16 +222,19 @@ export default function DealerDashboard() {
       if (!user) return;
 
       const { data: customData } = await supabase
-        .rpc('get_performance_metrics', {
-          p_dealer_id: user.id,
-          p_period: 'custom',
-          p_start_date: customStartDate,
-          p_end_date: customEndDate
-        });
+        .from('transactions')
+        .select('amount')
+        .eq('user_id', user.id) // Dealer's own transactions
+        .eq('type', 'earned')
+        .eq('status', 'approved')
+        .gte('created_at', customStartDate + 'T00:00:00')
+        .lte('created_at', customEndDate + 'T23:59:59');
+
+      const customPeriodBags = Math.floor((customData?.reduce((sum, t) => sum + t.amount, 0) || 0) / 10);
 
       setStats(prev => ({
         ...prev,
-        currentMonthBags: customData?.[0]?.total_bags_sold || 0,
+        currentMonthBags: customPeriodBags,
         currentMonthName: `Custom Period (${customStartDate} to ${customEndDate})`
       }));
 
@@ -240,21 +260,7 @@ export default function DealerDashboard() {
         return;
       }
 
-      // Create dealer approval record
-      const { error: approvalError } = await supabase
-        .from('dealer_approvals')
-        .insert({
-          transaction_id: transaction.id,
-          user_id: user.id,
-          dealer_id: transaction.dealer_id,
-          amount: transaction.amount,
-          description: transaction.description,
-          status: 'pending'
-        });
-
-      if (approvalError) throw approvalError;
-
-      // Update transaction status
+      // Update transaction status to dealer_approved
       const { error: updateError } = await supabase
         .from('transactions')
         .update({ 
@@ -402,7 +408,7 @@ export default function DealerDashboard() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
           <h3 className="font-semibold text-gray-900 flex items-center">
             <BarChart3 className="mr-2 text-primary-600" size={18} />
-            Sales Performance (Bags Sold by Dealer)
+            My Sales Performance (Bags Sold by Me)
           </h3>
           <div className="mt-2 sm:mt-0 flex flex-col sm:flex-row gap-2">
             <select
@@ -450,7 +456,7 @@ export default function DealerDashboard() {
             <div className="text-center">
               <ShoppingBag className="w-6 h-6 text-green-600 mx-auto mb-1" />
               <p className="text-xl font-bold text-green-700">{getPerformanceValue()}</p>
-              <p className="text-xs text-green-600">Bags Sold</p>
+              <p className="text-xs text-green-600">Bags Sold by Me</p>
               <p className="text-xs text-green-500">{getPerformanceLabel()}</p>
             </div>
           </div>
@@ -459,7 +465,7 @@ export default function DealerDashboard() {
             <div className="text-center">
               <Users className="w-6 h-6 text-blue-600 mx-auto mb-1" />
               <p className="text-xl font-bold text-blue-700">{stats.totalCustomers}</p>
-              <p className="text-xs text-blue-600">Total Customers</p>
+              <p className="text-xs text-blue-600">My Customers</p>
               <p className="text-xs text-blue-500">All Time</p>
             </div>
           </div>
@@ -628,53 +634,57 @@ export default function DealerDashboard() {
 
         <div className="divide-y">
           {recentTransactions.length > 0 ? (
-            recentTransactions.map((transaction) => (
-              <div key={transaction.id} className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3 flex-1">
-                    <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
-                      <span className="text-primary-700 font-medium text-sm">
-                        {(transaction as any).users?.first_name?.[0]}
-                        {(transaction as any).users?.last_name?.[0]}
-                      </span>
+            recentTransactions.map((transaction) => {
+              const user = (transaction as any).users;
+              if (!user) return null;
+
+              return (
+                <div key={transaction.id} className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3 flex-1">
+                      <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
+                        <span className="text-primary-700 font-medium text-sm">
+                          {user.first_name?.[0] || 'U'}{user.last_name?.[0] || 'U'}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900">
+                          {user.first_name} {user.last_name}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {transaction.amount} points • {transaction.amount / 10} bags
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          {new Date(transaction.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900">
-                        {(transaction as any).users?.first_name} {(transaction as any).users?.last_name}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {transaction.amount} points • {transaction.amount / 10} bags
-                      </p>
-                      <p className="text-xs text-gray-400">
-                        {new Date(transaction.created_at).toLocaleDateString()}
-                      </p>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => handleApprove(transaction.id)}
+                        disabled={processingId === transaction.id}
+                        className="p-2 text-success-600 hover:bg-success-50 rounded-lg transition-colors"
+                        title="Approve"
+                      >
+                        {processingId === transaction.id ? (
+                          <LoadingSpinner size="sm" />
+                        ) : (
+                          <Check size={18} />
+                        )}
+                      </button>
+                      <button
+                        onClick={() => handleReject(transaction.id)}
+                        disabled={processingId === transaction.id}
+                        className="p-2 text-error-600 hover:bg-error-50 rounded-lg transition-colors"
+                        title="Reject"
+                      >
+                        <X size={18} />
+                      </button>
                     </div>
-                  </div>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => handleApprove(transaction.id)}
-                      disabled={processingId === transaction.id}
-                      className="p-2 text-success-600 hover:bg-success-50 rounded-lg transition-colors"
-                      title="Approve"
-                    >
-                      {processingId === transaction.id ? (
-                        <LoadingSpinner size="sm" />
-                      ) : (
-                        <Check size={18} />
-                      )}
-                    </button>
-                    <button
-                      onClick={() => handleReject(transaction.id)}
-                      disabled={processingId === transaction.id}
-                      className="p-2 text-error-600 hover:bg-error-50 rounded-lg transition-colors"
-                      title="Reject"
-                    >
-                      <X size={18} />
-                    </button>
                   </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           ) : (
             <div className="p-6 text-center text-gray-500">
               <CheckCircle className="w-8 h-8 mx-auto mb-2 text-gray-400" />
