@@ -118,10 +118,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .from('users')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('Profile fetch error:', error);
+        setCurrentUser(null);
+      } else if (!profile) {
+        console.log('No user profile found for authenticated user, signing out');
+        await supabase.auth.signOut();
         setCurrentUser(null);
       } else {
         setCurrentUser(profile);

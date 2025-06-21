@@ -30,13 +30,25 @@ export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
           .from('users')
           .select('*')
           .eq('id', user.id)
-          .single();
+          .maybeSingle();
 
         if (error) throw error;
-        setUserData(profile);
+        
+        // If no profile found, sign out the user
+        if (!profile) {
+          console.log('No user profile found, signing out user');
+          await supabase.auth.signOut();
+          setUser(null);
+          setUserData(null);
+        } else {
+          setUserData(profile);
+        }
       }
     } catch (error) {
       console.error('Error checking user:', error);
+      // On error, clear user state
+      setUser(null);
+      setUserData(null);
     } finally {
       setLoading(false);
     }
@@ -50,20 +62,20 @@ export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
     );
   }
 
-  // Not logged in
-  if (!user) {
+  // Not logged in or no profile found
+  if (!user || !userData) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   // Check if user has the required role
-  if (userData && !allowedRoles.includes(userData.role as UserRole)) {
+  if (!allowedRoles.includes(userData.role as UserRole)) {
     // Redirect to appropriate dashboard based on role
     if (userData.role === 'admin') {
-      return <Navigate to="/admin/dashboard\" replace />;
+      return <Navigate to="/admin/dashboard" replace />;
     } else if (userData.role === 'dealer') {
       return <Navigate to="/dealer/dashboard" replace />;
     } else {
-      return <Navigate to="/dashboard\" replace />;
+      return <Navigate to="/dashboard" replace />;
     }
   }
 
