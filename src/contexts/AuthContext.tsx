@@ -41,7 +41,6 @@ export function useAuth() {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     let mounted = true;
@@ -49,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const initializeAuth = async () => {
       try {
-        // Get the current session with retry logic
+        // Get the current session
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
         if (sessionError) {
@@ -68,11 +67,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setLoading(false);
         }
 
-        // Listen for auth state changes with error handling
+        // Listen for auth state changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
           if (!mounted) return;
 
-          console.log('Auth state changed:', event, session?.user?.id);
+          console.log('Auth state changed:', event);
 
           try {
             if (event === 'SIGNED_IN' && session?.user) {
@@ -86,19 +85,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
           } catch (error) {
             console.error('Auth state change error:', error);
-            // Don't set loading to false here to allow retry
+            if (mounted) {
+              setCurrentUser(null);
+              setLoading(false);
+            }
           }
         });
 
         authSubscription = subscription;
       } catch (error) {
         console.error('Auth initialization error:', error);
-        if (mounted && retryCount < 3) {
-          // Retry initialization up to 3 times
-          setTimeout(() => {
-            setRetryCount(prev => prev + 1);
-          }, 1000 * (retryCount + 1)); // Exponential backoff
-        } else if (mounted) {
+        if (mounted) {
           setCurrentUser(null);
           setLoading(false);
         }
@@ -113,9 +110,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         authSubscription.unsubscribe();
       }
     };
-  }, [retryCount]);
+  }, []);
 
-  async function fetchUserProfile(userId: string, retries = 3) {
+  async function fetchUserProfile(userId: string) {
     try {
       const { data: profile, error } = await supabase
         .from('users')
@@ -125,32 +122,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) {
         console.error('Profile fetch error:', error);
-        
-        // Retry logic for network errors
-        if (retries > 0 && (error.message.includes('Failed to fetch') || error.message.includes('network'))) {
-          console.log(`Retrying profile fetch... ${retries} attempts remaining`);
-          setTimeout(() => {
-            fetchUserProfile(userId, retries - 1);
-          }, 1000);
-          return;
-        }
-        
         setCurrentUser(null);
       } else {
         setCurrentUser(profile);
       }
     } catch (error) {
       console.error('Profile fetch error:', error);
-      
-      // Retry logic for unexpected errors
-      if (retries > 0) {
-        console.log(`Retrying profile fetch... ${retries} attempts remaining`);
-        setTimeout(() => {
-          fetchUserProfile(userId, retries - 1);
-        }, 1000);
-        return;
-      }
-      
       setCurrentUser(null);
     } finally {
       setLoading(false);

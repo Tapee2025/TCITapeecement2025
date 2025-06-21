@@ -1,67 +1,62 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Database } from '../../lib/database.types';
 import { formatDate } from '../../utils/helpers';
 import { Gift, Search, Award, CheckCircle, Filter } from 'lucide-react';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import LazyImage from '../../components/ui/LazyImage';
 import { toast } from 'react-toastify';
+import { useAuth } from '../../contexts/AuthContext';
+import { useCache } from '../../hooks/useCache';
+import { useDebounce } from '../../hooks/useDebounce';
 
 type Reward = Database['public']['Tables']['rewards']['Row'];
 type User = Database['public']['Tables']['users']['Row'];
 
 export default function RedeemRewards() {
-  const [loading, setLoading] = useState(true);
-  const [userData, setUserData] = useState<User | null>(null);
-  const [rewards, setRewards] = useState<Reward[]>([]);
+  const { currentUser, refreshUser } = useAuth();
   const [selectedReward, setSelectedReward] = useState<Reward | null>(null);
   const [confirmationStep, setConfirmationStep] = useState(false);
   const [redemptionComplete, setRedemptionComplete] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
-  
-  useEffect(() => {
-    fetchUserDataAndRewards();
-  }, []);
+  const [submitting, setSubmitting] = useState(false);
 
-  async function fetchUserDataAndRewards() {
-    try {
-      setLoading(true);
+  // Debounce search query to avoid excessive filtering
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+  // Cache rewards data for 5 minutes
+  const { data: rewards, loading, refetch } = useCache(
+    async () => {
+      if (!currentUser) throw new Error('Not authenticated');
 
-      // Get user profile with points
-      const { data: profile, error: profileError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      if (profileError) throw profileError;
-      setUserData(profile);
-
-      // Get available rewards visible to user's role
       const { data: rewardsData, error: rewardsError } = await supabase
         .from('rewards')
         .select('*')
         .eq('available', true)
-        .contains('visible_to', [profile.role])
+        .contains('visible_to', [currentUser.role])
         .order('points_required', { ascending: true });
 
       if (rewardsError) throw rewardsError;
-      setRewards(rewardsData || []);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      toast.error('Failed to load rewards');
-    } finally {
-      setLoading(false);
-    }
-  }
+      return rewardsData || [];
+    },
+    { key: `rewards-${currentUser?.role}`, ttl: 5 * 60 * 1000 }
+  );
+
+  // Memoize filtered rewards to prevent unnecessary recalculations
+  const filteredRewards = useMemo(() => {
+    if (!rewards) return [];
+    
+    const searchString = debouncedSearchQuery.toLowerCase();
+    return rewards.filter(reward => 
+      reward.title.toLowerCase().includes(searchString) || 
+      reward.description.toLowerCase().includes(searchString)
+    );
+  }, [rewards, debouncedSearchQuery]);
 
   // Handle reward selection
   const handleSelectReward = (reward: Reward) => {
-    if (!userData || userData.points < reward.points_required) {
+    if (!currentUser || currentUser.points < reward.points_required) {
       toast.error('Insufficient points');
       return;
     }
@@ -72,16 +67,16 @@ export default function RedeemRewards() {
   
   // Handle redemption confirmation
   const handleConfirmRedemption = async () => {
-    if (!selectedReward || !userData) return;
+    if (!selectedReward || !currentUser || submitting) return;
     
     try {
-      setLoading(true);
+      setSubmitting(true);
       
       // Create redemption transaction with 'pending' status
       const { error: transactionError } = await supabase
         .from('transactions')
         .insert({
-          user_id: userData.id,
+          user_id: currentUser.id,
           type: 'redeemed',
           amount: selectedReward.points_required,
           description: `Redeemed ${selectedReward.title}`,
@@ -95,12 +90,15 @@ export default function RedeemRewards() {
       const { error: pointsError } = await supabase
         .from('users')
         .update({ 
-          points: userData.points - selectedReward.points_required,
+          points: currentUser.points - selectedReward.points_required,
           updated_at: new Date().toISOString()
         })
-        .eq('id', userData.id);
+        .eq('id', currentUser.id);
 
       if (pointsError) throw pointsError;
+      
+      // Refresh user data
+      await refreshUser();
       
       setRedemptionComplete(true);
       toast.success('Reward redemption request submitted successfully!');
@@ -108,7 +106,7 @@ export default function RedeemRewards() {
       console.error('Error redeeming reward:', error);
       toast.error('Failed to redeem reward');
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
   
@@ -117,19 +115,10 @@ export default function RedeemRewards() {
     setSelectedReward(null);
     setConfirmationStep(false);
     setRedemptionComplete(false);
-    fetchUserDataAndRewards(); // Refresh data
+    refetch(); // Refresh rewards data
   };
 
-  // Filter rewards based on search
-  const filteredRewards = rewards.filter(reward => {
-    const searchString = searchQuery.toLowerCase();
-    return (
-      reward.title.toLowerCase().includes(searchString) || 
-      reward.description.toLowerCase().includes(searchString)
-    );
-  });
-  
-  if (loading) {
+  if (loading || !currentUser) {
     return (
       <div className="flex justify-center items-center h-64">
         <LoadingSpinner size="lg" />
@@ -177,10 +166,10 @@ export default function RedeemRewards() {
         
         <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
           <div className="h-48">
-            <img
+            <LazyImage
               src={selectedReward.image_url}
               alt={selectedReward.title}
-              className="w-full h-full object-cover"
+              className="w-full h-full"
             />
           </div>
           <div className="p-6">
@@ -199,7 +188,7 @@ export default function RedeemRewards() {
             <div className="bg-gray-50 p-4 rounded-lg mb-6">
               <div className="flex justify-between mb-2">
                 <span className="text-gray-600">Your Points:</span>
-                <span className="font-semibold">{userData?.points || 0}</span>
+                <span className="font-semibold">{currentUser.points}</span>
               </div>
               <div className="flex justify-between mb-2">
                 <span className="text-gray-600">Points Required:</span>
@@ -209,7 +198,7 @@ export default function RedeemRewards() {
               <div className="flex justify-between">
                 <span className="text-gray-600">Remaining Points:</span>
                 <span className="font-semibold">
-                  {(userData?.points || 0) - selectedReward.points_required}
+                  {currentUser.points - selectedReward.points_required}
                 </span>
               </div>
             </div>
@@ -217,11 +206,11 @@ export default function RedeemRewards() {
             <button
               onClick={handleConfirmRedemption}
               className="btn btn-primary w-full"
-              disabled={loading}
+              disabled={submitting}
             >
-              {loading ? (
+              {submitting ? (
                 <>
-                  <LoadingSpinner size="sm\" className="mr-2" />
+                  <LoadingSpinner size="sm" className="mr-2" />
                   Processing...
                 </>
               ) : (
@@ -245,7 +234,7 @@ export default function RedeemRewards() {
           </div>
           <div className="text-right">
             <p className="text-primary-100 text-xs">Available Points</p>
-            <p className="text-2xl font-bold">{userData?.points || 0}</p>
+            <p className="text-2xl font-bold">{currentUser.points}</p>
           </div>
         </div>
       </div>
@@ -277,7 +266,7 @@ export default function RedeemRewards() {
       {filteredRewards.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {filteredRewards.map((reward) => {
-            const canRedeem = (userData?.points || 0) >= reward.points_required;
+            const canRedeem = currentUser.points >= reward.points_required;
             
             return (
               <div
@@ -287,10 +276,10 @@ export default function RedeemRewards() {
                 }`}
               >
                 <div className="h-32 overflow-hidden relative">
-                  <img
+                  <LazyImage
                     src={reward.image_url}
                     alt={reward.title}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full"
                   />
                   {!canRedeem && (
                     <div className="absolute inset-0 bg-gray-900/40 flex items-center justify-center">
@@ -333,8 +322,8 @@ export default function RedeemRewards() {
           </div>
           <h3 className="text-lg font-medium text-gray-900 mb-1">No Rewards Found</h3>
           <p className="text-gray-600">
-            {searchQuery 
-              ? `No rewards match your search for "${searchQuery}"`
+            {debouncedSearchQuery 
+              ? `No rewards match your search for "${debouncedSearchQuery}"`
               : 'No rewards available at the moment'}
           </p>
         </div>

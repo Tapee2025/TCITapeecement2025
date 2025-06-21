@@ -1,40 +1,26 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Database } from '../../lib/database.types';
 import { ArrowUp, ArrowDown, FileText, Download, Filter, Calendar } from 'lucide-react';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { toast } from 'react-toastify';
 import { useAuth } from '../../contexts/AuthContext';
+import { useCache } from '../../hooks/useCache';
 
 type Transaction = Database['public']['Tables']['transactions']['Row'];
 
 export default function TransactionHistory() {
-  const [loading, setLoading] = useState(true);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
+  const { currentUser } = useAuth();
   const [typeFilter, setTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
-  const { currentUser } = useAuth();
-  
-  useEffect(() => {
-    if (currentUser) {
-      fetchTransactions();
-    }
-  }, [currentUser]);
-  
-  async function fetchTransactions() {
-    try {
-      setLoading(true);
-      
-      if (!currentUser) {
-        throw new Error('User not authenticated');
-      }
 
-      console.log('Fetching transactions for user:', currentUser.id, 'role:', currentUser.role);
+  // Cache transactions for 1 minute
+  const { data: transactions, loading, refetch } = useCache(
+    async () => {
+      if (!currentUser) throw new Error('User not authenticated');
 
-      // Fetch transactions with related data
-      let query = supabase
+      const { data, error } = await supabase
         .from('transactions')
         .select(`
           *,
@@ -51,27 +37,15 @@ export default function TransactionHistory() {
         .eq('user_id', currentUser.id)
         .order('created_at', { ascending: false });
 
-      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
+    },
+    { key: `transactions-${currentUser?.id}`, ttl: 60 * 1000 }
+  );
 
-      if (error) {
-        console.error('Transaction fetch error:', error);
-        throw error;
-      }
-      
-      console.log('Transactions fetched:', data?.length || 0);
-      setTransactions(data || []);
-      setFilteredTransactions(data || []);
-    } catch (error) {
-      console.error('Error fetching transactions:', error);
-      toast.error('Failed to load transaction history');
-    } finally {
-      setLoading(false);
-    }
-  }
-  
-  // Apply filters
-  useEffect(() => {
-    if (!transactions.length) return;
+  // Memoize filtered transactions
+  const filteredTransactions = useMemo(() => {
+    if (!transactions) return [];
     
     let filtered = [...transactions];
     
@@ -85,7 +59,7 @@ export default function TransactionHistory() {
       filtered = filtered.filter(transaction => transaction.status === statusFilter);
     }
     
-    setFilteredTransactions(filtered);
+    return filtered;
   }, [transactions, typeFilter, statusFilter]);
   
   // Generate CSV for export
@@ -117,7 +91,6 @@ export default function TransactionHistory() {
     document.body.removeChild(link);
   };
 
-  // Show loading state
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -126,7 +99,6 @@ export default function TransactionHistory() {
     );
   }
 
-  // Show error state if user not found
   if (!currentUser) {
     return (
       <div className="flex justify-center items-center h-64">

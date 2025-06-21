@@ -1,111 +1,132 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { PlusCircle, Gift, ArrowRight, TrendingUp, Award, Package } from 'lucide-react';
-import DashboardCard from '../../components/ui/DashboardCard';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import LazyImage from '../../components/ui/LazyImage';
 import { supabase } from '../../lib/supabase';
 import { Database } from '../../lib/database.types';
 import { toast } from 'react-toastify';
+import { useAuth } from '../../contexts/AuthContext';
+import { useCache } from '../../hooks/useCache';
 
 type User = Database['public']['Tables']['users']['Row'];
 type Transaction = Database['public']['Tables']['transactions']['Row'];
 
 export default function Dashboard() {
-  const [loading, setLoading] = useState(true);
-  const [userData, setUserData] = useState<User | null>(null);
-  const [stats, setStats] = useState({
-    points: 0,
-    bagsPurchased: 0,
-    rewardsRedeemed: 0,
-    pendingApprovals: 0
-  });
-  const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
+  const { currentUser } = useAuth();
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [marketingSlides, setMarketingSlides] = useState<any[]>([]);
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
+  // Cache dashboard data for 2 minutes
+  const { data: dashboardData, loading, refetch } = useCache(
+    async () => {
+      if (!currentUser) throw new Error('No user found');
 
-  async function fetchDashboardData() {
-    try {
-      setLoading(true);
+      // Fetch all data in parallel for better performance
+      const [transactionsResult, slidesResult] = await Promise.all([
+        supabase
+          .from('transactions')
+          .select('*')
+          .eq('user_id', currentUser.id)
+          .order('created_at', { ascending: false })
+          .limit(3),
+        supabase
+          .from('marketing_slides')
+          .select('*')
+          .eq('active', true)
+          .order('order_number', { ascending: true })
+      ]);
 
-      // Get current user data
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        throw new Error('No user found');
-      }
+      if (transactionsResult.error) throw transactionsResult.error;
+      if (slidesResult.error) throw slidesResult.error;
 
-      // Get user profile
-      const { data: profile, error: profileError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      if (profileError) throw profileError;
-      setUserData(profile);
-
-      // Get recent transactions (limited to 3 for compact view)
-      const { data: transactions, error: transactionsError } = await supabase
-        .from('transactions')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(3);
-
-      if (transactionsError) throw transactionsError;
-      setRecentTransactions(transactions || []);
-
-      // Get marketing slides
-      const { data: slides, error: slidesError } = await supabase
-        .from('marketing_slides')
-        .select('*')
-        .eq('active', true)
-        .order('order_number', { ascending: true });
-
-      if (slidesError) throw slidesError;
-      setMarketingSlides(slides || []);
+      const transactions = transactionsResult.data || [];
+      const slides = slidesResult.data || [];
 
       // Calculate stats
       const totalBags = transactions
-        ?.filter(t => t.type === 'earned' && t.status === 'approved')
-        .reduce((sum, t) => sum + (t.amount / 10), 0) || 0;
+        .filter(t => t.type === 'earned' && t.status === 'approved')
+        .reduce((sum, t) => sum + (t.amount / 10), 0);
 
       const rewardsRedeemed = transactions
-        ?.filter(t => t.type === 'redeemed' && t.status !== 'rejected')
-        .length || 0;
+        .filter(t => t.type === 'redeemed' && t.status !== 'rejected')
+        .length;
 
       const pendingApprovals = transactions
-        ?.filter(t => t.status === 'pending' || t.status === 'dealer_approved')
-        .length || 0;
+        .filter(t => t.status === 'pending' || t.status === 'dealer_approved')
+        .length;
 
-      setStats({
-        points: profile?.points || 0,
-        bagsPurchased: totalBags,
-        rewardsRedeemed,
-        pendingApprovals
-      });
+      return {
+        transactions,
+        slides,
+        stats: {
+          points: currentUser.points || 0,
+          bagsPurchased: totalBags,
+          rewardsRedeemed,
+          pendingApprovals
+        }
+      };
+    },
+    { key: `dashboard-${currentUser?.id}`, ttl: 2 * 60 * 1000 }
+  );
 
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-      toast.error('Failed to load dashboard data');
-    } finally {
-      setLoading(false);
-    }
-  }
-
+  // Memoize slide rotation
   useEffect(() => {
-    if (marketingSlides.length > 0) {
+    if (dashboardData?.slides && dashboardData.slides.length > 0) {
       const interval = setInterval(() => {
-        setCurrentSlide((prev) => (prev + 1) % marketingSlides.length);
+        setCurrentSlide((prev) => (prev + 1) % dashboardData.slides.length);
       }, 5000);
       return () => clearInterval(interval);
     }
-  }, [marketingSlides.length]);
+  }, [dashboardData?.slides?.length]);
 
-  if (loading || !userData) {
+  // Memoized components to prevent unnecessary re-renders
+  const StatsGrid = useMemo(() => (
+    <div className="grid grid-cols-2 gap-3">
+      <div className="bg-white rounded-lg p-4 shadow-sm border">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs text-gray-500">Bags Purchased</p>
+            <p className="text-xl font-bold text-gray-900">{dashboardData?.stats.bagsPurchased || 0}</p>
+          </div>
+          <Package className="w-8 h-8 text-secondary-500" />
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg p-4 shadow-sm border">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs text-gray-500">Rewards Redeemed</p>
+            <p className="text-xl font-bold text-gray-900">{dashboardData?.stats.rewardsRedeemed || 0}</p>
+          </div>
+          <Gift className="w-8 h-8 text-accent-500" />
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg p-4 shadow-sm border">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs text-gray-500">Pending Approvals</p>
+            <p className="text-xl font-bold text-gray-900">{dashboardData?.stats.pendingApprovals || 0}</p>
+          </div>
+          <TrendingUp className="w-8 h-8 text-warning-500" />
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg p-4 shadow-sm border">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs text-gray-500">Member Since</p>
+            <p className="text-sm font-bold text-gray-900">
+              {currentUser ? new Date(currentUser.created_at).getFullYear() : '2024'}
+            </p>
+          </div>
+          <Award className="w-8 h-8 text-primary-500" />
+        </div>
+      </div>
+    </div>
+  ), [dashboardData?.stats, currentUser]);
+
+  if (loading || !currentUser) {
     return (
       <div className="flex justify-center items-center h-64">
         <LoadingSpinner size="lg" />
@@ -119,30 +140,30 @@ export default function Dashboard() {
       <div className="bg-gradient-to-r from-primary-600 to-primary-700 rounded-xl p-4 text-white">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold">Welcome, {userData.first_name}!</h1>
+            <h1 className="text-xl font-bold">Welcome, {currentUser.first_name}!</h1>
             <p className="text-primary-100 text-sm">Track your rewards and points</p>
           </div>
           <div className="text-right">
             <p className="text-primary-100 text-xs">Available Points</p>
-            <p className="text-2xl font-bold">{stats.points}</p>
+            <p className="text-2xl font-bold">{dashboardData?.stats.points || 0}</p>
           </div>
         </div>
       </div>
 
-      {/* Marketing Slideshow - Compact */}
-      {marketingSlides.length > 0 && (
+      {/* Marketing Slideshow - Compact with Lazy Loading */}
+      {dashboardData?.slides && dashboardData.slides.length > 0 && (
         <div className="relative h-32 rounded-lg overflow-hidden shadow-sm">
-          {marketingSlides.map((slide, index) => (
+          {dashboardData.slides.map((slide, index) => (
             <div
               key={slide.id}
               className={`absolute inset-0 transition-opacity duration-1000 ${
                 index === currentSlide ? 'opacity-100' : 'opacity-0'
               }`}
             >
-              <img
+              <LazyImage
                 src={slide.image_url}
                 alt={slide.title}
-                className="w-full h-full object-cover"
+                className="w-full h-full"
               />
               <div className="absolute inset-0 bg-gradient-to-r from-gray-900/60 to-transparent flex items-center">
                 <div className="text-white p-4">
@@ -156,7 +177,7 @@ export default function Dashboard() {
           ))}
           {/* Slide indicators */}
           <div className="absolute bottom-2 right-2 flex space-x-1">
-            {marketingSlides.map((_, index) => (
+            {dashboardData.slides.map((_, index) => (
               <div
                 key={index}
                 className={`w-2 h-2 rounded-full ${
@@ -168,52 +189,10 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Stats Grid - Compact 2x2 layout */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="bg-white rounded-lg p-4 shadow-sm border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-gray-500">Bags Purchased</p>
-              <p className="text-xl font-bold text-gray-900">{stats.bagsPurchased}</p>
-            </div>
-            <Package className="w-8 h-8 text-secondary-500" />
-          </div>
-        </div>
+      {/* Stats Grid - Memoized */}
+      {StatsGrid}
 
-        <div className="bg-white rounded-lg p-4 shadow-sm border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-gray-500">Rewards Redeemed</p>
-              <p className="text-xl font-bold text-gray-900">{stats.rewardsRedeemed}</p>
-            </div>
-            <Gift className="w-8 h-8 text-accent-500" />
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg p-4 shadow-sm border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-gray-500">Pending Approvals</p>
-              <p className="text-xl font-bold text-gray-900">{stats.pendingApprovals}</p>
-            </div>
-            <TrendingUp className="w-8 h-8 text-warning-500" />
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg p-4 shadow-sm border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-gray-500">Member Since</p>
-              <p className="text-sm font-bold text-gray-900">
-                {new Date(userData.created_at).getFullYear()}
-              </p>
-            </div>
-            <Award className="w-8 h-8 text-primary-500" />
-          </div>
-        </div>
-      </div>
-
-      {/* Quick Actions - Horizontal layout */}
+      {/* Quick Actions */}
       <div className="grid grid-cols-2 gap-3">
         <Link
           to="/get-points"
@@ -254,8 +233,8 @@ export default function Dashboard() {
         </div>
 
         <div className="divide-y">
-          {recentTransactions.length > 0 ? (
-            recentTransactions.map((transaction) => (
+          {dashboardData?.transactions && dashboardData.transactions.length > 0 ? (
+            dashboardData.transactions.map((transaction) => (
               <div key={transaction.id} className="p-4 flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center ${

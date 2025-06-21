@@ -22,6 +22,12 @@ export default defineConfig({
           ui: ['lucide-react', 'react-toastify', 'date-fns']
         }
       }
+    },
+    chunkSizeWarningLimit: 1000
+  },
+  server: {
+    hmr: {
+      overlay: false
     }
   }
 });
