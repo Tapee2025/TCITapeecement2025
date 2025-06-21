@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Database } from '../../lib/database.types';
-import { Search, Plus, Edit, Trash, Calendar, Award, AlertCircle } from 'lucide-react';
+import { Search, Plus, Edit, Trash, Calendar, Award, AlertCircle, RefreshCw } from 'lucide-react';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { toast } from 'react-toastify';
 import { format } from 'date-fns';
@@ -16,6 +16,7 @@ export default function AdminRewards() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingReward, setEditingReward] = useState<Reward | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'error'>('checking');
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -27,8 +28,36 @@ export default function AdminRewards() {
   });
 
   useEffect(() => {
+    checkConnection();
     fetchRewards();
   }, []);
+
+  async function checkConnection() {
+    try {
+      setConnectionStatus('checking');
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('Not authenticated');
+      }
+
+      // Test database connection with a simple query
+      const { error } = await supabase
+        .from('users')
+        .select('id')
+        .eq('id', user.id)
+        .limit(1);
+
+      if (error) {
+        throw error;
+      }
+
+      setConnectionStatus('connected');
+    } catch (error) {
+      console.error('Connection check failed:', error);
+      setConnectionStatus('error');
+      toast.error('Database connection failed. Please refresh the page.');
+    }
+  }
 
   async function fetchRewards() {
     try {
@@ -68,44 +97,51 @@ export default function AdminRewards() {
     
     console.log('Form submitted with data:', formData);
     
-    // Validate form data
+    // Comprehensive validation
+    const validationErrors: string[] = [];
+    
     if (!formData.title.trim()) {
-      toast.error('Title is required');
-      return;
+      validationErrors.push('Title is required');
     }
     
     if (!formData.description.trim()) {
-      toast.error('Description is required');
-      return;
+      validationErrors.push('Description is required');
     }
     
     if (!formData.image_url.trim()) {
-      toast.error('Image URL is required');
-      return;
+      validationErrors.push('Image URL is required');
+    } else {
+      // Basic URL validation
+      try {
+        new URL(formData.image_url);
+      } catch {
+        validationErrors.push('Please enter a valid image URL');
+      }
     }
     
     if (!formData.points_required || parseInt(formData.points_required) <= 0) {
-      toast.error('Points required must be a positive number');
-      return;
+      validationErrors.push('Points required must be a positive number');
     }
     
     if (!formData.expiry_date) {
-      toast.error('Expiry date is required');
-      return;
+      validationErrors.push('Expiry date is required');
+    } else {
+      // Check if expiry date is in the future
+      const expiryDate = new Date(formData.expiry_date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      if (expiryDate < today) {
+        validationErrors.push('Expiry date must be in the future');
+      }
     }
     
     if (formData.visible_to.length === 0) {
-      toast.error('Please select at least one user type');
-      return;
+      validationErrors.push('Please select at least one user type');
     }
 
-    // Check if expiry date is in the future
-    const expiryDate = new Date(formData.expiry_date);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    if (expiryDate < today) {
-      toast.error('Expiry date must be in the future');
+    if (validationErrors.length > 0) {
+      validationErrors.forEach(error => toast.error(error));
       return;
     }
     
@@ -114,6 +150,7 @@ export default function AdminRewards() {
     try {
       console.log('Preparing reward data...');
       
+      // Prepare the data with explicit typing
       const rewardData = {
         title: formData.title.trim(),
         description: formData.description.trim(),
@@ -126,23 +163,54 @@ export default function AdminRewards() {
 
       console.log('Reward data prepared:', rewardData);
 
+      // Check authentication before proceeding
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('Authentication required. Please log in again.');
+      }
+
+      // Verify admin role
+      const { data: userProfile, error: profileError } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError) {
+        console.error('Profile check error:', profileError);
+        throw new Error('Failed to verify user permissions');
+      }
+
+      if (userProfile?.role !== 'admin') {
+        throw new Error('Admin privileges required');
+      }
+
+      console.log('User verified as admin, proceeding with operation...');
+
       if (editingReward) {
         console.log('Updating existing reward:', editingReward.id);
         
-        const { error } = await supabase
+        const { data: updateData, error } = await supabase
           .from('rewards')
           .update({
             ...rewardData,
             updated_at: new Date().toISOString()
           })
-          .eq('id', editingReward.id);
+          .eq('id', editingReward.id)
+          .select();
 
         if (error) {
           console.error('Update error:', error);
+          console.error('Error details:', {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code
+          });
           throw error;
         }
         
-        console.log('Reward updated successfully');
+        console.log('Reward updated successfully:', updateData);
         toast.success('Reward updated successfully');
       } else {
         console.log('Creating new reward...');
@@ -171,22 +239,27 @@ export default function AdminRewards() {
         toast.success('Reward created successfully');
       }
 
+      // Close modal and refresh
       setShowAddModal(false);
       setEditingReward(null);
       resetForm();
-      await fetchRewards(); // Refresh the list
+      await fetchRewards();
     } catch (error: any) {
       console.error('Error saving reward:', error);
       
-      // Provide more specific error messages
-      if (error.message?.includes('permission')) {
-        toast.error('Permission denied. Please check your admin privileges.');
-      } else if (error.message?.includes('network')) {
+      // Provide specific error messages based on error type
+      if (error.message?.includes('permission') || error.message?.includes('denied')) {
+        toast.error('Permission denied. Please check your admin privileges and try again.');
+      } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
         toast.error('Network error. Please check your connection and try again.');
       } else if (error.code === '23505') {
         toast.error('A reward with this information already exists.');
+      } else if (error.code === '42501') {
+        toast.error('Insufficient permissions. Please contact system administrator.');
+      } else if (error.message?.includes('Authentication')) {
+        toast.error('Please log in again and try.');
       } else {
-        toast.error(`Failed to save reward: ${error.message || 'Unknown error'}`);
+        toast.error(`Failed to save reward: ${error.message || 'Unknown error occurred'}`);
       }
     } finally {
       setSubmitting(false);
@@ -194,7 +267,7 @@ export default function AdminRewards() {
   }
 
   async function handleDeleteReward(rewardId: string) {
-    if (!confirm('Are you sure you want to delete this reward?')) return;
+    if (!confirm('Are you sure you want to delete this reward? This action cannot be undone.')) return;
 
     try {
       console.log('Deleting reward:', rewardId);
@@ -282,11 +355,31 @@ export default function AdminRewards() {
 
   return (
     <div className="p-6">
+      {/* Connection Status */}
+      {connectionStatus === 'error' && (
+        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <AlertCircle className="text-red-600 mr-2" size={20} />
+              <span className="text-red-700">Database connection error</span>
+            </div>
+            <button
+              onClick={checkConnection}
+              className="btn btn-sm btn-outline text-red-600 border-red-300 hover:bg-red-50"
+            >
+              <RefreshCw size={16} className="mr-1" />
+              Retry
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Manage Rewards</h1>
         <button
           onClick={openAddModal}
           className="btn btn-primary flex items-center"
+          disabled={connectionStatus === 'error'}
         >
           <Plus size={20} className="mr-2" />
           Add New Reward
@@ -393,10 +486,11 @@ export default function AdminRewards() {
                 {editingReward ? 'Edit Reward' : 'Add New Reward'}
               </h2>
               
-              {/* Debug Info (remove in production) */}
+              {/* Debug Info (development only) */}
               {process.env.NODE_ENV === 'development' && (
                 <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded text-sm">
-                  <p><strong>Debug:</strong> Form submission will be logged to console</p>
+                  <p><strong>Debug Mode:</strong> Check browser console for detailed logs</p>
+                  <p><strong>Connection:</strong> {connectionStatus}</p>
                 </div>
               )}
               
@@ -410,6 +504,7 @@ export default function AdminRewards() {
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                     placeholder="Enter reward title"
                     required
+                    maxLength={100}
                   />
                 </div>
                 <div>
@@ -421,6 +516,7 @@ export default function AdminRewards() {
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     placeholder="Enter reward description"
                     required
+                    maxLength={500}
                   />
                 </div>
                 <div>
@@ -447,6 +543,7 @@ export default function AdminRewards() {
                     placeholder="Enter points required"
                     required
                     min="1"
+                    max="999999"
                   />
                 </div>
                 <div>
@@ -539,7 +636,7 @@ export default function AdminRewards() {
                   <button 
                     type="submit" 
                     className="btn btn-primary"
-                    disabled={submitting || formData.visible_to.length === 0}
+                    disabled={submitting || formData.visible_to.length === 0 || connectionStatus === 'error'}
                   >
                     {submitting ? (
                       <>
