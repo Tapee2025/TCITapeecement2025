@@ -9,6 +9,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { generateUserCode } from '../../utils/helpers';
 import { GUJARAT_DISTRICTS, USER_ROLES } from '../../utils/constants';
+import { useAuth } from '../../contexts/AuthContext';
 
 type User = Database['public']['Tables']['users']['Row'];
 
@@ -26,6 +27,7 @@ const customerSchema = z.object({
 type CustomerFormData = z.infer<typeof customerSchema>;
 
 export default function ManageCustomers() {
+  const { currentUser, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -34,7 +36,6 @@ export default function ManageCustomers() {
   const [editingCustomer, setEditingCustomer] = useState<User | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [currentDealer, setCurrentDealer] = useState<User | null>(null);
   const [stats, setStats] = useState({
     totalCustomers: 0,
     builders: 0,
@@ -55,33 +56,19 @@ export default function ManageCustomers() {
   });
 
   useEffect(() => {
-    fetchCurrentDealer();
-    fetchCustomers();
-  }, [roleFilter]);
-
-  async function fetchCurrentDealer() {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('No user found');
-
-      const { data: profile, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      if (error) throw error;
-      setCurrentDealer(profile);
-    } catch (error) {
-      console.error('Error fetching dealer profile:', error);
+    if (!authLoading && currentUser) {
+      fetchCustomers();
     }
-  }
+  }, [roleFilter, authLoading, currentUser]);
 
   async function fetchCustomers() {
+    if (!currentUser) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('No user found');
 
       // Get customers created by this dealer (we'll add a created_by field)
       let query = supabase
@@ -99,7 +86,7 @@ export default function ManageCustomers() {
 
       // For now, show all customers in the same district as the dealer
       // In production, you'd want to add a created_by field to track which dealer created which customer
-      const dealerDistrict = currentDealer?.district;
+      const dealerDistrict = currentUser?.district;
       const filteredCustomers = data?.filter(customer => customer.district === dealerDistrict) || [];
 
       setCustomers(filteredCustomers);
@@ -137,8 +124,8 @@ export default function ManageCustomers() {
   }
 
   async function onSubmit(data: CustomerFormData) {
-    if (!currentDealer) {
-      toast.error('Dealer information not loaded');
+    if (!currentUser) {
+      toast.error('User information not loaded');
       return;
     }
 
@@ -179,7 +166,7 @@ export default function ManageCustomers() {
           role: data.role,
           city: data.city,
           address: data.address,
-          district: currentDealer.district, // Same district as dealer
+          district: currentUser.district, // Same district as dealer
           mobile_number: data.mobile_number,
           user_code: userCode,
           points: 0
@@ -240,6 +227,27 @@ export default function ManageCustomers() {
       customer.user_code.toLowerCase().includes(searchString)
     );
   });
+
+  // Show loading spinner while auth is loading
+  if (authLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+
+  // Show error if no user is authenticated
+  if (!currentUser) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="text-center">
+          <h3 className="text-lg font-medium text-gray-900 mb-1">Authentication Required</h3>
+          <p className="text-gray-500">Please log in to access this page.</p>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -546,7 +554,7 @@ export default function ManageCustomers() {
                 </div>
 
                 <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-md">
-                  <strong>Note:</strong> Customer will be created in your district ({currentDealer?.district}) and can login with the provided email and password.
+                  <strong>Note:</strong> Customer will be created in your district ({currentUser?.district}) and can login with the provided email and password.
                 </div>
                 
                 <div className="flex justify-end space-x-2 pt-4 border-t">
