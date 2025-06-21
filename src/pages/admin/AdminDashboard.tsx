@@ -10,7 +10,8 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalUsers: 0,
-    pendingApprovals: 0,
+    pendingPointsApprovals: 0,
+    pendingRedemptions: 0,
     totalRewards: 0,
     totalPoints: 0,
     totalRedemptions: 0,
@@ -65,13 +66,23 @@ export default function AdminDashboard() {
       const builderCount = users?.filter(u => u.role === 'builder').length || 0;
       const contractorCount = users?.filter(u => u.role === 'contractor').length || 0;
 
-      // Get pending approvals (transactions approved by dealers)
-      const { data: pendingApprovals, error: approvalsError } = await supabase
+      // Get pending points approvals (earned transactions with pending or dealer_approved status)
+      const { data: pendingPointsData, error: pointsApprovalsError } = await supabase
         .from('transactions')
         .select('*', { count: 'exact' })
-        .eq('status', 'dealer_approved');
+        .eq('type', 'earned')
+        .in('status', ['pending', 'dealer_approved']);
 
-      if (approvalsError) throw approvalsError;
+      if (pointsApprovalsError) throw pointsApprovalsError;
+
+      // Get pending redemptions (redeemed transactions with pending status)
+      const { data: pendingRedemptionsData, error: redemptionsError } = await supabase
+        .from('transactions')
+        .select('*', { count: 'exact' })
+        .eq('type', 'redeemed')
+        .eq('status', 'pending');
+
+      if (redemptionsError) throw redemptionsError;
 
       // Get total rewards
       const { data: rewards, error: rewardsError } = await supabase
@@ -94,13 +105,13 @@ export default function AdminDashboard() {
       const totalBagsSold = Math.floor(totalPointsIssued / 10);
 
       // Get total redemptions
-      const { data: redemptions, error: redemptionsError } = await supabase
+      const { data: redemptions, error: redemptionsCountError } = await supabase
         .from('transactions')
         .select('*', { count: 'exact' })
         .eq('type', 'redeemed')
         .in('status', ['approved', 'completed']);
 
-      if (redemptionsError) throw redemptionsError;
+      if (redemptionsCountError) throw redemptionsCountError;
 
       // Get pending dispatch count (redeemed rewards not yet completed)
       const { data: pendingDispatchData, error: pendingDispatchError } = await supabase
@@ -196,7 +207,8 @@ export default function AdminDashboard() {
 
       setStats({
         totalUsers: users?.length || 0,
-        pendingApprovals: pendingApprovals?.length || 0,
+        pendingPointsApprovals: pendingPointsData?.length || 0,
+        pendingRedemptions: pendingRedemptionsData?.length || 0,
         totalRewards: rewards?.length || 0,
         totalPoints: totalPointsIssued,
         totalRedemptions: redemptions?.length || 0,
@@ -305,7 +317,7 @@ export default function AdminDashboard() {
         <p className="text-gray-600">Welcome to the Tapee Cement Loyalty Program admin panel</p>
       </div>
       
-      {/* Stats Cards */}
+      {/* Stats Cards - Updated to separate points and redemptions */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <DashboardCard
           title="Total Users"
@@ -314,22 +326,25 @@ export default function AdminDashboard() {
           bgColor="bg-primary-500"
         />
         <DashboardCard
-          title="Pending Approvals"
-          value={stats.pendingApprovals}
+          title="Pending Points"
+          value={stats.pendingPointsApprovals}
           icon={ClipboardCheck}
           bgColor="bg-warning-500"
+          description="Points awaiting approval"
         />
         <DashboardCard
-          title="Total Rewards"
-          value={stats.totalRewards}
+          title="Pending Redemptions"
+          value={stats.pendingRedemptions}
           icon={Award}
           bgColor="bg-accent-500"
+          description="Rewards awaiting approval"
         />
         <DashboardCard
           title="Pending Dispatch"
           value={stats.pendingDispatch}
           icon={Package}
           bgColor="bg-error-500"
+          description="Items to be dispatched"
         />
       </div>
 
@@ -455,7 +470,7 @@ export default function AdminDashboard() {
         </div>
       </div>
       
-      {/* Quick Links */}
+      {/* Quick Links - Updated with separate sections */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Link
           to="/admin/approvals"
@@ -465,9 +480,9 @@ export default function AdminDashboard() {
             <ClipboardCheck size={24} />
           </div>
           <div>
-            <h3 className="font-semibold text-lg">Pending Approvals</h3>
+            <h3 className="font-semibold text-lg">Points Approvals</h3>
             <p className="text-gray-600 text-sm">
-              {stats.pendingApprovals} requests awaiting approval
+              {stats.pendingPointsApprovals} points requests pending
             </p>
           </div>
         </Link>

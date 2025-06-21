@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Database } from '../../lib/database.types';
-import { Search, Check, X, AlertCircle } from 'lucide-react';
+import { Search, Check, X, AlertCircle, Filter, TrendingUp, Gift } from 'lucide-react';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { toast } from 'react-toastify';
 
@@ -11,17 +11,25 @@ export default function AdminApprovals() {
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('dealer_approved');
+  const [statusFilter, setStatusFilter] = useState('pending_points');
+  const [typeFilter, setTypeFilter] = useState('all');
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [stats, setStats] = useState({
+    pendingPoints: 0,
+    pendingRedemptions: 0,
+    dealerApproved: 0,
+    totalPending: 0
+  });
 
   useEffect(() => {
     fetchTransactions();
-  }, [statusFilter]);
+  }, [statusFilter, typeFilter]);
 
   async function fetchTransactions() {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      
+      let query = supabase
         .from('transactions')
         .select(`
           *,
@@ -47,11 +55,53 @@ export default function AdminApprovals() {
             points_required
           )
         `)
-        .eq('status', statusFilter)
         .order('created_at', { ascending: false });
 
+      // Apply filters based on selection
+      if (statusFilter === 'pending_points') {
+        query = query.eq('type', 'earned').in('status', ['pending', 'dealer_approved']);
+      } else if (statusFilter === 'pending_redemptions') {
+        query = query.eq('type', 'redeemed').eq('status', 'pending');
+      } else if (statusFilter === 'dealer_approved') {
+        query = query.eq('status', 'dealer_approved');
+      } else if (statusFilter === 'approved') {
+        query = query.eq('status', 'approved');
+      } else if (statusFilter === 'rejected') {
+        query = query.eq('status', 'rejected');
+      } else {
+        // All pending
+        query = query.in('status', ['pending', 'dealer_approved']);
+      }
+
+      // Apply type filter if not 'all'
+      if (typeFilter !== 'all') {
+        query = query.eq('type', typeFilter);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
+
       setTransactions(data || []);
+
+      // Calculate stats
+      const { data: statsData, error: statsError } = await supabase
+        .from('transactions')
+        .select('type, status')
+        .in('status', ['pending', 'dealer_approved']);
+
+      if (statsError) throw statsError;
+
+      const pendingPoints = statsData?.filter(t => t.type === 'earned' && (t.status === 'pending' || t.status === 'dealer_approved')).length || 0;
+      const pendingRedemptions = statsData?.filter(t => t.type === 'redeemed' && t.status === 'pending').length || 0;
+      const dealerApproved = statsData?.filter(t => t.status === 'dealer_approved').length || 0;
+
+      setStats({
+        pendingPoints,
+        pendingRedemptions,
+        dealerApproved,
+        totalPending: pendingPoints + pendingRedemptions
+      });
+
     } catch (error) {
       console.error('Error fetching transactions:', error);
       toast.error('Failed to load transactions');
@@ -75,22 +125,36 @@ export default function AdminApprovals() {
         return;
       }
 
-      const { error: transactionError } = await supabase.rpc(
-        'approve_transaction',
-        {
-          p_transaction_id: transactionId,
-          p_user_id: user.id,
-          p_points: transaction.type === 'earned' ? transaction.amount : 0
-        }
-      );
+      // Use the approve_transaction function for points earned
+      if (transaction.type === 'earned') {
+        const { error: transactionError } = await supabase.rpc(
+          'approve_transaction',
+          {
+            p_transaction_id: transactionId,
+            p_user_id: user.id,
+            p_points: transaction.amount
+          }
+        );
 
-      if (transactionError) throw transactionError;
+        if (transactionError) throw transactionError;
 
-      toast.success(
-        transaction.type === 'earned'
-          ? `Approved ${transaction.amount} points for ${user.first_name} ${user.last_name}`
-          : 'Reward redemption approved successfully'
-      );
+        toast.success(
+          `Approved ${transaction.amount} points for ${user.first_name} ${user.last_name}`
+        );
+      } else {
+        // For redemptions, just update status
+        const { error: updateError } = await supabase
+          .from('transactions')
+          .update({
+            status: 'approved',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', transactionId);
+
+        if (updateError) throw updateError;
+
+        toast.success('Reward redemption approved successfully');
+      }
 
       fetchTransactions();
     } catch (error) {
@@ -126,6 +190,7 @@ export default function AdminApprovals() {
 
       if (updateError) throw updateError;
 
+      // If it's a redemption, refund the points
       if (transaction.type === 'redeemed') {
         const { error: refundError } = await supabase
           .from('users')
@@ -136,13 +201,13 @@ export default function AdminApprovals() {
           .eq('id', user.id);
 
         if (refundError) throw refundError;
-      }
 
-      toast.success(
-        transaction.type === 'redeemed'
-          ? `Rejected redemption and refunded ${transaction.amount} points to ${user.first_name} ${user.last_name}`
-          : 'Transaction rejected successfully'
-      );
+        toast.success(
+          `Rejected redemption and refunded ${transaction.amount} points to ${user.first_name} ${user.last_name}`
+        );
+      } else {
+        toast.success('Points request rejected');
+      }
 
       fetchTransactions();
     } catch (error) {
@@ -173,40 +238,100 @@ export default function AdminApprovals() {
   }
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Transaction Approvals</h1>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Transaction Approvals</h1>
+        <p className="text-gray-600">Review and approve points requests and reward redemptions</p>
+      </div>
 
-      <div className="bg-white rounded-lg shadow mb-6">
-        <div className="p-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-              <input
-                type="text"
-                placeholder="Search transactions..."
-                className="form-input pl-10"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-white rounded-lg p-4 shadow-sm border">
+          <div className="flex items-center justify-between">
             <div>
-              <select
-                className="form-input"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <option value="dealer_approved">Points Pending Approval</option>
-                <option value="pending">Redemptions Pending Approval</option>
-                <option value="approved">Approved</option>
-                <option value="rejected">Rejected</option>
-              </select>
+              <p className="text-sm text-gray-500">Pending Points</p>
+              <p className="text-2xl font-bold text-warning-600">{stats.pendingPoints}</p>
             </div>
+            <TrendingUp className="w-8 h-8 text-warning-500" />
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg p-4 shadow-sm border">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">Pending Redemptions</p>
+              <p className="text-2xl font-bold text-accent-600">{stats.pendingRedemptions}</p>
+            </div>
+            <Gift className="w-8 h-8 text-accent-500" />
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg p-4 shadow-sm border">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">Dealer Approved</p>
+              <p className="text-2xl font-bold text-blue-600">{stats.dealerApproved}</p>
+            </div>
+            <Check className="w-8 h-8 text-blue-500" />
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg p-4 shadow-sm border">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">Total Pending</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.totalPending}</p>
+            </div>
+            <AlertCircle className="w-8 h-8 text-gray-500" />
           </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      {/* Filters */}
+      <div className="bg-white rounded-lg shadow-sm border p-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+            <input
+              type="text"
+              placeholder="Search transactions..."
+              className="form-input pl-10"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <select
+              className="form-input"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <option value="pending_points">Pending Points Requests</option>
+              <option value="pending_redemptions">Pending Redemptions</option>
+              <option value="dealer_approved">Dealer Approved</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+              <option value="all">All Pending</option>
+            </select>
+          </div>
+
+          <div>
+            <select
+              className="form-input"
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+            >
+              <option value="all">All Types</option>
+              <option value="earned">Points Earned</option>
+              <option value="redeemed">Rewards Redeemed</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Transactions Table */}
+      <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
@@ -256,10 +381,17 @@ export default function AdminApprovals() {
                     <td className="px-6 py-4">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
                         ${transaction.type === 'earned' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
-                        {transaction.type === 'earned' ? 'Points Earned' : 'Reward Redemption'}
+                        {transaction.type === 'earned' ? 'Points Request' : 'Reward Redemption'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-sm font-medium text-gray-900">{transaction.amount}</td>
+                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                      {transaction.type === 'earned' ? '+' : '-'}{transaction.amount}
+                      {transaction.type === 'earned' && (
+                        <div className="text-xs text-gray-500">
+                          ({transaction.amount / 10} bags)
+                        </div>
+                      )}
+                    </td>
                     <td className="px-6 py-4 text-sm text-gray-500">
                       {transaction.description}
                       {reward && (
@@ -288,14 +420,16 @@ export default function AdminApprovals() {
                           <button
                             onClick={() => handleApprove(transaction.id)}
                             disabled={processingId === transaction.id}
-                            className="text-green-600 hover:text-green-900"
+                            className="text-green-600 hover:text-green-900 p-1 rounded"
+                            title="Approve"
                           >
                             {processingId === transaction.id ? <LoadingSpinner size="sm" /> : <Check size={18} />}
                           </button>
                           <button
                             onClick={() => handleReject(transaction.id)}
                             disabled={processingId === transaction.id}
-                            className="text-red-600 hover:text-red-900"
+                            className="text-red-600 hover:text-red-900 p-1 rounded"
+                            title="Reject"
                           >
                             <X size={18} />
                           </button>
@@ -316,7 +450,7 @@ export default function AdminApprovals() {
             <p className="text-gray-500">
               {searchQuery
                 ? `No transactions match your search for "${searchQuery}"`
-                : `No ${statusFilter} transactions found`}
+                : `No ${statusFilter.replace('_', ' ')} transactions found`}
             </p>
           </div>
         )}
