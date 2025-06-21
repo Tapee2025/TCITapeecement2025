@@ -118,7 +118,7 @@ export default function Register() {
 
       console.log('Creating user profile with data:', profileData);
 
-      // Create the public user profile
+      // Create the public user profile while user is still authenticated
       const { data: profileResult, error: profileError } = await supabase
         .from('users')
         .insert([profileData])
@@ -129,13 +129,15 @@ export default function Register() {
 
       if (profileError) {
         console.error('Profile creation error:', profileError);
+        // Clean up the auth user if profile creation fails
+        await supabase.auth.signOut();
         setAuthError('Failed to create user profile. Please try again.');
         return;
       }
 
       console.log('User profile created successfully:', profileResult);
       
-      // Sign out the user so they can log in normally
+      // Now sign out the user so they can log in normally
       await supabase.auth.signOut();
       
       toast.success('Account created successfully! Please sign in with your credentials.');
@@ -143,6 +145,8 @@ export default function Register() {
       
     } catch (error) {
       console.error('Unexpected registration error:', error);
+      // Clean up auth user on unexpected error
+      await supabase.auth.signOut();
       setAuthError('An unexpected error occurred. Please try again later.');
     } finally {
       setLoading(false);
