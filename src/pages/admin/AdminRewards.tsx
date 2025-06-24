@@ -150,13 +150,13 @@ export default function AdminRewards() {
     try {
       console.log('Preparing reward data...');
       
-      // Prepare the data with explicit typing
+      // Prepare the data with explicit typing and proper date formatting
       const rewardData = {
         title: formData.title.trim(),
         description: formData.description.trim(),
         image_url: formData.image_url.trim(),
         points_required: parseInt(formData.points_required),
-        expiry_date: formData.expiry_date,
+        expiry_date: new Date(formData.expiry_date).toISOString(),
         available: formData.available,
         visible_to: formData.visible_to
       };
@@ -299,7 +299,7 @@ export default function AdminRewards() {
       description: reward.description,
       image_url: reward.image_url,
       points_required: reward.points_required.toString(),
-      expiry_date: format(new Date(reward.expiry_date), 'yyyy-MM-dd'),
+      expiry_date: new Date(reward.expiry_date).toISOString().split('T')[0],
       available: reward.available,
       visible_to: reward.visible_to || ['builder', 'contractor']
     });

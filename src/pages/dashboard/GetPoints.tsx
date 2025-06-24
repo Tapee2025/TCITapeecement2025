@@ -4,9 +4,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { supabase } from '../../lib/supabase';
 import { Database } from '../../lib/database.types';
-import { calculatePoints } from '../../utils/helpers';
+import { calculatePointsByCementType } from '../../utils/helpers';
 import { toast } from 'react-toastify';
-import { Package, Building, CheckCircle } from 'lucide-react';
+import { Package, Building, CheckCircle, Truck } from 'lucide-react';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 
 type User = Database['public']['Tables']['users']['Row'];
@@ -19,6 +19,9 @@ const pointsRequestSchema = z.object({
     },
     { message: 'Please enter a valid number of bags' }
   ),
+  cementType: z.enum(['OPC', 'PPC'], { 
+    required_error: 'Please select a cement type' 
+  }),
   dealerId: z.string().min(1, 'Please select a dealer')
 });
 
@@ -42,19 +45,20 @@ export default function GetPoints() {
   });
   
   const bagsCountValue = watch('bagsCount');
+  const cementTypeValue = watch('cementType');
 
   useEffect(() => {
-    if (bagsCountValue) {
+    if (bagsCountValue && cementTypeValue) {
       const bagsCount = parseInt(bagsCountValue);
       if (!isNaN(bagsCount) && bagsCount > 0) {
-        setPointsPreview(calculatePoints(bagsCount));
+        setPointsPreview(calculatePointsByCementType(bagsCount, cementTypeValue));
       } else {
         setPointsPreview(0);
       }
     } else {
       setPointsPreview(0);
     }
-  }, [bagsCountValue]);
+  }, [bagsCountValue, cementTypeValue]);
 
   useEffect(() => {
     async function fetchData() {
@@ -111,7 +115,7 @@ export default function GetPoints() {
       const selectedDealer = dealers.find(d => d.id === data.dealerId);
       if (!selectedDealer) throw new Error('Dealer not found');
 
-      const pointsAmount = calculatePoints(parseInt(data.bagsCount));
+      const pointsAmount = calculatePointsByCementType(parseInt(data.bagsCount), data.cementType);
       
       // Create the transaction
       const { error: transactionError } = await supabase
@@ -121,7 +125,7 @@ export default function GetPoints() {
           dealer_id: data.dealerId,
           type: 'earned',
           amount: pointsAmount,
-          description: `Purchased ${data.bagsCount} bags from ${selectedDealer.first_name} ${selectedDealer.last_name}`,
+          description: `Purchased ${data.bagsCount} bags of ${data.cementType} cement from ${selectedDealer.first_name} ${selectedDealer.last_name}`,
           status: 'pending',
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
@@ -199,12 +203,24 @@ export default function GetPoints() {
             <div className="space-y-4">
               <div className="flex items-start space-x-3">
                 <div className="bg-primary-100 text-primary-600 p-2 rounded-full">
+                  <Truck size={20} />
+                </div>
+                <div>
+                  <h3 className="font-medium">1. Select Cement Type</h3>
+                  <p className="text-sm text-gray-600">
+                    Choose between OPC or PPC cement type
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex items-start space-x-3">
+                <div className="bg-primary-100 text-primary-600 p-2 rounded-full">
                   <Package size={20} />
                 </div>
                 <div>
-                  <h3 className="font-medium">1. Enter Bag Count</h3>
+                  <h3 className="font-medium">2. Enter Bag Count</h3>
                   <p className="text-sm text-gray-600">
-                    Enter the number of Tapee Cement bags you've purchased
+                    Enter the number of cement bags you've purchased
                   </p>
                 </div>
               </div>
@@ -214,7 +230,7 @@ export default function GetPoints() {
                   <Building size={20} />
                 </div>
                 <div>
-                  <h3 className="font-medium">2. Select Dealer</h3>
+                  <h3 className="font-medium">3. Select Dealer</h3>
                   <p className="text-sm text-gray-600">
                     Choose the dealer you purchased from in your district
                   </p>
@@ -226,7 +242,7 @@ export default function GetPoints() {
                   <CheckCircle size={20} />
                 </div>
                 <div>
-                  <h3 className="font-medium">3. Submit Request</h3>
+                  <h3 className="font-medium">4. Submit Request</h3>
                   <p className="text-sm text-gray-600">
                     The dealer will verify your purchase and approve points
                   </p>
@@ -236,8 +252,10 @@ export default function GetPoints() {
             
             <div className="mt-6 p-4 bg-primary-50 rounded-md">
               <p className="text-sm text-primary-800">
-                <strong>Note:</strong> Each bag is worth 10 points. Your district is{' '}
-                <strong>{currentUser?.district}</strong>, so only dealers in this district are shown.
+                <strong>Points System:</strong><br/>
+                • OPC Cement: 5 points per bag<br/>
+                • PPC Cement: 10 points per bag<br/>
+                Your district is <strong>{currentUser?.district}</strong>
               </p>
             </div>
           </div>
@@ -249,6 +267,42 @@ export default function GetPoints() {
             <h2 className="text-xl font-semibold mb-6">Submit Points Request</h2>
             
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+              <div>
+                <label htmlFor="cementType" className="form-label">
+                  Cement Type *
+                </label>
+                <div className="grid grid-cols-2 gap-4">
+                  <label className="flex items-center p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                    <input
+                      type="radio"
+                      value="OPC"
+                      className="mr-3"
+                      {...register('cementType')}
+                    />
+                    <div>
+                      <p className="font-medium text-gray-900">OPC Cement</p>
+                      <p className="text-sm text-gray-600">5 points per bag</p>
+                    </div>
+                  </label>
+                  
+                  <label className="flex items-center p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                    <input
+                      type="radio"
+                      value="PPC"
+                      className="mr-3"
+                      {...register('cementType')}
+                    />
+                    <div>
+                      <p className="font-medium text-gray-900">PPC Cement</p>
+                      <p className="text-sm text-gray-600">10 points per bag</p>
+                    </div>
+                  </label>
+                </div>
+                {errors.cementType && (
+                  <p className="form-error">{errors.cementType.message}</p>
+                )}
+              </div>
+
               <div>
                 <label htmlFor="bagsCount" className="form-label">
                   Number of Cement Bags Purchased
@@ -266,9 +320,17 @@ export default function GetPoints() {
                 )}
                 
                 {pointsPreview > 0 && (
-                  <p className="text-sm text-success-600 mt-2">
-                    You will earn <strong>{pointsPreview} points</strong> for this purchase
-                  </p>
+                  <div className="mt-2 p-3 bg-success-50 rounded-md">
+                    <div className="flex items-center">
+                      <CheckCircle className="text-success-600 mr-2" size={16} />
+                      <span className="text-sm text-success-700">
+                        You will earn <strong>{pointsPreview} points</strong> for this purchase
+                        {cementTypeValue && (
+                          <span className="ml-1">({cementTypeValue} cement)</span>
+                        )}
+                      </span>
+                    </div>
+                  </div>
                 )}
               </div>
               

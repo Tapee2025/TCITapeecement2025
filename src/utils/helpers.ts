@@ -23,9 +23,18 @@ export function generateUserCode(): string {
   return Math.floor(10000 + Math.random() * 90000).toString();
 }
 
-// Calculate points from bags
+// Calculate points from bags (legacy function for backward compatibility)
 export function calculatePoints(bags: number): number {
-  return bags * 10; // 10 points per bag
+  return bags * 10; // Default to PPC cement points
+}
+
+// Calculate points based on cement type
+export function calculatePointsByCementType(bags: number, cementType: 'OPC' | 'PPC'): number {
+  if (cementType === 'OPC') {
+    return bags * 5; // 5 points per OPC bag
+  } else {
+    return bags * 10; // 10 points per PPC bag
+  }
 }
 
 // Truncate text with ellipsis

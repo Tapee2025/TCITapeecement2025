@@ -42,8 +42,20 @@ export const USER_ROLES = [
   { value: 'contractor', label: 'Contractor/Mason' }
 ];
 
-// Point Value
-export const POINTS_PER_BAG = 10;
+// Cement Types with Points
+export const CEMENT_TYPES = [
+  { value: 'OPC', label: 'OPC Cement', points: 5 },
+  { value: 'PPC', label: 'PPC Cement', points: 10 }
+];
+
+// Point Values
+export const POINTS_PER_BAG = {
+  OPC: 5,
+  PPC: 10
+};
+
+// Legacy constant for backward compatibility
+export const POINTS_PER_BAG_LEGACY = 10;
 
 // Sample Rewards
 export const SAMPLE_REWARDS = [
