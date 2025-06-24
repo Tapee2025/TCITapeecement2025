@@ -37,6 +37,38 @@ export function calculatePointsByCementType(bags: number, cementType: 'OPC' | 'P
   }
 }
 
+// Calculate bags from points and cement type
+export function calculateBagsFromPoints(points: number, cementType: 'OPC' | 'PPC'): number {
+  if (cementType === 'OPC') {
+    return Math.floor(points / 5); // 5 points per OPC bag
+  } else {
+    return Math.floor(points / 10); // 10 points per PPC bag
+  }
+}
+
+// Calculate bags from transaction description and points
+export function calculateBagsFromTransaction(description: string, points: number): number {
+  if (description.includes('OPC')) {
+    return Math.floor(points / 5); // OPC cement: 5 points per bag
+  } else if (description.includes('PPC')) {
+    return Math.floor(points / 10); // PPC cement: 10 points per bag
+  } else {
+    // Legacy transactions without cement type - assume PPC
+    return Math.floor(points / 10);
+  }
+}
+
+// Get cement type from transaction description
+export function getCementTypeFromDescription(description: string): 'OPC' | 'PPC' | 'Unknown' {
+  if (description.includes('OPC')) {
+    return 'OPC';
+  } else if (description.includes('PPC')) {
+    return 'PPC';
+  } else {
+    return 'Unknown';
+  }
+}
+
 // Truncate text with ellipsis
 export function truncateText(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;

@@ -4,6 +4,7 @@ import { Database } from '../../lib/database.types';
 import { Check, X, Search, Package, Clock, CheckCircle, Users, ShoppingBag } from 'lucide-react';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { toast } from 'react-toastify';
+import { calculateBagsFromTransaction, getCementTypeFromDescription } from '../../utils/helpers';
 
 type Transaction = Database['public']['Tables']['transactions']['Row'];
 
@@ -73,13 +74,16 @@ export default function ApprovePoints() {
 
       const { data: totalPointsData } = await supabase
         .from('transactions')
-        .select('amount')
+        .select('amount, description')
         .eq('dealer_id', user.id)
         .eq('type', 'earned')
         .in('status', ['approved', 'dealer_approved']);
 
       const totalPoints = totalPointsData?.reduce((sum, t) => sum + t.amount, 0) || 0;
-      const totalBagsSold = Math.floor(totalPoints / 10);
+      
+      // Calculate total bags sold with proper cement type handling
+      const totalBagsSold = totalPointsData?.reduce((sum, t) => 
+        sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
 
       setStats({
         pendingCount: pendingCount || 0,
@@ -237,6 +241,10 @@ export default function ApprovePoints() {
               const user = (transaction as any).users;
               if (!user) return null;
 
+              // Determine cement type and bags count
+              const cementType = getCementTypeFromDescription(transaction.description);
+              const bagsCount = calculateBagsFromTransaction(transaction.description, transaction.amount);
+
               return (
                 <div key={transaction.id} className="p-4">
                   <div className="flex items-center justify-between">
@@ -258,14 +266,19 @@ export default function ApprovePoints() {
                             <span className="text-sm font-semibold text-primary-600">
                               {transaction.amount} points
                             </span>
-                            {transaction.description.includes('OPC') && (
+                            {cementType === 'OPC' && (
                               <span className="text-xs text-gray-500 ml-2">
-                                ({transaction.amount / 5} OPC bags)
+                                ({bagsCount} OPC bags)
                               </span>
                             )}
-                            {transaction.description.includes('PPC') && (
+                            {cementType === 'PPC' && (
                               <span className="text-xs text-gray-500 ml-2">
-                                ({transaction.amount / 10} PPC bags)
+                                ({bagsCount} PPC bags)
+                              </span>
+                            )}
+                            {cementType === 'Unknown' && (
+                              <span className="text-xs text-gray-500 ml-2">
+                                ({bagsCount} bags)
                               </span>
                             )}
                           </div>

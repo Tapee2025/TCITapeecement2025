@@ -5,6 +5,7 @@ import { Database } from '../../lib/database.types';
 import { Link } from 'react-router-dom';
 import { Clock, CheckCircle, ArrowRight, Check, X, Users, Package, TrendingUp, Building2, ShoppingBag, BarChart3, Calendar, Gift, Target, Star, Zap, Award } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { calculateBagsFromTransaction } from '../../utils/helpers';
 
 type Transaction = Database['public']['Tables']['transactions']['Row'];
 type User = Database['public']['Tables']['users']['Row'];
@@ -132,7 +133,7 @@ export default function DealerDashboard() {
       // Get performance metrics for different periods - dealer's own transactions
       const { data: currentMonthData } = await supabase
         .from('transactions')
-        .select('amount')
+        .select('amount, description')
         .eq('user_id', user.id) // Dealer's own transactions
         .eq('type', 'earned')
         .eq('status', 'approved')
@@ -140,7 +141,7 @@ export default function DealerDashboard() {
 
       const { data: last3MonthsData } = await supabase
         .from('transactions')
-        .select('amount')
+        .select('amount, description')
         .eq('user_id', user.id) // Dealer's own transactions
         .eq('type', 'earned')
         .eq('status', 'approved')
@@ -148,7 +149,7 @@ export default function DealerDashboard() {
 
       const { data: last6MonthsData } = await supabase
         .from('transactions')
-        .select('amount')
+        .select('amount, description')
         .eq('user_id', user.id) // Dealer's own transactions
         .eq('type', 'earned')
         .eq('status', 'approved')
@@ -156,7 +157,7 @@ export default function DealerDashboard() {
 
       const { data: yearlyData } = await supabase
         .from('transactions')
-        .select('amount')
+        .select('amount, description')
         .eq('user_id', user.id) // Dealer's own transactions
         .eq('type', 'earned')
         .eq('status', 'approved')
@@ -164,7 +165,7 @@ export default function DealerDashboard() {
 
       const { data: lifetimeData } = await supabase
         .from('transactions')
-        .select('amount')
+        .select('amount, description')
         .eq('user_id', user.id) // Dealer's own transactions
         .eq('type', 'earned')
         .eq('status', 'approved');
@@ -175,12 +176,12 @@ export default function DealerDashboard() {
         year: 'numeric' 
       });
 
-      // Calculate bags sold from dealer's own transactions
-      const currentMonthBags = Math.floor((currentMonthData?.reduce((sum, t) => sum + t.amount, 0) || 0) / 10);
-      const last3MonthsBags = Math.floor((last3MonthsData?.reduce((sum, t) => sum + t.amount, 0) || 0) / 10);
-      const last6MonthsBags = Math.floor((last6MonthsData?.reduce((sum, t) => sum + t.amount, 0) || 0) / 10);
-      const yearlyBags = Math.floor((yearlyData?.reduce((sum, t) => sum + t.amount, 0) || 0) / 10);
-      const lifetimeBags = Math.floor((lifetimeData?.reduce((sum, t) => sum + t.amount, 0) || 0) / 10);
+      // Calculate bags sold from dealer's own transactions using proper calculation
+      const currentMonthBags = currentMonthData?.reduce((sum, t) => sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
+      const last3MonthsBags = last3MonthsData?.reduce((sum, t) => sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
+      const last6MonthsBags = last6MonthsData?.reduce((sum, t) => sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
+      const yearlyBags = yearlyData?.reduce((sum, t) => sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
+      const lifetimeBags = lifetimeData?.reduce((sum, t) => sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
 
       // Calculate rewards stats
       const rewardsAvailable = rewardsData?.length || 0;
@@ -223,14 +224,14 @@ export default function DealerDashboard() {
 
       const { data: customData } = await supabase
         .from('transactions')
-        .select('amount')
+        .select('amount, description')
         .eq('user_id', user.id) // Dealer's own transactions
         .eq('type', 'earned')
         .eq('status', 'approved')
         .gte('created_at', customStartDate + 'T00:00:00')
         .lte('created_at', customEndDate + 'T23:59:59');
 
-      const customPeriodBags = Math.floor((customData?.reduce((sum, t) => sum + t.amount, 0) || 0) / 10);
+      const customPeriodBags = customData?.reduce((sum, t) => sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
 
       setStats(prev => ({
         ...prev,
@@ -652,7 +653,7 @@ export default function DealerDashboard() {
                           {user.first_name} {user.last_name}
                         </p>
                         <p className="text-xs text-gray-500">
-                          {transaction.amount} points • {transaction.amount / 10} bags
+                          {transaction.amount} points • {calculateBagsFromTransaction(transaction.description, transaction.amount)} bags
                         </p>
                         <p className="text-xs text-gray-400">
                           {new Date(transaction.created_at).toLocaleDateString()}

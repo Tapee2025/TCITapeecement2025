@@ -8,6 +8,7 @@ import { Database } from '../../lib/database.types';
 import { toast } from 'react-toastify';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCache } from '../../hooks/useCache';
+import { calculateBagsFromTransaction } from '../../utils/helpers';
 
 type User = Database['public']['Tables']['users']['Row'];
 type Transaction = Database['public']['Tables']['transactions']['Row'];
@@ -42,10 +43,10 @@ export default function Dashboard() {
       const transactions = transactionsResult.data || [];
       const slides = slidesResult.data || [];
 
-      // Calculate stats
+      // Calculate stats with proper bag counting
       const totalBags = transactions
         .filter(t => t.type === 'earned' && t.status === 'approved')
-        .reduce((sum, t) => sum + (t.amount / 10), 0);
+        .reduce((sum, t) => sum + calculateBagsFromTransaction(t.description, t.amount), 0);
 
       const rewardsRedeemed = transactions
         .filter(t => t.type === 'redeemed' && t.status !== 'rejected')

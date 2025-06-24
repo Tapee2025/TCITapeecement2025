@@ -4,6 +4,7 @@ import { Database } from '../../lib/database.types';
 import { Search, Check, X, AlertCircle, Filter, TrendingUp, Gift } from 'lucide-react';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { toast } from 'react-toastify';
+import { calculateBagsFromTransaction, getCementTypeFromDescription } from '../../utils/helpers';
 
 type Transaction = Database['public']['Tables']['transactions']['Row'];
 
@@ -353,6 +354,10 @@ export default function AdminApprovals() {
 
                 if (!user) return null;
 
+                // Determine cement type and bags count
+                const cementType = getCementTypeFromDescription(transaction.description);
+                const bagsCount = calculateBagsFromTransaction(transaction.description, transaction.amount);
+
                 return (
                   <tr key={transaction.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 text-sm text-gray-500">
@@ -386,14 +391,19 @@ export default function AdminApprovals() {
                     </td>
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">
                       {transaction.type === 'earned' ? '+' : '-'}{transaction.amount}
-                      {transaction.type === 'earned' && transaction.description.includes('OPC') && (
+                      {transaction.type === 'earned' && cementType === 'OPC' && (
                         <div className="text-xs text-gray-500">
-                          ({transaction.amount / 5} OPC bags)
+                          ({bagsCount} OPC bags)
                         </div>
                       )}
-                      {transaction.type === 'earned' && transaction.description.includes('PPC') && (
+                      {transaction.type === 'earned' && cementType === 'PPC' && (
                         <div className="text-xs text-gray-500">
-                          ({transaction.amount / 10} PPC bags)
+                          ({bagsCount} PPC bags)
+                        </div>
+                      )}
+                      {transaction.type === 'earned' && cementType === 'Unknown' && (
+                        <div className="text-xs text-gray-500">
+                          ({bagsCount} bags)
                         </div>
                       )}
                     </td>

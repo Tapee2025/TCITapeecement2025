@@ -5,6 +5,7 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-toastify';
+import { calculateBagsFromTransaction } from '../../utils/helpers';
 
 export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
@@ -95,14 +96,17 @@ export default function AdminDashboard() {
       // Calculate total points issued (from approved transactions)
       const { data: approvedTransactions, error: pointsError } = await supabase
         .from('transactions')
-        .select('amount')
+        .select('amount, description')
         .eq('status', 'approved')
         .eq('type', 'earned');
 
       if (pointsError) throw pointsError;
 
       const totalPointsIssued = approvedTransactions?.reduce((sum, t) => sum + t.amount, 0) || 0;
-      const totalBagsSold = Math.floor(totalPointsIssued / 10);
+      
+      // Calculate total bags sold with proper cement type handling
+      const totalBagsSold = approvedTransactions?.reduce((sum, t) => 
+        sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
 
       // Get total redemptions
       const { data: redemptions, error: redemptionsCountError } = await supabase
@@ -146,42 +150,46 @@ export default function AdminDashboard() {
       // Current month bags
       const { data: currentMonthTransactions } = await supabase
         .from('transactions')
-        .select('amount')
+        .select('amount, description')
         .eq('type', 'earned')
         .eq('status', 'approved')
         .gte('created_at', currentMonthStart.toISOString());
 
-      const currentMonthBags = Math.floor((currentMonthTransactions?.reduce((sum, t) => sum + t.amount, 0) || 0) / 10);
+      const currentMonthBags = currentMonthTransactions?.reduce((sum, t) => 
+        sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
 
       // Last 3 months bags
       const { data: quarterlyTransactions } = await supabase
         .from('transactions')
-        .select('amount')
+        .select('amount, description')
         .eq('type', 'earned')
         .eq('status', 'approved')
         .gte('created_at', threeMonthsAgo.toISOString());
 
-      const quarterlyBagsSold = Math.floor((quarterlyTransactions?.reduce((sum, t) => sum + t.amount, 0) || 0) / 10);
+      const quarterlyBagsSold = quarterlyTransactions?.reduce((sum, t) => 
+        sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
 
       // Last 6 months bags
       const { data: halfYearlyTransactions } = await supabase
         .from('transactions')
-        .select('amount')
+        .select('amount, description')
         .eq('type', 'earned')
         .eq('status', 'approved')
         .gte('created_at', sixMonthsAgo.toISOString());
 
-      const halfYearlyBagsSold = Math.floor((halfYearlyTransactions?.reduce((sum, t) => sum + t.amount, 0) || 0) / 10);
+      const halfYearlyBagsSold = halfYearlyTransactions?.reduce((sum, t) => 
+        sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
 
       // This year bags
       const { data: yearlyTransactions } = await supabase
         .from('transactions')
-        .select('amount')
+        .select('amount, description')
         .eq('type', 'earned')
         .eq('status', 'approved')
         .gte('created_at', yearStart.toISOString());
 
-      const yearlyBagsSold = Math.floor((yearlyTransactions?.reduce((sum, t) => sum + t.amount, 0) || 0) / 10);
+      const yearlyBagsSold = yearlyTransactions?.reduce((sum, t) => 
+        sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
 
       // Get recent activity (all transactions)
       const { data: recentTransactions, error: transactionsError } = await supabase
@@ -254,7 +262,7 @@ export default function AdminDashboard() {
       // Calculate custom period performance from transactions
       const { data: customTransactions, error } = await supabase
         .from('transactions')
-        .select('amount')
+        .select('amount, description')
         .eq('type', 'earned')
         .eq('status', 'approved')
         .gte('created_at', customStartDate)
@@ -262,8 +270,8 @@ export default function AdminDashboard() {
 
       if (error) throw error;
 
-      const customPeriodPoints = customTransactions?.reduce((sum, t) => sum + t.amount, 0) || 0;
-      const customPeriodBags = Math.floor(customPeriodPoints / 10);
+      const customPeriodBags = customTransactions?.reduce((sum, t) => 
+        sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
 
       setStats(prev => ({
         ...prev,
