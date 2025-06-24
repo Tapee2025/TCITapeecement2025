@@ -12,7 +12,8 @@ import {
   Image,
   Settings,
   Building2,
-  Package
+  Package,
+  User
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { ADMIN_NAVIGATION } from '../../utils/constants';
@@ -117,7 +118,7 @@ export default function AdminLayout() {
           <div className="p-4 border-t mobile-bottom-safe">
             <button
               onClick={handleLogout}
-              className="nav-link text-gray-700 hover:bg-gray-100 w-full"
+              className="nav-link text-gray-700 hover:bg-gray-100 hover:text-red-600 w-full transition-colors"
             >
               <LogOut size={20} />
               <span>Logout</span>
@@ -142,7 +143,7 @@ export default function AdminLayout() {
             <div className="relative">
               <button
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
-                className="flex items-center space-x-2 text-sm text-gray-700 hover:text-gray-900 p-2 rounded-lg hover:bg-gray-100"
+                className="flex items-center space-x-2 text-sm text-gray-700 hover:text-gray-900 p-2 rounded-lg hover:bg-gray-100 transition-colors"
               >
                 <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center">
                   <Building2 size={16} className="text-primary-600" />
@@ -160,8 +161,11 @@ export default function AdminLayout() {
                     <p className="text-xs text-gray-500">{currentUser?.email}</p>
                   </div>
                   <button
-                    onClick={handleLogout}
-                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    onClick={() => {
+                      setUserMenuOpen(false);
+                      handleLogout();
+                    }}
+                    className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
                   >
                     <LogOut size={16} className="inline mr-2" />
                     Sign out

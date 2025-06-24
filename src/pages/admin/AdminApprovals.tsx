@@ -83,7 +83,7 @@ export default function AdminApprovals() {
 
       setTransactions(data || []);
 
-      // Calculate stats
+      // Calculate stats - get all pending transactions for stats
       const { data: statsData, error: statsError } = await supabase
         .from('transactions')
         .select('type, status')
@@ -386,9 +386,14 @@ export default function AdminApprovals() {
                     </td>
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">
                       {transaction.type === 'earned' ? '+' : '-'}{transaction.amount}
-                      {transaction.type === 'earned' && (
+                      {transaction.type === 'earned' && transaction.description.includes('OPC') && (
                         <div className="text-xs text-gray-500">
-                          ({transaction.amount / 10} bags)
+                          ({transaction.amount / 5} OPC bags)
+                        </div>
+                      )}
+                      {transaction.type === 'earned' && transaction.description.includes('PPC') && (
+                        <div className="text-xs text-gray-500">
+                          ({transaction.amount / 10} PPC bags)
                         </div>
                       )}
                     </td>

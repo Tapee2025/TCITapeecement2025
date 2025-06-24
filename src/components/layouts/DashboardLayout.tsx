@@ -174,7 +174,7 @@ export default function DashboardLayout() {
           <div className="p-4 border-t mobile-bottom-safe">
             <button
               onClick={handleLogout}
-              className="nav-link text-gray-700 hover:bg-gray-100 w-full"
+              className="nav-link text-gray-700 hover:bg-gray-100 hover:text-red-600 w-full transition-colors"
             >
               <LogOut size={20} />
               <span>Logout</span>
@@ -199,27 +199,52 @@ export default function DashboardLayout() {
             <div className="relative">
               <button
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
-                className="flex items-center space-x-1 text-sm text-gray-700 hover:text-gray-900"
+                className="flex items-center space-x-2 text-sm text-gray-700 hover:text-gray-900 p-2 rounded-lg hover:bg-gray-100 transition-colors"
               >
-                <span className="hidden sm:inline-block font-medium">
-                  {currentUser.first_name} {currentUser.last_name}
-                </span>
+                <div className="flex items-center space-x-2">
+                  {profileImageUrl ? (
+                    <img
+                      src={profileImageUrl}
+                      alt={currentUser.first_name}
+                      className="w-8 h-8 rounded-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                      }}
+                    />
+                  ) : null}
+                  <div className={`w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-semibold text-sm ${profileImageUrl ? 'hidden' : ''}`}>
+                    {currentUser.first_name?.[0]}{currentUser.last_name?.[0]}
+                  </div>
+                  <span className="hidden sm:inline-block font-medium">
+                    {currentUser.first_name}
+                  </span>
+                </div>
                 <ChevronDown size={16} />
               </button>
               
               {userMenuOpen && (
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10 border border-gray-200">
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-10 border border-gray-200">
+                  <div className="px-4 py-2 border-b border-gray-100">
+                    <p className="text-sm font-medium text-gray-900">{currentUser.first_name} {currentUser.last_name}</p>
+                    <p className="text-xs text-gray-500">{currentUser.email}</p>
+                  </div>
                   <NavLink
                     to={currentUser.role === 'dealer' ? '/dealer/profile' : '/profile'}
                     className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     onClick={() => setUserMenuOpen(false)}
                   >
+                    <User size={16} className="inline mr-2" />
                     Your Profile
                   </NavLink>
                   <button
-                    onClick={handleLogout}
-                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    onClick={() => {
+                      setUserMenuOpen(false);
+                      handleLogout();
+                    }}
+                    className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
                   >
+                    <LogOut size={16} className="inline mr-2" />
                     Sign out
                   </button>
                 </div>

@@ -258,9 +258,16 @@ export default function ApprovePoints() {
                             <span className="text-sm font-semibold text-primary-600">
                               {transaction.amount} points
                             </span>
-                            <span className="text-xs text-gray-500 ml-2">
-                              ({transaction.amount / 10} bags)
-                            </span>
+                            {transaction.description.includes('OPC') && (
+                              <span className="text-xs text-gray-500 ml-2">
+                                ({transaction.amount / 5} OPC bags)
+                              </span>
+                            )}
+                            {transaction.description.includes('PPC') && (
+                              <span className="text-xs text-gray-500 ml-2">
+                                ({transaction.amount / 10} PPC bags)
+                              </span>
+                            )}
                           </div>
                           <span className="text-xs text-gray-400">
                             {new Date(transaction.created_at).toLocaleDateString()}
