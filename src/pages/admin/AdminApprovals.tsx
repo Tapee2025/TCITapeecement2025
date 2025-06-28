@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Database } from '../../lib/database.types';
-import { Search, Check, X, AlertCircle, Filter, TrendingUp, Gift } from 'lucide-react';
+import { Search, Check, X, AlertCircle, Filter, TrendingUp, Gift, Undo2, Eye, Trash2 } from 'lucide-react';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { toast } from 'react-toastify';
 import { calculateBagsFromTransaction, getCementTypeFromDescription } from '../../utils/helpers';
@@ -15,11 +15,16 @@ export default function AdminApprovals() {
   const [statusFilter, setStatusFilter] = useState('pending_points');
   const [typeFilter, setTypeFilter] = useState('all');
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [cancellationReason, setCancellationReason] = useState('');
+  const [transactionDetails, setTransactionDetails] = useState<any>(null);
   const [stats, setStats] = useState({
     pendingPoints: 0,
     pendingRedemptions: 0,
     dealerApproved: 0,
-    totalPending: 0
+    totalPending: 0,
+    cancelledToday: 0
   });
 
   useEffect(() => {
@@ -54,6 +59,11 @@ export default function AdminApprovals() {
             id,
             title,
             points_required
+          ),
+          cancelled_by_user:cancelled_by (
+            id,
+            first_name,
+            last_name
           )
         `)
         .order('created_at', { ascending: false });
@@ -69,6 +79,8 @@ export default function AdminApprovals() {
         query = query.eq('status', 'approved');
       } else if (statusFilter === 'rejected') {
         query = query.eq('status', 'rejected');
+      } else if (statusFilter === 'cancelled') {
+        query = query.eq('status', 'cancelled');
       } else {
         // All pending
         query = query.in('status', ['pending', 'dealer_approved']);
@@ -87,8 +99,8 @@ export default function AdminApprovals() {
       // Calculate stats - get all pending transactions for stats
       const { data: statsData, error: statsError } = await supabase
         .from('transactions')
-        .select('type, status')
-        .in('status', ['pending', 'dealer_approved']);
+        .select('type, status, cancelled_at')
+        .in('status', ['pending', 'dealer_approved', 'cancelled']);
 
       if (statsError) throw statsError;
 
@@ -96,11 +108,21 @@ export default function AdminApprovals() {
       const pendingRedemptions = statsData?.filter(t => t.type === 'redeemed' && t.status === 'pending').length || 0;
       const dealerApproved = statsData?.filter(t => t.status === 'dealer_approved').length || 0;
 
+      // Count cancelled transactions today
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const cancelledToday = statsData?.filter(t => 
+        t.status === 'cancelled' && 
+        t.cancelled_at && 
+        new Date(t.cancelled_at) >= today
+      ).length || 0;
+
       setStats({
         pendingPoints,
         pendingRedemptions,
         dealerApproved,
-        totalPending: pendingPoints + pendingRedemptions
+        totalPending: pendingPoints + pendingRedemptions,
+        cancelledToday
       });
 
     } catch (error) {
@@ -219,6 +241,62 @@ export default function AdminApprovals() {
     }
   }
 
+  async function handleCancelTransaction() {
+    if (!selectedTransaction || !cancellationReason.trim()) {
+      toast.error('Please provide a cancellation reason');
+      return;
+    }
+
+    setProcessingId(selectedTransaction.id);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { data, error } = await supabase.rpc('cancel_transaction', {
+        p_transaction_id: selectedTransaction.id,
+        p_admin_id: user.id,
+        p_reason: cancellationReason.trim()
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        toast.success(`Transaction cancelled successfully. ${data.user_name} now has ${data.user_points_after} points.`);
+        setShowCancelModal(false);
+        setSelectedTransaction(null);
+        setCancellationReason('');
+        setTransactionDetails(null);
+        fetchTransactions();
+      } else {
+        toast.error(data.error || 'Failed to cancel transaction');
+      }
+    } catch (error) {
+      console.error('Error cancelling transaction:', error);
+      toast.error('Failed to cancel transaction');
+    } finally {
+      setProcessingId(null);
+    }
+  }
+
+  async function openCancelModal(transaction: Transaction) {
+    setSelectedTransaction(transaction);
+    setCancellationReason('');
+    
+    try {
+      const { data, error } = await supabase.rpc('get_transaction_details', {
+        p_transaction_id: transaction.id
+      });
+
+      if (error) throw error;
+      setTransactionDetails(data);
+    } catch (error) {
+      console.error('Error fetching transaction details:', error);
+      toast.error('Failed to load transaction details');
+    }
+    
+    setShowCancelModal(true);
+  }
+
   const filteredTransactions = transactions.filter(transaction => {
     const searchString = searchQuery.toLowerCase();
     const user = (transaction as any).users;
@@ -246,7 +324,7 @@ export default function AdminApprovals() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="bg-white rounded-lg p-4 shadow-sm border">
           <div className="flex items-center justify-between">
             <div>
@@ -286,6 +364,16 @@ export default function AdminApprovals() {
             <AlertCircle className="w-8 h-8 text-gray-500" />
           </div>
         </div>
+
+        <div className="bg-white rounded-lg p-4 shadow-sm border">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">Cancelled Today</p>
+              <p className="text-2xl font-bold text-error-600">{stats.cancelledToday}</p>
+            </div>
+            <Undo2 className="w-8 h-8 text-error-500" />
+          </div>
+        </div>
       </div>
 
       {/* Filters */}
@@ -313,6 +401,7 @@ export default function AdminApprovals() {
               <option value="dealer_approved">Dealer Approved</option>
               <option value="approved">Approved</option>
               <option value="rejected">Rejected</option>
+              <option value="cancelled">Cancelled</option>
               <option value="all">All Pending</option>
             </select>
           </div>
@@ -351,6 +440,7 @@ export default function AdminApprovals() {
                 const user = (transaction as any).users;
                 const dealer = (transaction as any).dealers;
                 const reward = (transaction as any).rewards;
+                const cancelledBy = (transaction as any).cancelled_by_user;
 
                 if (!user) return null;
 
@@ -362,6 +452,11 @@ export default function AdminApprovals() {
                   <tr key={transaction.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 text-sm text-gray-500">
                       {new Date(transaction.created_at).toLocaleDateString()}
+                      {transaction.cancelled_at && (
+                        <div className="text-xs text-error-600 mt-1">
+                          Cancelled: {new Date(transaction.cancelled_at).toLocaleDateString()}
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center">
@@ -419,37 +514,73 @@ export default function AdminApprovals() {
                           Dealer: {dealer.first_name} {dealer.last_name} ({dealer.user_code})
                         </div>
                       )}
+                      {transaction.status === 'cancelled' && transaction.cancellation_reason && (
+                        <div className="text-xs text-error-600 mt-1">
+                          Reason: {transaction.cancellation_reason}
+                        </div>
+                      )}
+                      {cancelledBy && (
+                        <div className="text-xs text-error-500 mt-1">
+                          Cancelled by: {cancelledBy.first_name} {cancelledBy.last_name}
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
                         ${transaction.status === 'approved' ? 'bg-green-100 text-green-800' :
                           transaction.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                             transaction.status === 'dealer_approved' ? 'bg-blue-100 text-blue-800' :
-                              'bg-red-100 text-red-800'}`}>
-                        {transaction.status === 'dealer_approved' ? 'Pending Admin Approval' : transaction.status}
+                              transaction.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                                'bg-red-100 text-red-800'}`}>
+                        {transaction.status === 'dealer_approved' ? 'Pending Admin Approval' : 
+                         transaction.status === 'cancelled' ? 'Cancelled' : transaction.status}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm font-medium">
-                      {(transaction.status === 'dealer_approved' || transaction.status === 'pending') && (
-                        <div className="flex space-x-2">
+                      <div className="flex space-x-2">
+                        {(transaction.status === 'dealer_approved' || transaction.status === 'pending') && (
+                          <>
+                            <button
+                              onClick={() => handleApprove(transaction.id)}
+                              disabled={processingId === transaction.id}
+                              className="text-green-600 hover:text-green-900 p-1 rounded"
+                              title="Approve"
+                            >
+                              {processingId === transaction.id ? <LoadingSpinner size="sm" /> : <Check size={18} />}
+                            </button>
+                            <button
+                              onClick={() => handleReject(transaction.id)}
+                              disabled={processingId === transaction.id}
+                              className="text-red-600 hover:text-red-900 p-1 rounded"
+                              title="Reject"
+                            >
+                              <X size={18} />
+                            </button>
+                          </>
+                        )}
+                        
+                        {(transaction.status === 'approved' || transaction.status === 'dealer_approved') && (
                           <button
-                            onClick={() => handleApprove(transaction.id)}
+                            onClick={() => openCancelModal(transaction)}
                             disabled={processingId === transaction.id}
-                            className="text-green-600 hover:text-green-900 p-1 rounded"
-                            title="Approve"
+                            className="text-orange-600 hover:text-orange-900 p-1 rounded"
+                            title="Cancel Transaction"
                           >
-                            {processingId === transaction.id ? <LoadingSpinner size="sm" /> : <Check size={18} />}
+                            <Undo2 size={18} />
                           </button>
+                        )}
+
+                        {transaction.status === 'cancelled' && (
                           <button
-                            onClick={() => handleReject(transaction.id)}
+                            onClick={() => openCancelModal(transaction)}
                             disabled={processingId === transaction.id}
-                            className="text-red-600 hover:text-red-900 p-1 rounded"
-                            title="Reject"
+                            className="text-gray-600 hover:text-gray-900 p-1 rounded"
+                            title="View Cancellation Details"
                           >
-                            <X size={18} />
+                            <Eye size={18} />
                           </button>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -470,6 +601,172 @@ export default function AdminApprovals() {
           </div>
         )}
       </div>
+
+      {/* Cancel Transaction Modal */}
+      {showCancelModal && selectedTransaction && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-gray-900">
+                  {selectedTransaction.status === 'cancelled' ? 'Cancellation Details' : 'Cancel Transaction'}
+                </h2>
+                <button
+                  onClick={() => {
+                    setShowCancelModal(false);
+                    setSelectedTransaction(null);
+                    setTransactionDetails(null);
+                    setCancellationReason('');
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              {transactionDetails && (
+                <div className="space-y-4 mb-6">
+                  {/* Transaction Details */}
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h3 className="font-medium text-gray-900 mb-2">Transaction Details</h3>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-500">Type:</span>
+                        <span className="ml-2 font-medium capitalize">{transactionDetails.transaction.type}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Amount:</span>
+                        <span className="ml-2 font-medium">{transactionDetails.transaction.amount} points</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Status:</span>
+                        <span className="ml-2 font-medium capitalize">{transactionDetails.transaction.status}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Date:</span>
+                        <span className="ml-2 font-medium">
+                          {new Date(transactionDetails.transaction.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="mt-2">
+                      <span className="text-gray-500">Description:</span>
+                      <p className="mt-1 text-sm">{transactionDetails.transaction.description}</p>
+                    </div>
+                  </div>
+
+                  {/* User Details */}
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <h3 className="font-medium text-gray-900 mb-2">User Information</h3>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-500">Name:</span>
+                        <span className="ml-2 font-medium">{transactionDetails.user.name}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">User Code:</span>
+                        <span className="ml-2 font-medium">{transactionDetails.user.user_code}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Email:</span>
+                        <span className="ml-2 font-medium">{transactionDetails.user.email}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Current Points:</span>
+                        <span className="ml-2 font-medium">{transactionDetails.user.current_points}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Impact Preview */}
+                  {selectedTransaction.status !== 'cancelled' && (
+                    <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                      <h3 className="font-medium text-gray-900 mb-2">Cancellation Impact</h3>
+                      <div className="text-sm">
+                        {selectedTransaction.type === 'earned' ? (
+                          <p>
+                            <strong>{selectedTransaction.amount} points</strong> will be <strong>removed</strong> from {transactionDetails.user.name}'s account.
+                            <br />
+                            New balance: <strong>{Math.max(0, transactionDetails.user.current_points - selectedTransaction.amount)} points</strong>
+                          </p>
+                        ) : (
+                          <p>
+                            <strong>{selectedTransaction.amount} points</strong> will be <strong>refunded</strong> to {transactionDetails.user.name}'s account.
+                            <br />
+                            New balance: <strong>{transactionDetails.user.current_points + selectedTransaction.amount} points</strong>
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Cancellation Details (if already cancelled) */}
+                  {transactionDetails.cancellation && (
+                    <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+                      <h3 className="font-medium text-gray-900 mb-2">Cancellation Information</h3>
+                      <div className="text-sm">
+                        <p><strong>Cancelled on:</strong> {new Date(transactionDetails.cancellation.cancelled_at).toLocaleString()}</p>
+                        <p><strong>Reason:</strong> {transactionDetails.cancellation.reason}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {selectedTransaction.status !== 'cancelled' && (
+                <>
+                  <div className="mb-4">
+                    <label htmlFor="cancellationReason" className="block text-sm font-medium text-gray-700 mb-2">
+                      Cancellation Reason *
+                    </label>
+                    <textarea
+                      id="cancellationReason"
+                      rows={3}
+                      className="form-input"
+                      placeholder="Please provide a reason for cancelling this transaction..."
+                      value={cancellationReason}
+                      onChange={(e) => setCancellationReason(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className="flex justify-end space-x-3">
+                    <button
+                      onClick={() => {
+                        setShowCancelModal(false);
+                        setSelectedTransaction(null);
+                        setTransactionDetails(null);
+                        setCancellationReason('');
+                      }}
+                      className="btn btn-outline"
+                      disabled={processingId === selectedTransaction.id}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleCancelTransaction}
+                      disabled={processingId === selectedTransaction.id || !cancellationReason.trim()}
+                      className="btn bg-red-600 text-white hover:bg-red-700"
+                    >
+                      {processingId === selectedTransaction.id ? (
+                        <>
+                          <LoadingSpinner size="sm" className="mr-2" />
+                          Cancelling...
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 size={16} className="mr-2" />
+                          Cancel Transaction
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
