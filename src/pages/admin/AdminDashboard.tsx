@@ -17,7 +17,6 @@ export default function AdminDashboard() {
     totalPoints: 0,
     totalRedemptions: 0,
     totalDealers: 0,
-    totalBuilders: 0,
     totalContractors: 0,
     totalBagsSold: 0,
     activeSlides: 0,
@@ -64,7 +63,6 @@ export default function AdminDashboard() {
 
       // Count users by role
       const dealerCount = users?.filter(u => u.role === 'dealer').length || 0;
-      const builderCount = users?.filter(u => u.role === 'builder').length || 0;
       const contractorCount = users?.filter(u => u.role === 'contractor').length || 0;
 
       // Get pending points approvals (earned transactions with pending or dealer_approved status)
@@ -104,8 +102,18 @@ export default function AdminDashboard() {
 
       const totalPointsIssued = approvedTransactions?.reduce((sum, t) => sum + t.amount, 0) || 0;
       
-      // Calculate total bags sold with proper cement type handling
-      const totalBagsSold = approvedTransactions?.reduce((sum, t) => 
+      // Calculate total bags sold - ONLY from dealer transactions (dealers selling to customers)
+      // Bags sold = bags sold BY dealers (dealer's own transactions)
+      const { data: dealerTransactions, error: dealerTransactionsError } = await supabase
+        .from('transactions')
+        .select('amount, description, user_id')
+        .eq('status', 'approved')
+        .eq('type', 'earned')
+        .in('user_id', users?.filter(u => u.role === 'dealer').map(u => u.id) || []);
+
+      if (dealerTransactionsError) throw dealerTransactionsError;
+
+      const totalBagsSold = dealerTransactions?.reduce((sum, t) => 
         sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
 
       // Get total redemptions
@@ -140,55 +148,59 @@ export default function AdminDashboard() {
         year: 'numeric' 
       });
 
-      // Calculate performance metrics for different periods using direct transaction queries
+      // Calculate performance metrics for different periods using dealer transactions only
       const now = new Date();
       const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
       const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
       const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, 1);
       const yearStart = new Date(now.getFullYear(), 0, 1);
 
-      // Current month bags
-      const { data: currentMonthTransactions } = await supabase
+      // Current month bags - only dealer transactions
+      const { data: currentMonthDealerTransactions } = await supabase
         .from('transactions')
-        .select('amount, description')
+        .select('amount, description, user_id')
         .eq('type', 'earned')
         .eq('status', 'approved')
+        .in('user_id', users?.filter(u => u.role === 'dealer').map(u => u.id) || [])
         .gte('created_at', currentMonthStart.toISOString());
 
-      const currentMonthBags = currentMonthTransactions?.reduce((sum, t) => 
+      const currentMonthBags = currentMonthDealerTransactions?.reduce((sum, t) => 
         sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
 
-      // Last 3 months bags
-      const { data: quarterlyTransactions } = await supabase
+      // Last 3 months bags - only dealer transactions
+      const { data: quarterlyDealerTransactions } = await supabase
         .from('transactions')
-        .select('amount, description')
+        .select('amount, description, user_id')
         .eq('type', 'earned')
         .eq('status', 'approved')
+        .in('user_id', users?.filter(u => u.role === 'dealer').map(u => u.id) || [])
         .gte('created_at', threeMonthsAgo.toISOString());
 
-      const quarterlyBagsSold = quarterlyTransactions?.reduce((sum, t) => 
+      const quarterlyBagsSold = quarterlyDealerTransactions?.reduce((sum, t) => 
         sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
 
-      // Last 6 months bags
-      const { data: halfYearlyTransactions } = await supabase
+      // Last 6 months bags - only dealer transactions
+      const { data: halfYearlyDealerTransactions } = await supabase
         .from('transactions')
-        .select('amount, description')
+        .select('amount, description, user_id')
         .eq('type', 'earned')
         .eq('status', 'approved')
+        .in('user_id', users?.filter(u => u.role === 'dealer').map(u => u.id) || [])
         .gte('created_at', sixMonthsAgo.toISOString());
 
-      const halfYearlyBagsSold = halfYearlyTransactions?.reduce((sum, t) => 
+      const halfYearlyBagsSold = halfYearlyDealerTransactions?.reduce((sum, t) => 
         sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
 
-      // This year bags
-      const { data: yearlyTransactions } = await supabase
+      // This year bags - only dealer transactions
+      const { data: yearlyDealerTransactions } = await supabase
         .from('transactions')
-        .select('amount, description')
+        .select('amount, description, user_id')
         .eq('type', 'earned')
         .eq('status', 'approved')
+        .in('user_id', users?.filter(u => u.role === 'dealer').map(u => u.id) || [])
         .gte('created_at', yearStart.toISOString());
 
-      const yearlyBagsSold = yearlyTransactions?.reduce((sum, t) => 
+      const yearlyBagsSold = yearlyDealerTransactions?.reduce((sum, t) => 
         sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
 
       // Get recent activity (all transactions)
@@ -221,7 +233,6 @@ export default function AdminDashboard() {
         totalPoints: totalPointsIssued,
         totalRedemptions: redemptions?.length || 0,
         totalDealers: dealerCount,
-        totalBuilders: builderCount,
         totalContractors: contractorCount,
         totalBagsSold,
         activeSlides: activeSlides?.length || 0,
@@ -259,18 +270,25 @@ export default function AdminDashboard() {
     }
 
     try {
-      // Calculate custom period performance from transactions
-      const { data: customTransactions, error } = await supabase
+      // Get all dealers
+      const { data: users } = await supabase
+        .from('users')
+        .select('id')
+        .eq('role', 'dealer');
+
+      // Calculate custom period performance from dealer transactions only
+      const { data: customDealerTransactions, error } = await supabase
         .from('transactions')
-        .select('amount, description')
+        .select('amount, description, user_id')
         .eq('type', 'earned')
         .eq('status', 'approved')
+        .in('user_id', users?.map(u => u.id) || [])
         .gte('created_at', customStartDate)
         .lte('created_at', customEndDate + 'T23:59:59');
 
       if (error) throw error;
 
-      const customPeriodBags = customTransactions?.reduce((sum, t) => 
+      const customPeriodBags = customDealerTransactions?.reduce((sum, t) => 
         sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
 
       setStats(prev => ({
@@ -361,7 +379,7 @@ export default function AdminDashboard() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center">
             <BarChart3 className="mr-2 text-primary-600" size={20} />
-            Performance Metrics
+            Performance Metrics (Bags Sold by Dealers)
           </h3>
           <div className="mt-4 sm:mt-0 flex flex-col sm:flex-row gap-2">
             <select
@@ -408,7 +426,7 @@ export default function AdminDashboard() {
           <div className="bg-gradient-to-r from-green-50 to-green-100 p-4 rounded-lg border border-green-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-green-600 font-medium">Bags Sold</p>
+                <p className="text-sm text-green-600 font-medium">Bags Sold by Dealers</p>
                 <p className="text-2xl font-bold text-green-700">{getPerformanceValue()}</p>
                 <p className="text-xs text-green-600">{getPerformanceLabel()}</p>
               </div>
@@ -452,7 +470,7 @@ export default function AdminDashboard() {
 
         {/* Performance Comparison */}
         <div className="mt-6 pt-6 border-t border-gray-200">
-          <h4 className="text-md font-medium text-gray-900 mb-4">Bags Sold Comparison</h4>
+          <h4 className="text-md font-medium text-gray-900 mb-4">Bags Sold by Dealers Comparison</h4>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div className="text-center p-3 bg-gray-50 rounded-lg">
               <p className="text-lg font-bold text-gray-900">{stats.currentMonthBags}</p>
@@ -555,19 +573,6 @@ export default function AdminDashboard() {
                 <div
                   className="bg-primary-600 h-2 rounded-full"
                   style={{ width: `${stats.totalUsers > 0 ? (stats.totalDealers / stats.totalUsers) * 100 : 0}%` }}
-                ></div>
-              </div>
-            </div>
-            
-            <div>
-              <div className="flex justify-between mb-1">
-                <span className="text-sm text-gray-700">Builders</span>
-                <span className="text-sm text-gray-700">{stats.totalBuilders}</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div
-                  className="bg-secondary-600 h-2 rounded-full"
-                  style={{ width: `${stats.totalUsers > 0 ? (stats.totalBuilders / stats.totalUsers) * 100 : 0}%` }}
                 ></div>
               </div>
             </div>

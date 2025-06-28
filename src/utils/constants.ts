@@ -35,9 +35,8 @@ export const GUJARAT_DISTRICTS = [
   'Valsad'
 ];
 
-// User Roles
+// User Roles - Removed builder
 export const USER_ROLES = [
-  { value: 'builder', label: 'Builder' },
   { value: 'dealer', label: 'Dealer/Distributor' },
   { value: 'contractor', label: 'Contractor/Mason' }
 ];
@@ -97,7 +96,7 @@ export const SAMPLE_REWARDS = [
   }
 ];
 
-// Navigation
+// Navigation - Updated for contractor only
 export const USER_NAVIGATION = [
   { name: 'Dashboard', path: '/dashboard', icon: 'LayoutDashboard' },
   { name: 'Get Points', path: '/get-points', icon: 'PlusCircle' },
@@ -125,9 +124,9 @@ export const ADMIN_NAVIGATION = [
   { name: 'Marketing', path: '/admin/marketing', icon: 'Image' }
 ];
 
-// Stats Cards
+// Stats Cards - Updated to remove builder
 export const STATS_CARDS = {
-  builder: [
+  contractor: [
     { title: 'Available Points', icon: 'Star', color: 'bg-primary-500', valueKey: 'points' },
     { title: 'Cement Bags Purchased', icon: 'Package', color: 'bg-secondary-500', valueKey: 'bagsPurchased' },
     { title: 'Rewards Redeemed', icon: 'Gift', color: 'bg-accent-500', valueKey: 'rewardsRedeemed' }
@@ -136,11 +135,6 @@ export const STATS_CARDS = {
     { title: 'Total Transactions', icon: 'Star', color: 'bg-primary-500', valueKey: 'totalTransactions' },
     { title: 'Pending Approvals', icon: 'Clock', color: 'bg-warning-500', valueKey: 'pendingApprovals' },
     { title: 'Approved Today', icon: 'CheckCircle', color: 'bg-success-500', valueKey: 'approvedToday' }
-  ],
-  contractor: [
-    { title: 'Available Points', icon: 'Star', color: 'bg-primary-500', valueKey: 'points' },
-    { title: 'Cement Bags Purchased', icon: 'Package', color: 'bg-secondary-500', valueKey: 'bagsPurchased' },
-    { title: 'Rewards Redeemed', icon: 'Gift', color: 'bg-accent-500', valueKey: 'rewardsRedeemed' }
   ],
   admin: [
     { title: 'Total Users', icon: 'Users', color: 'bg-primary-500', valueKey: 'totalUsers' },

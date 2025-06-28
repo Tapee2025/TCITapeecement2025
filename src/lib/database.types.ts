@@ -15,7 +15,7 @@ export interface Database {
           email: string
           first_name: string
           last_name: string
-          role: 'builder' | 'dealer' | 'contractor' | 'admin'
+          role: 'dealer' | 'contractor' | 'admin'
           city: string
           address: string
           district: string
@@ -32,7 +32,7 @@ export interface Database {
           email: string
           first_name: string
           last_name: string
-          role: 'builder' | 'dealer' | 'contractor' | 'admin'
+          role: 'dealer' | 'contractor' | 'admin'
           city: string
           address: string
           district: string
@@ -49,7 +49,7 @@ export interface Database {
           email?: string
           first_name?: string
           last_name?: string
-          role?: 'builder' | 'dealer' | 'contractor' | 'admin'
+          role?: 'dealer' | 'contractor' | 'admin'
           city?: string
           address?: string
           district?: string
@@ -70,7 +70,7 @@ export interface Database {
           image_url: string
           points_required: number
           available: boolean
-          visible_to: ('builder' | 'dealer' | 'contractor')[]
+          visible_to: ('dealer' | 'contractor')[]
           expiry_date: string
           created_at: string
           updated_at: string
@@ -82,7 +82,7 @@ export interface Database {
           image_url: string
           points_required: number
           available?: boolean
-          visible_to?: ('builder' | 'dealer' | 'contractor')[]
+          visible_to?: ('dealer' | 'contractor')[]
           expiry_date: string
           created_at?: string
           updated_at?: string
@@ -94,7 +94,7 @@ export interface Database {
           image_url?: string
           points_required?: number
           available?: boolean
-          visible_to?: ('builder' | 'dealer' | 'contractor')[]
+          visible_to?: ('dealer' | 'contractor')[]
           expiry_date?: string
           created_at?: string
           updated_at?: string

@@ -18,7 +18,7 @@ const customerSchema = z.object({
   last_name: z.string().min(2, 'Last name is required'),
   email: z.string().email('Please enter a valid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
-  role: z.enum(['builder', 'contractor'] as const),
+  role: z.enum(['contractor'] as const), // Only contractor now
   city: z.string().min(2, 'City is required'),
   address: z.string().min(5, 'Address is required'),
   mobile_number: z.string().regex(/^[0-9]{10}$/, 'Mobile number must be 10 digits')
@@ -31,14 +31,12 @@ export default function ManageCustomers() {
   const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [roleFilter, setRoleFilter] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<User | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [stats, setStats] = useState({
     totalCustomers: 0,
-    builders: 0,
     contractors: 0,
     activeThisMonth: 0
   });
@@ -59,7 +57,7 @@ export default function ManageCustomers() {
     if (!authLoading && currentUser) {
       fetchCustomers();
     }
-  }, [roleFilter, authLoading, currentUser]);
+  }, [authLoading, currentUser]);
 
   async function fetchCustomers() {
     if (!currentUser) {
@@ -74,12 +72,8 @@ export default function ManageCustomers() {
       let query = supabase
         .from('users')
         .select('*')
-        .in('role', ['builder', 'contractor'])
+        .eq('role', 'contractor') // Only contractors now
         .order('created_at', { ascending: false });
-
-      if (roleFilter !== 'all') {
-        query = query.eq('role', roleFilter);
-      }
 
       const { data, error } = await query;
       if (error) throw error;
@@ -93,7 +87,6 @@ export default function ManageCustomers() {
 
       // Calculate stats
       const totalCustomers = filteredCustomers.length;
-      const builders = filteredCustomers.filter(c => c.role === 'builder').length;
       const contractors = filteredCustomers.filter(c => c.role === 'contractor').length;
 
       // Get customers active this month (with transactions)
@@ -111,7 +104,6 @@ export default function ManageCustomers() {
 
       setStats({
         totalCustomers,
-        builders,
         contractors,
         activeThisMonth: uniqueActiveCustomers
       });
@@ -263,7 +255,7 @@ export default function ManageCustomers() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Manage Customers</h1>
-          <p className="text-gray-600">Add and manage your customers (builders and contractors)</p>
+          <p className="text-gray-600">Add and manage your customers (contractors/masons)</p>
         </div>
         <button
           onClick={openAddModal}
@@ -275,7 +267,7 @@ export default function ManageCustomers() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <div className="bg-white rounded-lg p-4 shadow-sm border">
           <div className="flex items-center justify-between">
             <div>
@@ -283,16 +275,6 @@ export default function ManageCustomers() {
               <p className="text-2xl font-bold text-gray-900">{stats.totalCustomers}</p>
             </div>
             <Users className="w-8 h-8 text-primary-500" />
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg p-4 shadow-sm border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Builders</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.builders}</p>
-            </div>
-            <Users className="w-8 h-8 text-secondary-500" />
           </div>
         </div>
 
@@ -319,27 +301,15 @@ export default function ManageCustomers() {
 
       {/* Filters */}
       <div className="bg-white rounded-lg shadow-sm border p-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-            <input
-              type="text"
-              placeholder="Search customers..."
-              className="form-input pl-10"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-
-          <select
-            className="form-input"
-            value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value)}
-          >
-            <option value="all">All Roles</option>
-            <option value="builder">Builders</option>
-            <option value="contractor">Contractors</option>
-          </select>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+          <input
+            type="text"
+            placeholder="Search customers..."
+            className="form-input pl-10"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
         </div>
       </div>
 
@@ -392,8 +362,7 @@ export default function ManageCustomers() {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
-                      ${customer.role === 'builder' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
                       {customer.role}
                     </span>
                   </td>
@@ -438,7 +407,7 @@ export default function ManageCustomers() {
         )}
       </div>
 
-      {/* Add/Edit Customer Modal */}
+      {/* Add Customer Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -509,14 +478,13 @@ export default function ManageCustomers() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="form-label">Role</label>
-                    <select
-                      className="form-input"
-                      {...register('role')}
-                    >
-                      <option value="contractor">Contractor/Mason</option>
-                      <option value="builder">Builder</option>
-                    </select>
-                    {errors.role && <p className="form-error">{errors.role.message}</p>}
+                    <input
+                      type="text"
+                      className="form-input bg-gray-50"
+                      value="Contractor/Mason"
+                      disabled
+                    />
+                    <input type="hidden" {...register('role')} value="contractor" />
                   </div>
                   
                   <div>
