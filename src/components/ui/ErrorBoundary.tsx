@@ -1,5 +1,7 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { clearCache } from '../../hooks/useCache';
+import { clearSupabaseCache } from '../../lib/supabase';
 
 interface Props {
   children: ReactNode;
@@ -10,24 +12,46 @@ interface State {
   hasError: boolean;
   error: Error | null;
   errorInfo: ErrorInfo | null;
+  errorCount: number;
+  lastErrorTime: number;
 }
 
 class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
-    this.state = { hasError: false, error: null, errorInfo: null };
+    this.state = { 
+      hasError: false, 
+      error: null, 
+      errorInfo: null,
+      errorCount: 0,
+      lastErrorTime: 0
+    };
   }
 
-  static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error, errorInfo: null };
+  static getDerivedStateFromError(error: Error): Partial<State> {
+    return { hasError: true, error };
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('Error caught by boundary:', error, errorInfo);
+    
+    const now = Date.now();
+    const timeSinceLastError = now - this.state.lastErrorTime;
+    
+    // If errors are happening rapidly, increment counter
+    const newErrorCount = timeSinceLastError < 60000 ? this.state.errorCount + 1 : 1;
+    
     this.setState({
       error,
-      errorInfo
+      errorInfo,
+      errorCount: newErrorCount,
+      lastErrorTime: now
     });
+    
+    // If we've had multiple errors in a short time, try to recover automatically
+    if (newErrorCount >= 3) {
+      this.handleRecovery();
+    }
   }
 
   handleReload = () => {
@@ -36,6 +60,25 @@ class ErrorBoundary extends Component<Props, State> {
 
   handleReset = () => {
     this.setState({ hasError: false, error: null, errorInfo: null });
+  };
+  
+  handleRecovery = () => {
+    // Clear all caches
+    clearCache();
+    clearSupabaseCache();
+    
+    // Reset error state
+    this.setState({ 
+      hasError: false, 
+      error: null, 
+      errorInfo: null,
+      errorCount: 0
+    });
+    
+    // If errors persist, reload the page
+    if (this.state.errorCount >= 5) {
+      window.location.reload();
+    }
   };
 
   render() {

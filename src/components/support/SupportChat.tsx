@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { MessageCircle, Send, X, Paperclip, User, Bot } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -15,6 +15,7 @@ export default function SupportChat() {
   const [loading, setLoading] = useState(false);
   const [showNewTicketForm, setShowNewTicketForm] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const subscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
 
   const [newTicketData, setNewTicketData] = useState({
     subject: '',
@@ -23,28 +24,7 @@ export default function SupportChat() {
     priority: 'medium' as const
   });
 
-  useEffect(() => {
-    if (currentUser && isOpen) {
-      fetchTickets();
-    }
-  }, [currentUser, isOpen]);
-
-  useEffect(() => {
-    if (activeTicket) {
-      fetchMessages();
-      subscribeToMessages();
-    }
-  }, [activeTicket]);
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  async function fetchTickets() {
+  const fetchTickets = useCallback(async () => {
     if (!currentUser) return;
 
     try {
@@ -65,9 +45,9 @@ export default function SupportChat() {
     } catch (error) {
       console.error('Error fetching tickets:', error);
     }
-  }
+  }, [currentUser, activeTicket]);
 
-  async function fetchMessages() {
+  const fetchMessages = useCallback(async () => {
     if (!activeTicket) return;
 
     try {
@@ -85,10 +65,15 @@ export default function SupportChat() {
     } catch (error) {
       console.error('Error fetching messages:', error);
     }
-  }
+  }, [activeTicket]);
 
-  function subscribeToMessages() {
+  const subscribeToMessages = useCallback(() => {
     if (!activeTicket) return;
+
+    // Clean up previous subscription if it exists
+    if (subscriptionRef.current) {
+      subscriptionRef.current.unsubscribe();
+    }
 
     const subscription = supabase
       .channel(`ticket-${activeTicket.id}`)
@@ -115,12 +100,45 @@ export default function SupportChat() {
       )
       .subscribe();
 
-    return () => {
-      subscription.unsubscribe();
-    };
-  }
+    subscriptionRef.current = subscription;
+  }, [activeTicket]);
 
-  async function createTicket() {
+  useEffect(() => {
+    if (currentUser && isOpen) {
+      fetchTickets();
+    }
+
+    return () => {
+      // Clean up subscription when component unmounts
+      if (subscriptionRef.current) {
+        subscriptionRef.current.unsubscribe();
+      }
+    };
+  }, [currentUser, isOpen, fetchTickets]);
+
+  useEffect(() => {
+    if (activeTicket) {
+      fetchMessages();
+      subscribeToMessages();
+    }
+
+    return () => {
+      // Clean up subscription when active ticket changes
+      if (subscriptionRef.current) {
+        subscriptionRef.current.unsubscribe();
+      }
+    };
+  }, [activeTicket, fetchMessages, subscribeToMessages]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const createTicket = async () => {
     if (!currentUser || !newTicketData.subject.trim() || !newTicketData.description.trim()) {
       return;
     }
@@ -156,9 +174,9 @@ export default function SupportChat() {
     } finally {
       setLoading(false);
     }
-  }
+  };
 
-  async function sendMessage() {
+  const sendMessage = async () => {
     if (!activeTicket || !newMessage.trim() || !currentUser) return;
 
     setLoading(true);
@@ -189,7 +207,7 @@ export default function SupportChat() {
     } finally {
       setLoading(false);
     }
-  }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -219,7 +237,13 @@ export default function SupportChat() {
           <div className="bg-primary-600 text-white p-4 rounded-t-lg flex justify-between items-center">
             <h3 className="font-semibold">Support Chat</h3>
             <button
-              onClick={() => setIsOpen(false)}
+              onClick={() => {
+                setIsOpen(false);
+                // Clean up when closing chat
+                if (subscriptionRef.current) {
+                  subscriptionRef.current.unsubscribe();
+                }
+              }}
               className="text-white hover:text-gray-200"
             >
               <X size={20} />

@@ -12,6 +12,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables. Please check your .env file and ensure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set.');
 }
 
+// Create a single instance of the Supabase client
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
@@ -57,12 +58,69 @@ export function getProfilePictureUrl(fileName: string | null): string {
   }
 }
 
-// Connection health check
+// Connection health check with timeout
 export async function checkConnection(): Promise<boolean> {
   try {
-    const { error } = await supabase.from('users').select('id').limit(1);
-    return !error;
+    // Set a timeout for the connection check
+    const timeoutPromise = new Promise<boolean>((_, reject) => {
+      setTimeout(() => reject(new Error('Connection check timed out')), 5000);
+    });
+    
+    // Actual connection check
+    const connectionPromise = new Promise<boolean>(async (resolve) => {
+      try {
+        const { error } = await supabase.from('users').select('id').limit(1);
+        resolve(!error);
+      } catch {
+        resolve(false);
+      }
+    });
+    
+    // Race the connection check against the timeout
+    return await Promise.race([connectionPromise, timeoutPromise]);
   } catch {
+    return false;
+  }
+}
+
+// Function to clear Supabase cache
+export function clearSupabaseCache() {
+  try {
+    // Clear localStorage items related to Supabase
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith('sb-') || key.includes('supabase')) {
+        localStorage.removeItem(key);
+      }
+    });
+    
+    // Force refresh auth session
+    supabase.auth.refreshSession();
+    
+    return true;
+  } catch (error) {
+    console.error('Error clearing Supabase cache:', error);
+    return false;
+  }
+}
+
+// Function to handle connection recovery
+export async function recoverConnection() {
+  try {
+    // Clear cache first
+    clearSupabaseCache();
+    
+    // Try to reconnect
+    const isConnected = await checkConnection();
+    
+    if (!isConnected) {
+      // If still not connected, try to refresh the page
+      window.location.reload();
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error recovering connection:', error);
     return false;
   }
 }

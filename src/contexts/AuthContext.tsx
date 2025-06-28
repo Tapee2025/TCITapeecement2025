@@ -1,6 +1,7 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Database } from '../lib/database.types';
+import { toast } from 'react-toastify';
 
 type User = Database['public']['Tables']['users']['Row'];
 
@@ -20,7 +21,7 @@ interface RegisterData {
   password: string;
   first_name: string;
   last_name: string;
-  role: 'builder' | 'dealer' | 'contractor';
+  role: 'dealer' | 'contractor';
   city: string;
   address: string;
   district: string;
@@ -41,10 +42,56 @@ export function useAuth() {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authSubscription, setAuthSubscription] = useState<{ unsubscribe: () => void } | null>(null);
+
+  // Use useCallback to memoize the fetchUserProfile function
+  const fetchUserProfile = useCallback(async (userId: string) => {
+    try {
+      console.log('Fetching user profile for:', userId);
+      
+      const { data: profile, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Profile fetch error:', error);
+        setCurrentUser(null);
+      } else if (!profile) {
+        console.log('No user profile found for authenticated user, signing out');
+        await supabase.auth.signOut();
+        setCurrentUser(null);
+      } else {
+        console.log('User profile loaded:', profile);
+        setCurrentUser(profile);
+        
+        // Navigate to appropriate dashboard based on role
+        if (typeof window !== 'undefined') {
+          const currentPath = window.location.pathname;
+          
+          // Only redirect if we're on the login page or root
+          if (currentPath === '/login' || currentPath === '/') {
+            if (profile.role === 'admin') {
+              window.location.href = '/admin/dashboard';
+            } else if (profile.role === 'dealer') {
+              window.location.href = '/dealer/dashboard';
+            } else {
+              window.location.href = '/dashboard';
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Profile fetch error:', error);
+      setCurrentUser(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     let mounted = true;
-    let authSubscription: any = null;
 
     const initializeAuth = async () => {
       try {
@@ -92,7 +139,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         });
 
-        authSubscription = subscription;
+        setAuthSubscription(subscription);
       } catch (error) {
         console.error('Auth initialization error:', error);
         if (mounted) {
@@ -106,58 +153,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       mounted = false;
+      // Clean up subscription when component unmounts
       if (authSubscription) {
         authSubscription.unsubscribe();
       }
     };
-  }, []);
+  }, [fetchUserProfile]);
 
-  async function fetchUserProfile(userId: string) {
-    try {
-      console.log('Fetching user profile for:', userId);
-      
-      const { data: profile, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
-
-      if (error) {
-        console.error('Profile fetch error:', error);
-        setCurrentUser(null);
-      } else if (!profile) {
-        console.log('No user profile found for authenticated user, signing out');
-        await supabase.auth.signOut();
-        setCurrentUser(null);
-      } else {
-        console.log('User profile loaded:', profile);
-        setCurrentUser(profile);
-        
-        // Navigate to appropriate dashboard based on role
-        if (typeof window !== 'undefined') {
-          const currentPath = window.location.pathname;
-          
-          // Only redirect if we're on the login page or root
-          if (currentPath === '/login' || currentPath === '/') {
-            if (profile.role === 'admin') {
-              window.location.href = '/admin/dashboard';
-            } else if (profile.role === 'dealer') {
-              window.location.href = '/dealer/dashboard';
-            } else {
-              window.location.href = '/dashboard';
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Profile fetch error:', error);
-      setCurrentUser(null);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function refreshUser() {
+  const refreshUser = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
@@ -166,9 +169,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error refreshing user:', error);
     }
-  }
+  }, [fetchUserProfile]);
 
-  async function login(email: string, password: string) {
+  const login = useCallback(async (email: string, password: string) => {
     try {
       setLoading(true);
       console.log('Attempting login...');
@@ -192,9 +195,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
       throw error;
     }
-  }
+  }, [fetchUserProfile]);
 
-  async function register(data: RegisterData) {
+  const register = useCallback(async (data: RegisterData) => {
     const { email, password, ...profileData } = data;
     try {
       setLoading(true);
@@ -219,9 +222,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
-  async function logout() {
+  const logout = useCallback(async () => {
     try {
       setLoading(true);
       const { error } = await supabase.auth.signOut();
@@ -232,14 +235,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
-  async function resetPassword(email: string) {
+  const resetPassword = useCallback(async (email: string) => {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`,
     });
     if (error) throw error;
-  }
+  }, []);
 
   const value = {
     currentUser,

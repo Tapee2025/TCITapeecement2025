@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Notification as AppNotification } from '../types/notifications';
 import { useAuth } from '../contexts/AuthContext';
@@ -8,15 +8,9 @@ export function useNotifications() {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const subscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
 
-  useEffect(() => {
-    if (currentUser) {
-      fetchNotifications();
-      subscribeToNotifications();
-    }
-  }, [currentUser]);
-
-  async function fetchNotifications() {
+  const fetchNotifications = useCallback(async () => {
     if (!currentUser) return;
 
     try {
@@ -36,10 +30,15 @@ export function useNotifications() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [currentUser]);
 
-  function subscribeToNotifications() {
-    if (!currentUser) return;
+  const subscribeToNotifications = useCallback(() => {
+    if (!currentUser) return null;
+
+    // Clean up previous subscription if it exists
+    if (subscriptionRef.current) {
+      subscriptionRef.current.unsubscribe();
+    }
 
     const subscription = supabase
       .channel('notifications')
@@ -57,22 +56,38 @@ export function useNotifications() {
           setUnreadCount(prev => prev + 1);
           
           // Show browser notification if permission granted
-          if (Notification.permission === 'granted') {
-            new Notification(newNotification.title, {
-              body: newNotification.message,
-              icon: '/logo.png'
-            });
+          if (Notification && Notification.permission === 'granted') {
+            try {
+              new Notification(newNotification.title, {
+                body: newNotification.message,
+                icon: '/logo.png'
+              });
+            } catch (error) {
+              console.error('Error showing browser notification:', error);
+            }
           }
         }
       )
       .subscribe();
 
-    return () => {
-      subscription.unsubscribe();
-    };
-  }
+    subscriptionRef.current = subscription;
+    return subscription;
+  }, [currentUser]);
 
-  async function markAsRead(notificationId: string) {
+  useEffect(() => {
+    if (currentUser) {
+      fetchNotifications();
+      const subscription = subscribeToNotifications();
+      
+      return () => {
+        if (subscription) {
+          subscription.unsubscribe();
+        }
+      };
+    }
+  }, [currentUser, fetchNotifications, subscribeToNotifications]);
+
+  const markAsRead = useCallback(async (notificationId: string) => {
     try {
       const { error } = await supabase
         .from('notifications')
@@ -88,9 +103,9 @@ export function useNotifications() {
     } catch (error) {
       console.error('Error marking notification as read:', error);
     }
-  }
+  }, []);
 
-  async function markAllAsRead() {
+  const markAllAsRead = useCallback(async () => {
     if (!currentUser) return;
 
     try {
@@ -107,7 +122,7 @@ export function useNotifications() {
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
     }
-  }
+  }, [currentUser]);
 
   return {
     notifications,

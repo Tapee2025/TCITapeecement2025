@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { X, AlertCircle, Info, Megaphone, Star } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Announcement } from '../../types/notifications';
@@ -8,20 +8,9 @@ export default function AnnouncementBanner() {
   const { currentUser } = useAuth();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [dismissedIds, setDismissedIds] = useState<string[]>([]);
+  const subscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
 
-  useEffect(() => {
-    if (currentUser) {
-      fetchAnnouncements();
-      
-      // Get dismissed announcements from localStorage
-      const dismissed = localStorage.getItem('dismissedAnnouncements');
-      if (dismissed) {
-        setDismissedIds(JSON.parse(dismissed));
-      }
-    }
-  }, [currentUser]);
-
-  async function fetchAnnouncements() {
+  const fetchAnnouncements = useCallback(async () => {
     if (!currentUser) return;
 
     try {
@@ -40,13 +29,64 @@ export default function AnnouncementBanner() {
     } catch (error) {
       console.error('Error fetching announcements:', error);
     }
-  }
+  }, [currentUser]);
 
-  const handleDismiss = (announcementId: string) => {
+  const subscribeToAnnouncements = useCallback(() => {
+    if (!currentUser) return;
+
+    // Clean up previous subscription if it exists
+    if (subscriptionRef.current) {
+      subscriptionRef.current.unsubscribe();
+    }
+
+    const subscription = supabase
+      .channel('announcements')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'announcements'
+        },
+        () => {
+          // Refetch announcements when there are changes
+          fetchAnnouncements();
+        }
+      )
+      .subscribe();
+
+    subscriptionRef.current = subscription;
+  }, [currentUser, fetchAnnouncements]);
+
+  useEffect(() => {
+    if (currentUser) {
+      fetchAnnouncements();
+      subscribeToAnnouncements();
+      
+      // Get dismissed announcements from localStorage
+      const dismissed = localStorage.getItem('dismissedAnnouncements');
+      if (dismissed) {
+        try {
+          setDismissedIds(JSON.parse(dismissed));
+        } catch (error) {
+          console.error('Error parsing dismissed announcements:', error);
+          localStorage.removeItem('dismissedAnnouncements');
+        }
+      }
+    }
+
+    return () => {
+      if (subscriptionRef.current) {
+        subscriptionRef.current.unsubscribe();
+      }
+    };
+  }, [currentUser, fetchAnnouncements, subscribeToAnnouncements]);
+
+  const handleDismiss = useCallback((announcementId: string) => {
     const newDismissed = [...dismissedIds, announcementId];
     setDismissedIds(newDismissed);
     localStorage.setItem('dismissedAnnouncements', JSON.stringify(newDismissed));
-  };
+  }, [dismissedIds]);
 
   const getAnnouncementIcon = (type: string) => {
     switch (type) {

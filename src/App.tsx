@@ -3,54 +3,126 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { AuthProvider } from './contexts/AuthContext';
 import ErrorBoundary from './components/ui/ErrorBoundary';
+import { Suspense, lazy, useEffect } from 'react';
 
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import AuthLayout from './components/layouts/AuthLayout';
 import DashboardLayout from './components/layouts/DashboardLayout';
 import AdminLayout from './components/layouts/AdminLayout';
+import LoadingSpinner from './components/ui/LoadingSpinner';
 
 // Auth Pages
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import ForgotPassword from './pages/auth/ForgotPassword';
 
+// Lazy load components to improve performance
 // User Pages
-import Dashboard from './pages/dashboard/Dashboard';
-import GetPoints from './pages/dashboard/GetPoints';
-import RedeemRewards from './pages/dashboard/RedeemRewards';
-import TransactionHistory from './pages/dashboard/TransactionHistory';
-import UserProfile from './pages/dashboard/UserProfile';
-import Achievements from './pages/dashboard/Achievements';
-import FAQ from './pages/dashboard/FAQ';
+const Dashboard = lazy(() => import('./pages/dashboard/Dashboard'));
+const GetPoints = lazy(() => import('./pages/dashboard/GetPoints'));
+const RedeemRewards = lazy(() => import('./pages/dashboard/RedeemRewards'));
+const TransactionHistory = lazy(() => import('./pages/dashboard/TransactionHistory'));
+const UserProfile = lazy(() => import('./pages/dashboard/UserProfile'));
+const Achievements = lazy(() => import('./pages/dashboard/Achievements'));
+const FAQ = lazy(() => import('./pages/dashboard/FAQ'));
 
 // Dealer Pages
-import DealerDashboard from './pages/dealer/DealerDashboard';
-import ApprovePoints from './pages/dealer/ApprovePoints';
-import ManageCustomers from './pages/dealer/ManageCustomers';
-import DealerGetPoints from './pages/dealer/DealerGetPoints';
-import DealerRewards from './pages/dealer/DealerRewards';
-import DealerProfile from './pages/dealer/DealerProfile';
-import DealerAnalytics from './pages/dealer/DealerAnalytics';
+const DealerDashboard = lazy(() => import('./pages/dealer/DealerDashboard'));
+const ApprovePoints = lazy(() => import('./pages/dealer/ApprovePoints'));
+const ManageCustomers = lazy(() => import('./pages/dealer/ManageCustomers'));
+const DealerGetPoints = lazy(() => import('./pages/dealer/DealerGetPoints'));
+const DealerRewards = lazy(() => import('./pages/dealer/DealerRewards'));
+const DealerProfile = lazy(() => import('./pages/dealer/DealerProfile'));
+const DealerAnalytics = lazy(() => import('./pages/dealer/DealerAnalytics'));
 
 // Admin Pages
-import AdminDashboard from './pages/admin/AdminDashboard';
-import AdminUsers from './pages/admin/AdminUsers';
-import AdminRewards from './pages/admin/AdminRewards';
-import AdminApprovals from './pages/admin/AdminApprovals';
-import AdminToOrder from './pages/admin/AdminToOrder';
-import AdminMarketing from './pages/admin/AdminMarketing';
-import AdminAnalytics from './pages/admin/AdminAnalytics';
-import AdminAnnouncements from './pages/admin/AdminAnnouncements';
-import AdminFAQ from './pages/admin/AdminFAQ';
-import AdminAchievements from './pages/admin/AdminAchievements';
-import AdminSupport from './pages/admin/AdminSupport';
+const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
+const AdminUsers = lazy(() => import('./pages/admin/AdminUsers'));
+const AdminRewards = lazy(() => import('./pages/admin/AdminRewards'));
+const AdminApprovals = lazy(() => import('./pages/admin/AdminApprovals'));
+const AdminToOrder = lazy(() => import('./pages/admin/AdminToOrder'));
+const AdminMarketing = lazy(() => import('./pages/admin/AdminMarketing'));
+const AdminAnalytics = lazy(() => import('./pages/admin/AdminAnalytics'));
+const AdminAnnouncements = lazy(() => import('./pages/admin/AdminAnnouncements'));
+const AdminFAQ = lazy(() => import('./pages/admin/AdminFAQ'));
+const AdminAchievements = lazy(() => import('./pages/admin/AdminAchievements'));
+const AdminSupport = lazy(() => import('./pages/admin/AdminSupport'));
 
 // Components
 import NotificationCenter from './components/notifications/NotificationCenter';
 import AnnouncementBanner from './components/announcements/AnnouncementBanner';
 import SupportChat from './components/support/SupportChat';
 
+// Loading fallback component
+const LoadingFallback = () => (
+  <div className="flex justify-center items-center min-h-screen">
+    <LoadingSpinner size="lg" />
+  </div>
+);
+
 function App() {
+  // Add memory leak detection and cleanup
+  useEffect(() => {
+    // Set up periodic memory check and cleanup
+    const memoryCheckInterval = setInterval(() => {
+      // Force garbage collection if supported (only in development)
+      if (typeof window.gc === 'function') {
+        window.gc();
+      }
+      
+      // Check for memory leaks in localStorage
+      try {
+        const localStorageSize = Object.keys(localStorage).reduce((total, key) => {
+          return total + (localStorage[key] ? localStorage[key].length : 0);
+        }, 0);
+        
+        // If localStorage is getting too large (over 4MB), clear non-essential items
+        if (localStorageSize > 4 * 1024 * 1024) {
+          console.warn('LocalStorage size is large, cleaning up...');
+          // Clear only non-essential items
+          Object.keys(localStorage).forEach(key => {
+            if (key.includes('temp') || key.includes('cache')) {
+              localStorage.removeItem(key);
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Error checking localStorage:', error);
+      }
+    }, 60000); // Check every minute
+
+    // Detect and handle unresponsiveness
+    let lastActivityTime = Date.now();
+    const activityCheck = () => { lastActivityTime = Date.now(); };
+    
+    // Add event listeners to track user activity
+    window.addEventListener('click', activityCheck);
+    window.addEventListener('keypress', activityCheck);
+    window.addEventListener('scroll', activityCheck);
+    window.addEventListener('mousemove', activityCheck);
+    
+    // Check for app unresponsiveness
+    const unresponsiveCheckInterval = setInterval(() => {
+      const currentTime = Date.now();
+      const timeSinceLastActivity = currentTime - lastActivityTime;
+      
+      // If app has been inactive for more than 30 minutes, refresh the page
+      if (timeSinceLastActivity > 30 * 60 * 1000) {
+        console.log('App inactive for 30 minutes, refreshing...');
+        window.location.reload();
+      }
+    }, 5 * 60 * 1000); // Check every 5 minutes
+
+    return () => {
+      clearInterval(memoryCheckInterval);
+      clearInterval(unresponsiveCheckInterval);
+      window.removeEventListener('click', activityCheck);
+      window.removeEventListener('keypress', activityCheck);
+      window.removeEventListener('scroll', activityCheck);
+      window.removeEventListener('mousemove', activityCheck);
+    };
+  }, []);
+
   return (
     <ErrorBoundary>
       <div className="min-h-screen">
@@ -67,46 +139,158 @@ function App() {
               {/* User Routes */}
               <Route element={<ProtectedRoute allowedRoles={['contractor']} />}>
                 <Route element={<DashboardLayout />}>
-                  <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="/get-points" element={<GetPoints />} />
-                  <Route path="/redeem" element={<RedeemRewards />} />
-                  <Route path="/transactions" element={<TransactionHistory />} />
-                  <Route path="/profile" element={<UserProfile />} />
-                  <Route path="/achievements" element={<Achievements />} />
-                  <Route path="/faq" element={<FAQ />} />
+                  <Route path="/dashboard" element={
+                    <Suspense fallback={<LoadingFallback />}>
+                      <Dashboard />
+                    </Suspense>
+                  } />
+                  <Route path="/get-points" element={
+                    <Suspense fallback={<LoadingFallback />}>
+                      <GetPoints />
+                    </Suspense>
+                  } />
+                  <Route path="/redeem" element={
+                    <Suspense fallback={<LoadingFallback />}>
+                      <RedeemRewards />
+                    </Suspense>
+                  } />
+                  <Route path="/transactions" element={
+                    <Suspense fallback={<LoadingFallback />}>
+                      <TransactionHistory />
+                    </Suspense>
+                  } />
+                  <Route path="/profile" element={
+                    <Suspense fallback={<LoadingFallback />}>
+                      <UserProfile />
+                    </Suspense>
+                  } />
+                  <Route path="/achievements" element={
+                    <Suspense fallback={<LoadingFallback />}>
+                      <Achievements />
+                    </Suspense>
+                  } />
+                  <Route path="/faq" element={
+                    <Suspense fallback={<LoadingFallback />}>
+                      <FAQ />
+                    </Suspense>
+                  } />
                 </Route>
               </Route>
               
               {/* Dealer Routes */}
               <Route element={<ProtectedRoute allowedRoles={['dealer']} />}>
                 <Route element={<DashboardLayout />}>
-                  <Route path="/dealer/dashboard" element={<DealerDashboard />} />
-                  <Route path="/dealer/approve-points" element={<ApprovePoints />} />
-                  <Route path="/dealer/customers" element={<ManageCustomers />} />
-                  <Route path="/dealer/get-points" element={<DealerGetPoints />} />
-                  <Route path="/dealer/rewards" element={<DealerRewards />} />
-                  <Route path="/dealer/profile" element={<DealerProfile />} />
-                  <Route path="/dealer/transactions" element={<TransactionHistory />} />
-                  <Route path="/dealer/analytics" element={<DealerAnalytics />} />
-                  <Route path="/dealer/achievements" element={<Achievements />} />
-                  <Route path="/dealer/faq" element={<FAQ />} />
+                  <Route path="/dealer/dashboard" element={
+                    <Suspense fallback={<LoadingFallback />}>
+                      <DealerDashboard />
+                    </Suspense>
+                  } />
+                  <Route path="/dealer/approve-points" element={
+                    <Suspense fallback={<LoadingFallback />}>
+                      <ApprovePoints />
+                    </Suspense>
+                  } />
+                  <Route path="/dealer/customers" element={
+                    <Suspense fallback={<LoadingFallback />}>
+                      <ManageCustomers />
+                    </Suspense>
+                  } />
+                  <Route path="/dealer/get-points" element={
+                    <Suspense fallback={<LoadingFallback />}>
+                      <DealerGetPoints />
+                    </Suspense>
+                  } />
+                  <Route path="/dealer/rewards" element={
+                    <Suspense fallback={<LoadingFallback />}>
+                      <DealerRewards />
+                    </Suspense>
+                  } />
+                  <Route path="/dealer/profile" element={
+                    <Suspense fallback={<LoadingFallback />}>
+                      <DealerProfile />
+                    </Suspense>
+                  } />
+                  <Route path="/dealer/transactions" element={
+                    <Suspense fallback={<LoadingFallback />}>
+                      <TransactionHistory />
+                    </Suspense>
+                  } />
+                  <Route path="/dealer/analytics" element={
+                    <Suspense fallback={<LoadingFallback />}>
+                      <DealerAnalytics />
+                    </Suspense>
+                  } />
+                  <Route path="/dealer/achievements" element={
+                    <Suspense fallback={<LoadingFallback />}>
+                      <Achievements />
+                    </Suspense>
+                  } />
+                  <Route path="/dealer/faq" element={
+                    <Suspense fallback={<LoadingFallback />}>
+                      <FAQ />
+                    </Suspense>
+                  } />
                 </Route>
               </Route>
               
               {/* Admin Routes */}
               <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
                 <Route element={<AdminLayout />}>
-                  <Route path="/admin/dashboard" element={<AdminDashboard />} />
-                  <Route path="/admin/users" element={<AdminUsers />} />
-                  <Route path="/admin/rewards" element={<AdminRewards />} />
-                  <Route path="/admin/approvals" element={<AdminApprovals />} />
-                  <Route path="/admin/to-order" element={<AdminToOrder />} />
-                  <Route path="/admin/marketing" element={<AdminMarketing />} />
-                  <Route path="/admin/analytics" element={<AdminAnalytics />} />
-                  <Route path="/admin/announcements" element={<AdminAnnouncements />} />
-                  <Route path="/admin/faq" element={<AdminFAQ />} />
-                  <Route path="/admin/achievements" element={<AdminAchievements />} />
-                  <Route path="/admin/support" element={<AdminSupport />} />
+                  <Route path="/admin/dashboard" element={
+                    <Suspense fallback={<LoadingFallback />}>
+                      <AdminDashboard />
+                    </Suspense>
+                  } />
+                  <Route path="/admin/users" element={
+                    <Suspense fallback={<LoadingFallback />}>
+                      <AdminUsers />
+                    </Suspense>
+                  } />
+                  <Route path="/admin/rewards" element={
+                    <Suspense fallback={<LoadingFallback />}>
+                      <AdminRewards />
+                    </Suspense>
+                  } />
+                  <Route path="/admin/approvals" element={
+                    <Suspense fallback={<LoadingFallback />}>
+                      <AdminApprovals />
+                    </Suspense>
+                  } />
+                  <Route path="/admin/to-order" element={
+                    <Suspense fallback={<LoadingFallback />}>
+                      <AdminToOrder />
+                    </Suspense>
+                  } />
+                  <Route path="/admin/marketing" element={
+                    <Suspense fallback={<LoadingFallback />}>
+                      <AdminMarketing />
+                    </Suspense>
+                  } />
+                  <Route path="/admin/analytics" element={
+                    <Suspense fallback={<LoadingFallback />}>
+                      <AdminAnalytics />
+                    </Suspense>
+                  } />
+                  <Route path="/admin/announcements" element={
+                    <Suspense fallback={<LoadingFallback />}>
+                      <AdminAnnouncements />
+                    </Suspense>
+                  } />
+                  <Route path="/admin/faq" element={
+                    <Suspense fallback={<LoadingFallback />}>
+                      <AdminFAQ />
+                    </Suspense>
+                  } />
+                  <Route path="/admin/achievements" element={
+                    <Suspense fallback={<LoadingFallback />}>
+                      <AdminAchievements />
+                    </Suspense>
+                  } />
+                  <Route path="/admin/support" element={
+                    <Suspense fallback={<LoadingFallback />}>
+                      <AdminSupport />
+                    </Suspense>
+                  } />
                 </Route>
               </Route>
               
@@ -129,12 +313,20 @@ function App() {
               pauseOnFocusLoss
               draggable
               pauseOnHover
+              limit={3} // Limit the number of toasts to prevent memory issues
             />
           </Router>
         </AuthProvider>
       </div>
     </ErrorBoundary>
   );
+}
+
+// Add TypeScript declaration for window.gc
+declare global {
+  interface Window {
+    gc?: () => void;
+  }
 }
 
 export default App;

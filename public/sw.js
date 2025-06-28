@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tapee-cement-v3';
+const CACHE_NAME = 'tapee-cement-v4';
 const urlsToCache = [
   '/',
   '/static/js/bundle.js',
@@ -35,6 +35,11 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Skip Supabase realtime requests to avoid caching issues
+  if (event.request.url.includes('realtime') || event.request.url.includes('supabase.co/rest/v1')) {
+    return fetch(event.request);
+  }
+
   event.respondWith(
     // Try network first for API calls
     fetch(event.request)
@@ -44,7 +49,10 @@ self.addEventListener('fetch', (event) => {
           const responseToCache = response.clone();
           caches.open(CACHE_NAME)
             .then((cache) => {
-              cache.put(event.request, responseToCache);
+              // Only cache static assets, not API responses
+              if (!event.request.url.includes('supabase.co')) {
+                cache.put(event.request, responseToCache);
+              }
             });
         }
         return response;
@@ -66,7 +74,7 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// Activate event
+// Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
@@ -141,3 +149,37 @@ self.addEventListener('unhandledrejection', (event) => {
   console.error('Unhandled promise rejection in service worker:', event.reason);
   event.preventDefault();
 });
+
+// Periodic cache cleanup
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'CLEAN_CACHES') {
+    event.waitUntil(
+      caches.keys().then((cacheNames) => {
+        return Promise.all(
+          cacheNames.map((cacheName) => {
+            // Keep the current cache, delete others
+            if (cacheName !== CACHE_NAME) {
+              return caches.delete(cacheName);
+            }
+          })
+        );
+      })
+    );
+  }
+});
+
+// Clean up memory periodically
+setInterval(() => {
+  // This is a simple way to encourage garbage collection
+  // by clearing any cached data we might have in the service worker scope
+  console.log('Service worker performing memory cleanup');
+  
+  // Clear any global variables that might be holding references
+  self.caches.keys().then(cacheNames => {
+    cacheNames.forEach(cacheName => {
+      if (cacheName !== CACHE_NAME) {
+        self.caches.delete(cacheName);
+      }
+    });
+  });
+}, 30 * 60 * 1000); // Every 30 minutes
