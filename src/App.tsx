@@ -20,6 +20,8 @@ import GetPoints from './pages/dashboard/GetPoints';
 import RedeemRewards from './pages/dashboard/RedeemRewards';
 import TransactionHistory from './pages/dashboard/TransactionHistory';
 import UserProfile from './pages/dashboard/UserProfile';
+import Achievements from './pages/dashboard/Achievements';
+import FAQ from './pages/dashboard/FAQ';
 
 // Dealer Pages
 import DealerDashboard from './pages/dealer/DealerDashboard';
@@ -28,6 +30,7 @@ import ManageCustomers from './pages/dealer/ManageCustomers';
 import DealerGetPoints from './pages/dealer/DealerGetPoints';
 import DealerRewards from './pages/dealer/DealerRewards';
 import DealerProfile from './pages/dealer/DealerProfile';
+import DealerAnalytics from './pages/dealer/DealerAnalytics';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -36,6 +39,16 @@ import AdminRewards from './pages/admin/AdminRewards';
 import AdminApprovals from './pages/admin/AdminApprovals';
 import AdminToOrder from './pages/admin/AdminToOrder';
 import AdminMarketing from './pages/admin/AdminMarketing';
+import AdminAnalytics from './pages/admin/AdminAnalytics';
+import AdminAnnouncements from './pages/admin/AdminAnnouncements';
+import AdminFAQ from './pages/admin/AdminFAQ';
+import AdminAchievements from './pages/admin/AdminAchievements';
+import AdminSupport from './pages/admin/AdminSupport';
+
+// Components
+import NotificationCenter from './components/notifications/NotificationCenter';
+import AnnouncementBanner from './components/announcements/AnnouncementBanner';
+import SupportChat from './components/support/SupportChat';
 
 function App() {
   return (
@@ -52,13 +65,15 @@ function App() {
               </Route>
               
               {/* User Routes */}
-              <Route element={<ProtectedRoute allowedRoles={['builder', 'contractor']} />}>
+              <Route element={<ProtectedRoute allowedRoles={['contractor']} />}>
                 <Route element={<DashboardLayout />}>
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/get-points" element={<GetPoints />} />
                   <Route path="/redeem" element={<RedeemRewards />} />
                   <Route path="/transactions" element={<TransactionHistory />} />
                   <Route path="/profile" element={<UserProfile />} />
+                  <Route path="/achievements" element={<Achievements />} />
+                  <Route path="/faq" element={<FAQ />} />
                 </Route>
               </Route>
               
@@ -72,6 +87,9 @@ function App() {
                   <Route path="/dealer/rewards" element={<DealerRewards />} />
                   <Route path="/dealer/profile" element={<DealerProfile />} />
                   <Route path="/dealer/transactions" element={<TransactionHistory />} />
+                  <Route path="/dealer/analytics" element={<DealerAnalytics />} />
+                  <Route path="/dealer/achievements" element={<Achievements />} />
+                  <Route path="/dealer/faq" element={<FAQ />} />
                 </Route>
               </Route>
               
@@ -84,6 +102,11 @@ function App() {
                   <Route path="/admin/approvals" element={<AdminApprovals />} />
                   <Route path="/admin/to-order" element={<AdminToOrder />} />
                   <Route path="/admin/marketing" element={<AdminMarketing />} />
+                  <Route path="/admin/analytics" element={<AdminAnalytics />} />
+                  <Route path="/admin/announcements" element={<AdminAnnouncements />} />
+                  <Route path="/admin/faq" element={<AdminFAQ />} />
+                  <Route path="/admin/achievements" element={<AdminAchievements />} />
+                  <Route path="/admin/support" element={<AdminSupport />} />
                 </Route>
               </Route>
               
@@ -91,6 +114,11 @@ function App() {
               <Route path="/" element={<Navigate to="/login" replace />} />
               <Route path="*" element={<Navigate to="/login" replace />} />
             </Routes>
+            
+            {/* Global Components */}
+            <AnnouncementBanner />
+            <SupportChat />
+            
             <ToastContainer 
               position="top-right" 
               autoClose={3000}

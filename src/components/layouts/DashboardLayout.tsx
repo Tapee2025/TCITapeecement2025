@@ -11,13 +11,17 @@ import {
   Award,
   History,
   User,
-  CheckCircle
+  CheckCircle,
+  BarChart3,
+  Trophy,
+  HelpCircle
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { DEALER_NAVIGATION, USER_NAVIGATION } from '../../utils/constants';
 import { toast } from 'react-toastify';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import { getProfilePictureUrl } from '../../lib/supabase';
+import NotificationCenter from '../notifications/NotificationCenter';
 
 export default function DashboardLayout() {
   const { currentUser, loading, logout } = useAuth();
@@ -28,6 +32,30 @@ export default function DashboardLayout() {
   
   // Get the appropriate navigation based on user role
   const navigation = currentUser?.role === 'dealer' ? DEALER_NAVIGATION : USER_NAVIGATION;
+  
+  // Add new navigation items for achievements and FAQ
+  const extendedNavigation = [
+    ...navigation,
+    { 
+      name: 'Achievements', 
+      path: currentUser?.role === 'dealer' ? '/dealer/achievements' : '/achievements', 
+      icon: 'Trophy' 
+    },
+    { 
+      name: 'FAQ', 
+      path: currentUser?.role === 'dealer' ? '/dealer/faq' : '/faq', 
+      icon: 'HelpCircle' 
+    }
+  ];
+  
+  // Add analytics for dealers
+  if (currentUser?.role === 'dealer') {
+    extendedNavigation.splice(6, 0, { 
+      name: 'Analytics', 
+      path: '/dealer/analytics', 
+      icon: 'BarChart3' 
+    });
+  }
   
   // Close sidebar when route changes
   useEffect(() => {
@@ -68,6 +96,9 @@ export default function DashboardLayout() {
       case 'History': return <History {...props} />;
       case 'User': return <User {...props} />;
       case 'CheckCircle': return <CheckCircle {...props} />;
+      case 'BarChart3': return <BarChart3 {...props} />;
+      case 'Trophy': return <Trophy {...props} />;
+      case 'HelpCircle': return <HelpCircle {...props} />;
       default: return <LayoutDashboard {...props} />;
     }
   };
@@ -156,7 +187,7 @@ export default function DashboardLayout() {
           
           {/* Navigation */}
           <nav className="flex-1 overflow-y-auto p-4 space-y-1">
-            {navigation.map((item) => (
+            {extendedNavigation.map((item) => (
               <NavLink
                 key={item.name}
                 to={item.path}
@@ -194,7 +225,10 @@ export default function DashboardLayout() {
             <Menu size={24} />
           </button>
           
-          <div className="flex items-center space-x-4">            
+          <div className="flex items-center space-x-4">
+            {/* Notification Center */}
+            <NotificationCenter />
+            
             {/* User menu */}
             <div className="relative">
               <button

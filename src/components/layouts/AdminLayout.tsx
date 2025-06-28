@@ -13,10 +13,29 @@ import {
   Settings,
   Building2,
   Package,
-  User
+  User,
+  BarChart3,
+  Megaphone,
+  HelpCircle,
+  Trophy,
+  MessageSquare
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { ADMIN_NAVIGATION } from '../../utils/constants';
+import NotificationCenter from '../notifications/NotificationCenter';
+
+const ADMIN_NAVIGATION = [
+  { name: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
+  { name: 'Users', path: '/admin/users', icon: Users },
+  { name: 'Rewards', path: '/admin/rewards', icon: Gift },
+  { name: 'Approvals', path: '/admin/approvals', icon: CheckCircle },
+  { name: 'To Order', path: '/admin/to-order', icon: Package },
+  { name: 'Marketing', path: '/admin/marketing', icon: Image },
+  { name: 'Analytics', path: '/admin/analytics', icon: BarChart3 },
+  { name: 'Announcements', path: '/admin/announcements', icon: Megaphone },
+  { name: 'FAQ', path: '/admin/faq', icon: HelpCircle },
+  { name: 'Achievements', path: '/admin/achievements', icon: Trophy },
+  { name: 'Support', path: '/admin/support', icon: MessageSquare }
+];
 
 export default function AdminLayout() {
   const { currentUser, logout } = useAuth();
@@ -32,21 +51,6 @@ export default function AdminLayout() {
       console.error('Failed to log out', error);
     }
   }
-  
-  // Function to render the appropriate icon
-  const renderIcon = (iconName: string) => {
-    const props = { size: 20 };
-    switch (iconName) {
-      case 'LayoutDashboard': return <LayoutDashboard {...props} />;
-      case 'Users': return <Users {...props} />;
-      case 'Gift': return <Gift {...props} />;
-      case 'CheckCircle': return <CheckCircle {...props} />;
-      case 'Package': return <Package {...props} />;
-      case 'Image': return <Image {...props} />;
-      case 'Settings': return <Settings {...props} />;
-      default: return <LayoutDashboard {...props} />;
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -109,7 +113,7 @@ export default function AdminLayout() {
                 }
                 onClick={() => setSidebarOpen(false)}
               >
-                {renderIcon(item.icon)}
+                <item.icon size={20} />
                 <span>{item.name}</span>
               </NavLink>
             ))}
@@ -138,7 +142,10 @@ export default function AdminLayout() {
             <Menu size={24} />
           </button>
           
-          <div className="flex items-center space-x-4">            
+          <div className="flex items-center space-x-4">
+            {/* Notification Center */}
+            <NotificationCenter />
+            
             {/* User menu */}
             <div className="relative">
               <button
