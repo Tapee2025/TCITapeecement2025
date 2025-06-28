@@ -268,7 +268,7 @@ export default function AnalyticsDashboard({ userRole = 'admin', dealerId }: Ana
           <div className="bg-white p-6 rounded-lg shadow-sm border">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Top Performing Dealers</h3>
             <div className="space-y-3">
-              {analyticsData.top_performing_dealers.slice(0, 5).map((dealer, index) => (
+              {(analyticsData.top_performing_dealers ?? []).slice(0, 5).map((dealer, index) => (
                 <div key={dealer.dealer_id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
@@ -291,7 +291,7 @@ export default function AnalyticsDashboard({ userRole = 'admin', dealerId }: Ana
           <div className="bg-white p-6 rounded-lg shadow-sm border">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Popular Rewards</h3>
             <div className="space-y-3">
-              {analyticsData.popular_rewards.slice(0, 5).map((reward, index) => (
+              {(analyticsData.popular_rewards ?? []).slice(0, 5).map((reward, index) => (
                 <div key={reward.reward_id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 bg-accent-100 rounded-full flex items-center justify-center">
