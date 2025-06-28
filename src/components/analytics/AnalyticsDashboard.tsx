@@ -276,17 +276,17 @@ export default function AnalyticsDashboard({ userRole = 'admin', dealerId }: Ana
         </div>
       )}
 
-      {/* Revenue Impact */}
+      {/* Performance Metrics */}
       <div className="bg-white p-6 rounded-lg shadow-sm border">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Revenue Impact</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Performance Metrics</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="text-center">
-            <p className="text-3xl font-bold text-green-600">₹{analyticsData.revenue_impact.toLocaleString()}</p>
-            <p className="text-sm text-gray-500">Estimated Revenue Impact</p>
-          </div>
           <div className="text-center">
             <p className="text-3xl font-bold text-blue-600">{analyticsData.total_bags_sold}</p>
             <p className="text-sm text-gray-500">Total Bags Sold</p>
+          </div>
+          <div className="text-center">
+            <p className="text-3xl font-bold text-green-600">{analyticsData.total_points_issued}</p>
+            <p className="text-sm text-gray-500">Total Points Issued</p>
           </div>
           <div className="text-center">
             <p className="text-3xl font-bold text-purple-600">{analyticsData.user_engagement_rate}%</p>
