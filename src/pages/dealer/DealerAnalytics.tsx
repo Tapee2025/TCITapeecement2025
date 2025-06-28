@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import AnalyticsDashboard from '../../components/analytics/AnalyticsDashboard';
 import { supabase } from '../../lib/supabase';
@@ -15,69 +15,57 @@ export default function DealerAnalytics() {
     totalTransactions: 0
   });
 
-  useEffect(() => {
-    if (currentUser) {
-      fetchDealerCustomerStats();
-    }
-  }, [currentUser]);
-
-  async function fetchDealerCustomerStats() {
+  const fetchDealerCustomerStats = useCallback(async () => {
+    if (!currentUser) return;
+    
     try {
       setLoading(true);
       
       // Get total customers (users who have made transactions through this dealer)
       // This counts ONLY unique users who have transactions where this dealer is the dealer_id
-      const { data: customerData, error: customerError } = await supabase
+      const { data: customerData } = await supabase
         .from('transactions')
         .select('user_id')
-        .eq('dealer_id', currentUser?.id)
-        .neq('user_id', currentUser?.id); // Exclude dealer's own transactions
-      
-      if (customerError) throw customerError;
+        .eq('dealer_id', currentUser.id)
+        .neq('user_id', currentUser.id); // Exclude dealer's own transactions
       
       // Count unique customers using Set to ensure each customer is counted only once
-      const uniqueCustomerIds = [...new Set(customerData?.map(t => t.user_id) || [])];
+      const uniqueCustomerIds = new Set(customerData?.map(t => t.user_id) || []);
       
       // Get active customers (made transactions in the last 30 days)
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       
-      const { data: activeCustomerData, error: activeError } = await supabase
+      const { data: activeCustomerData } = await supabase
         .from('transactions')
         .select('user_id')
-        .eq('dealer_id', currentUser?.id)
-        .neq('user_id', currentUser?.id)
+        .eq('dealer_id', currentUser.id)
+        .neq('user_id', currentUser.id)
         .gte('created_at', thirtyDaysAgo.toISOString());
       
-      if (activeError) throw activeError;
-      
-      const activeCustomerIds = [...new Set(activeCustomerData?.map(t => t.user_id) || [])];
+      const activeCustomerIds = new Set(activeCustomerData?.map(t => t.user_id) || []);
       
       // Get total bags sold (from dealer's own transactions)
-      const { data: bagData, error: bagError } = await supabase.rpc(
+      const { data: bagData } = await supabase.rpc(
         'get_performance_metrics',
         {
-          p_dealer_id: currentUser?.id,
+          p_dealer_id: currentUser.id,
           p_period: 'lifetime',
           p_start_date: null,
           p_end_date: null
         }
       );
       
-      if (bagError) throw bagError;
-      
       // Get total transactions (dealer's own transactions)
-      const { count: transactionCount, error: transactionError } = await supabase
+      const { count: transactionCount } = await supabase
         .from('transactions')
         .select('*', { count: 'exact', head: true })
-        .eq('user_id', currentUser?.id)
+        .eq('user_id', currentUser.id)
         .eq('type', 'earned');
       
-      if (transactionError) throw transactionError;
-      
       setDealerStats({
-        totalCustomers: uniqueCustomerIds.length,
-        activeCustomers: activeCustomerIds.length,
+        totalCustomers: uniqueCustomerIds.size,
+        activeCustomers: activeCustomerIds.size,
         totalBagsSold: bagData?.[0]?.total_bags_sold || 0,
         totalTransactions: transactionCount || 0
       });
@@ -86,7 +74,13 @@ export default function DealerAnalytics() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (currentUser) {
+      fetchDealerCustomerStats();
+    }
+  }, [currentUser, fetchDealerCustomerStats]);
 
   if (loading) {
     return (

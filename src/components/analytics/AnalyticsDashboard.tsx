@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { BarChart3, TrendingUp, Users, Package, Gift, Calendar, Download } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { AnalyticsData } from '../../types/notifications';
 import { format, subDays, startOfMonth, endOfMonth } from 'date-fns';
+import { toast } from 'react-toastify';
 
 interface AnalyticsDashboardProps {
   userRole?: 'admin' | 'dealer';
@@ -16,11 +17,11 @@ export default function AnalyticsDashboard({ userRole = 'admin', dealerId }: Ana
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
 
-  useEffect(() => {
-    fetchAnalytics();
-  }, [period, dealerId]);
-
-  async function fetchAnalytics() {
+  const fetchAnalytics = useCallback(async () => {
+    if (period === 'custom' && (!customStartDate || !customEndDate)) {
+      return;
+    }
+    
     try {
       setLoading(true);
       
@@ -42,9 +43,12 @@ export default function AnalyticsDashboard({ userRole = 'admin', dealerId }: Ana
           endDate = endOfMonth(endDate);
           break;
         case 'custom':
-          if (!customStartDate || !customEndDate) return;
           startDate = new Date(customStartDate);
           endDate = new Date(customEndDate);
+          if (startDate > endDate) {
+            toast.error("End date cannot be before start date");
+            return;
+          }
           break;
         default:
           startDate = subDays(endDate, 30);
@@ -64,7 +68,13 @@ export default function AnalyticsDashboard({ userRole = 'admin', dealerId }: Ana
     } finally {
       setLoading(false);
     }
-  }
+  }, [period, dealerId, customStartDate, customEndDate]);
+
+  useEffect(() => {
+    if (period !== 'custom') {
+      fetchAnalytics();
+    }
+  }, [period, dealerId, fetchAnalytics]);
 
   const exportData = () => {
     if (!analyticsData) return;
@@ -90,10 +100,35 @@ export default function AnalyticsDashboard({ userRole = 'admin', dealerId }: Ana
     link.click();
   };
 
+  const copyToClipboard = async () => {
+    if (!analyticsData) return;
+    
+    try {
+      const csvContent = [
+        ['Metric', 'Value'],
+        ['Total Users', analyticsData.total_users],
+        ['Active Users', analyticsData.active_users],
+        ['New Registrations', analyticsData.new_registrations],
+        ['Total Transactions', analyticsData.total_transactions],
+        ['Total Points Issued', analyticsData.total_points_issued],
+        ['Total Bags Sold', analyticsData.total_bags_sold],
+        ['Total Rewards Redeemed', analyticsData.total_rewards_redeemed],
+        ['User Engagement Rate', `${analyticsData.user_engagement_rate}%`]
+      ].map(row => row.join(',')).join('\n');
+      
+      await navigator.clipboard.writeText(csvContent);
+      toast.success("CSV copied to clipboard");
+    } catch {
+      toast.error("Failed to copy to clipboard");
+    }
+  };
+
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+      <div className="animate-pulse grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="bg-gray-100 h-24 rounded-lg"></div>
+        ))}
       </div>
     );
   }
@@ -233,7 +268,7 @@ export default function AnalyticsDashboard({ userRole = 'admin', dealerId }: Ana
           <div className="bg-white p-6 rounded-lg shadow-sm border">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Top Performing Dealers</h3>
             <div className="space-y-3">
-              {analyticsData.top_performing_dealers.map((dealer, index) => (
+              {analyticsData.top_performing_dealers.slice(0, 5).map((dealer, index) => (
                 <div key={dealer.dealer_id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
@@ -256,7 +291,7 @@ export default function AnalyticsDashboard({ userRole = 'admin', dealerId }: Ana
           <div className="bg-white p-6 rounded-lg shadow-sm border">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Popular Rewards</h3>
             <div className="space-y-3">
-              {analyticsData.popular_rewards.map((reward, index) => (
+              {analyticsData.popular_rewards.slice(0, 5).map((reward, index) => (
                 <div key={reward.reward_id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 bg-accent-100 rounded-full flex items-center justify-center">
