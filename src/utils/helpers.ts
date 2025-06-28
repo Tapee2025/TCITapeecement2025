@@ -30,38 +30,38 @@ export function calculatePoints(bags: number): number {
 
 // Calculate points based on cement type - FIXED to ensure proper integer handling
 export function calculatePointsByCementType(bags: number, cementType: 'OPC' | 'PPC'): number {
-  // Ensure bags is a proper integer
-  const bagCount = Math.floor(Number(bags));
+  // Ensure bags is a proper integer without rounding down
+  const bagCount = Number(bags);
   
   if (isNaN(bagCount) || bagCount <= 0) {
     return 0;
   }
   
   if (cementType === 'OPC') {
-    return bagCount * 5; // 5 points per OPC bag
+    return Math.round(bagCount * 5); // 5 points per OPC bag
   } else {
-    return bagCount * 10; // 10 points per PPC bag
+    return Math.round(bagCount * 10); // 10 points per PPC bag
   }
 }
 
 // Calculate bags from points and cement type
 export function calculateBagsFromPoints(points: number, cementType: 'OPC' | 'PPC'): number {
   if (cementType === 'OPC') {
-    return Math.floor(points / 5); // 5 points per OPC bag
+    return Math.round(points / 5); // 5 points per OPC bag
   } else {
-    return Math.floor(points / 10); // 10 points per PPC bag
+    return Math.round(points / 10); // 10 points per PPC bag
   }
 }
 
 // Calculate bags from transaction description and points
 export function calculateBagsFromTransaction(description: string, points: number): number {
   if (description.includes('OPC')) {
-    return Math.floor(points / 5); // OPC cement: 5 points per bag
+    return Math.round(points / 5); // OPC cement: 5 points per bag
   } else if (description.includes('PPC')) {
-    return Math.floor(points / 10); // PPC cement: 10 points per bag
+    return Math.round(points / 10); // PPC cement: 10 points per bag
   } else {
     // Legacy transactions without cement type - assume PPC
-    return Math.floor(points / 10);
+    return Math.round(points / 10);
   }
 }
 

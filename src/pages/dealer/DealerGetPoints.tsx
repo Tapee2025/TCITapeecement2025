@@ -14,7 +14,7 @@ type User = Database['public']['Tables']['users']['Row'];
 const pointsRequestSchema = z.object({
   bagsCount: z.string().refine(
     (val) => {
-      const num = parseInt(val, 10); // Explicitly use base 10
+      const num = Number(val); // Use Number() instead of parseInt
       return !isNaN(num) && num > 0;
     },
     { message: 'Please enter a valid number of bags' }
@@ -48,7 +48,7 @@ export default function DealerGetPoints() {
 
   useEffect(() => {
     if (bagsCountValue && cementTypeValue) {
-      const bagsCount = parseInt(bagsCountValue, 10); // Explicitly use base 10
+      const bagsCount = Number(bagsCountValue); // Use Number() instead of parseInt
       console.log('Dealer bags count input:', bagsCountValue, 'Parsed:', bagsCount); // Debug log
       if (!isNaN(bagsCount) && bagsCount > 0) {
         const calculatedPoints = calculatePointsByCementType(bagsCount, cementTypeValue);
@@ -112,7 +112,7 @@ export default function DealerGetPoints() {
     setSubmitting(true);
     
     try {
-      const bagsCount = parseInt(data.bagsCount, 10); // Explicitly use base 10
+      const bagsCount = Number(data.bagsCount); // Use Number() instead of parseInt
       const pointsAmount = calculatePointsByCementType(bagsCount, data.cementType);
       
       console.log('Dealer submitting request:', {
