@@ -26,6 +26,7 @@ export default function DealerAnalytics() {
       setLoading(true);
       
       // Get total customers (users who have made transactions through this dealer)
+      // This counts ONLY unique users who have transactions where this dealer is the dealer_id
       const { data: customerData, error: customerError } = await supabase
         .from('transactions')
         .select('user_id')
@@ -34,7 +35,7 @@ export default function DealerAnalytics() {
       
       if (customerError) throw customerError;
       
-      // Count unique customers
+      // Count unique customers using Set to ensure each customer is counted only once
       const uniqueCustomerIds = [...new Set(customerData?.map(t => t.user_id) || [])];
       
       // Get active customers (made transactions in the last 30 days)
