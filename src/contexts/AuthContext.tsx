@@ -44,6 +44,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [authSubscription, setAuthSubscription] = useState<{ unsubscribe: () => void } | null>(null);
 
+  // Helper function to check if error is session_not_found
+  const isSessionNotFoundError = (error: any): boolean => {
+    return error?.message?.includes('session_not_found') || 
+           error?.code === 'session_not_found' ||
+           (error?.status === 403 && error?.message?.includes('Session from session_id claim in JWT does not exist'));
+  };
+
   // Use useCallback to memoize the fetchUserProfile function
   const fetchUserProfile = useCallback(async (userId: string) => {
     try {
@@ -57,6 +64,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) {
         console.error('Profile fetch error:', error);
+        
+        // Check if this is a session_not_found error
+        if (isSessionNotFoundError(error)) {
+          console.log('Session not found, signing out...');
+          await supabase.auth.signOut();
+          setCurrentUser(null);
+          return;
+        }
+        
         setCurrentUser(null);
       } else if (!profile) {
         console.log('No user profile found for authenticated user, signing out');
@@ -84,6 +100,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error('Profile fetch error:', error);
+      
+      // Check if this is a session_not_found error
+      if (isSessionNotFoundError(error)) {
+        console.log('Session not found, signing out...');
+        await supabase.auth.signOut();
+      }
+      
       setCurrentUser(null);
     } finally {
       setLoading(false);
@@ -100,6 +123,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (sessionError) {
           console.error('Session error:', sessionError);
+          
+          // Check if this is a session_not_found error
+          if (isSessionNotFoundError(sessionError)) {
+            console.log('Session not found during initialization, signing out...');
+            await supabase.auth.signOut();
+          }
+          
           if (mounted) {
             setCurrentUser(null);
             setLoading(false);
@@ -132,6 +162,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
           } catch (error) {
             console.error('Auth state change error:', error);
+            
+            // Check if this is a session_not_found error
+            if (isSessionNotFoundError(error)) {
+              console.log('Session not found during auth state change, signing out...');
+              await supabase.auth.signOut();
+            }
+            
             if (mounted) {
               setCurrentUser(null);
               setLoading(false);
@@ -142,6 +179,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setAuthSubscription(subscription);
       } catch (error) {
         console.error('Auth initialization error:', error);
+        
+        // Check if this is a session_not_found error
+        if (isSessionNotFoundError(error)) {
+          console.log('Session not found during initialization, signing out...');
+          await supabase.auth.signOut();
+        }
+        
         if (mounted) {
           setCurrentUser(null);
           setLoading(false);
@@ -162,12 +206,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshUser = useCallback(async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error } = await supabase.auth.getUser();
+      
+      if (error) {
+        // Check if this is a session_not_found error
+        if (isSessionNotFoundError(error)) {
+          console.log('Session not found during user refresh, signing out...');
+          await supabase.auth.signOut();
+          return;
+        }
+        throw error;
+      }
+      
       if (user) {
         await fetchUserProfile(user.id);
       }
     } catch (error) {
       console.error('Error refreshing user:', error);
+      
+      // Check if this is a session_not_found error
+      if (isSessionNotFoundError(error)) {
+        console.log('Session not found during user refresh, signing out...');
+        await supabase.auth.signOut();
+      }
     }
   }, [fetchUserProfile]);
 
