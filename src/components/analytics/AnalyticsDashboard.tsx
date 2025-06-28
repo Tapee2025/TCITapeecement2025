@@ -175,7 +175,9 @@ export default function AnalyticsDashboard({ userRole = 'admin', dealerId }: Ana
         <div className="bg-white p-6 rounded-lg shadow-sm border">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Total Users</p>
+              <p className="text-sm text-gray-500">
+                {userRole === 'dealer' ? 'My Customers' : 'Total Users'}
+              </p>
               <p className="text-2xl font-bold text-gray-900">{analyticsData.total_users}</p>
               <p className="text-sm text-green-600">
                 +{analyticsData.new_registrations} new

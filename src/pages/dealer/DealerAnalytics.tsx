@@ -35,7 +35,7 @@ export default function DealerAnalytics() {
       if (customerError) throw customerError;
       
       // Count unique customers
-      const uniqueCustomers = new Set(customerData?.map(t => t.user_id) || []);
+      const uniqueCustomerIds = [...new Set(customerData?.map(t => t.user_id) || [])];
       
       // Get active customers (made transactions in the last 30 days)
       const thirtyDaysAgo = new Date();
@@ -50,7 +50,7 @@ export default function DealerAnalytics() {
       
       if (activeError) throw activeError;
       
-      const activeCustomers = new Set(activeCustomerData?.map(t => t.user_id) || []);
+      const activeCustomerIds = [...new Set(activeCustomerData?.map(t => t.user_id) || [])];
       
       // Get total bags sold (from dealer's own transactions)
       const { data: bagData, error: bagError } = await supabase.rpc(
@@ -75,8 +75,8 @@ export default function DealerAnalytics() {
       if (transactionError) throw transactionError;
       
       setDealerStats({
-        totalCustomers: uniqueCustomers.size,
-        activeCustomers: activeCustomers.size,
+        totalCustomers: uniqueCustomerIds.length,
+        activeCustomers: activeCustomerIds.length,
         totalBagsSold: bagData?.[0]?.total_bags_sold || 0,
         totalTransactions: transactionCount || 0
       });
@@ -107,7 +107,7 @@ export default function DealerAnalytics() {
         <div className="bg-white rounded-lg p-4 shadow-sm border">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Total Customers</p>
+              <p className="text-sm text-gray-500">My Customers</p>
               <p className="text-2xl font-bold text-primary-600">{dealerStats.totalCustomers}</p>
               <p className="text-xs text-gray-500">Unique customers</p>
             </div>
