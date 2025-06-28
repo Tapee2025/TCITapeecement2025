@@ -14,7 +14,7 @@ type User = Database['public']['Tables']['users']['Row'];
 const pointsRequestSchema = z.object({
   bagsCount: z.string().refine(
     (val) => {
-      const num = parseInt(val);
+      const num = parseInt(val, 10); // Explicitly use base 10
       return !isNaN(num) && num > 0;
     },
     { message: 'Please enter a valid number of bags' }
@@ -49,9 +49,12 @@ export default function GetPoints() {
 
   useEffect(() => {
     if (bagsCountValue && cementTypeValue) {
-      const bagsCount = parseInt(bagsCountValue);
+      const bagsCount = parseInt(bagsCountValue, 10); // Explicitly use base 10
+      console.log('Bags count input:', bagsCountValue, 'Parsed:', bagsCount); // Debug log
       if (!isNaN(bagsCount) && bagsCount > 0) {
-        setPointsPreview(calculatePointsByCementType(bagsCount, cementTypeValue));
+        const calculatedPoints = calculatePointsByCementType(bagsCount, cementTypeValue);
+        console.log('Calculated points:', calculatedPoints); // Debug log
+        setPointsPreview(calculatedPoints);
       } else {
         setPointsPreview(0);
       }
@@ -115,7 +118,15 @@ export default function GetPoints() {
       const selectedDealer = dealers.find(d => d.id === data.dealerId);
       if (!selectedDealer) throw new Error('Dealer not found');
 
-      const pointsAmount = calculatePointsByCementType(parseInt(data.bagsCount), data.cementType);
+      const bagsCount = parseInt(data.bagsCount, 10); // Explicitly use base 10
+      const pointsAmount = calculatePointsByCementType(bagsCount, data.cementType);
+      
+      console.log('Submitting request:', {
+        bagsCount: data.bagsCount,
+        parsedBagsCount: bagsCount,
+        cementType: data.cementType,
+        pointsAmount
+      }); // Debug log
       
       // Create the transaction
       const { error: transactionError } = await supabase
@@ -125,7 +136,7 @@ export default function GetPoints() {
           dealer_id: data.dealerId,
           type: 'earned',
           amount: pointsAmount,
-          description: `Purchased ${data.bagsCount} bags of ${data.cementType} cement from ${selectedDealer.first_name} ${selectedDealer.last_name}`,
+          description: `Purchased ${bagsCount} bags of ${data.cementType} cement from ${selectedDealer.first_name} ${selectedDealer.last_name}`,
           status: 'pending',
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
@@ -313,6 +324,7 @@ export default function GetPoints() {
                   className="form-input"
                   placeholder="Enter number of bags"
                   min="1"
+                  step="1"
                   {...register('bagsCount')}
                 />
                 {errors.bagsCount && (
@@ -325,8 +337,8 @@ export default function GetPoints() {
                       <CheckCircle className="text-success-600 mr-2" size={16} />
                       <span className="text-sm text-success-700">
                         You will earn <strong>{pointsPreview} points</strong> for this purchase
-                        {cementTypeValue && (
-                          <span className="ml-1">({cementTypeValue} cement)</span>
+                        {cementTypeValue && bagsCountValue && (
+                          <span className="ml-1">({bagsCountValue} bags of {cementTypeValue} cement)</span>
                         )}
                       </span>
                     </div>

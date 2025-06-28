@@ -28,12 +28,19 @@ export function calculatePoints(bags: number): number {
   return bags * 10; // Default to PPC cement points
 }
 
-// Calculate points based on cement type
+// Calculate points based on cement type - FIXED to ensure proper integer handling
 export function calculatePointsByCementType(bags: number, cementType: 'OPC' | 'PPC'): number {
+  // Ensure bags is a proper integer
+  const bagCount = Math.floor(Number(bags));
+  
+  if (isNaN(bagCount) || bagCount <= 0) {
+    return 0;
+  }
+  
   if (cementType === 'OPC') {
-    return bags * 5; // 5 points per OPC bag
+    return bagCount * 5; // 5 points per OPC bag
   } else {
-    return bags * 10; // 10 points per PPC bag
+    return bagCount * 10; // 10 points per PPC bag
   }
 }
 
