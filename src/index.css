@@ -240,6 +240,34 @@
       margin-top: 1.5rem;
     }
   }
+
+  /* Notification badge styles */
+  .notification-badge {
+    @apply absolute -top-1 -right-1 flex items-center justify-center;
+    min-width: 1.25rem;
+    min-height: 1.25rem;
+    padding: 0 0.25rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1;
+    transform: translate(25%, -25%);
+  }
+
+  /* Notification panel styles */
+  .notification-panel {
+    @apply bg-white shadow-lg border border-gray-200 overflow-hidden;
+    max-height: 85vh;
+  }
+
+  /* Notification item styles */
+  .notification-item {
+    @apply p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer;
+  }
+
+  .notification-item-unread {
+    @apply bg-blue-50/50;
+  }
 }
 
 /* Animation Classes */
@@ -297,4 +325,29 @@ button, .btn {
   .form-input {
     min-height: 48px;
   }
+}
+
+/* Notification animations */
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideOutRight {
+  from { transform: translateX(0); opacity: 1; }
+  to { transform: translateX(100%); opacity: 0; }
+}
+
+.notification-enter {
+  animation: slideInRight 0.3s forwards;
+}
+
+.notification-exit {
+  animation: slideOutRight 0.3s forwards;
+}
+
+/* Badge dot for unread notifications */
+.badge-dot {
+  @apply absolute top-0 right-0 w-2 h-2 bg-error-500 rounded-full;
+  transform: translate(25%, -25%);
 }
