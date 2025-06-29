@@ -51,7 +51,6 @@ const AdminSupport = lazy(() => import('./pages/admin/AdminSupport'));
 // Components
 import NotificationCenter from './components/notifications/NotificationCenter';
 import AnnouncementBanner from './components/announcements/AnnouncementBanner';
-import SupportChat from './components/support/SupportChat';
 
 // Loading fallback component
 const LoadingFallback = () => (
@@ -301,7 +300,6 @@ function App() {
             
             {/* Global Components */}
             <AnnouncementBanner />
-            <SupportChat />
             
             <ToastContainer 
               position="top-right" 
