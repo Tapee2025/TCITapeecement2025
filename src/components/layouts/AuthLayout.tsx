@@ -8,15 +8,13 @@ export default function AuthLayout() {
       
       <div className="relative min-h-screen flex items-center justify-center p-4">
         <div className="w-full max-w-md">
-          {/* Logo Section */}
+          {/* Logo Section - Updated to remove constraining box */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-24 h-24 bg-white rounded-2xl shadow-lg mb-6 border border-gray-100">
-              <img 
-                src="/logo.png" 
-                alt="Tapee Cement" 
-                className="h-16 w-auto"
-              />
-            </div>
+            <img 
+              src="/logo.png" 
+              alt="Tapee Cement" 
+              className="h-24 w-auto mx-auto mb-6"
+            />
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Tapee Cement</h1>
             <p className="text-gray-600 text-lg">Loyalty Rewards Program</p>
           </div>
