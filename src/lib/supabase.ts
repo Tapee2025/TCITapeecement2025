@@ -177,4 +177,3 @@ class BackgroundConnectionManager {
 }
 
 export const backgroundConnectionManager = new BackgroundConnectionManager();
-}
