@@ -700,7 +700,7 @@ export default function AdminDashboard() {
               <div className="bg-gradient-to-r from-purple-50 to-purple-100 p-4 rounded-lg border border-purple-200">
                 <div className="text-center">
                   <Users className="w-8 h-8 text-purple-600 mx-auto mb-2" />
-                  <p className="text-2xl font-bold text-purple-700">{users?.filter(u => u.role === 'sub_dealer').length || 0}</p>
+                  <p className="text-2xl font-bold text-purple-700">{stats.totalSubDealers}</p>
                   <p className="text-sm text-purple-600">Sub Dealers</p>
                   <p className="text-xs text-purple-500">Network partners</p>
                 </div>
