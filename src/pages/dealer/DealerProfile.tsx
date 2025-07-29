@@ -73,61 +73,150 @@ export default function DealerProfile() {
     }
   }
 
+  // Helper function to calculate bags from transaction description
+  function calculateBagsFromTransaction(description: string, amount: number): number {
+    // Extract bag count from description like "Points for 5 bags sold"
+    const bagMatch = description.match(/(\d+)\s+bags?/i);
+    if (bagMatch) {
+      return parseInt(bagMatch[1], 10);
+    }
+    
+    // Fallback: assume 1 point per bag if no specific count found
+    return amount;
+  }
+
   async function fetchPerformanceData() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Get sub dealers created by this dealer
+      const { data: subDealers } = await supabase
+        .from('users')
+        .select('id')
+        .eq('role', 'sub_dealer')
+        .eq('created_by', user.id);
+
+      const subDealerIds = subDealers?.map(sd => sd.id) || [];
+      const allDealerIds = [user.id, ...subDealerIds]; // Include dealer + their sub dealers
+
       // Fetch performance data for all periods - explicitly pass null for optional parameters
       const periods = ['current_month', 'last_3_months', 'last_6_months', 'yearly', 'lifetime'];
       const performancePromises = periods.map(period =>
         supabase.rpc('get_performance_metrics', {
-          p_dealer_id: user.id,
+          p_dealer_id: user.id, // Keep original for RPC function
           p_period: period,
           p_start_date: null,
           p_end_date: null
         })
       );
 
-      const results = await Promise.all(performancePromises);
+      // Also get direct transaction data for dealer + sub dealers
+      const now = new Date();
+      const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+      const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+      const yearStart = new Date(now.getFullYear(), 0, 1);
+
+      const [
+        rpcResults,
+        currentMonthData,
+        last3MonthsData,
+        last6MonthsData,
+        yearlyData,
+        lifetimeData
+      ] = await Promise.all([
+        Promise.all(performancePromises),
+        // Current month - dealer + sub dealers
+        supabase
+          .from('transactions')
+          .select('amount, description')
+          .eq('type', 'earned')
+          .eq('status', 'approved')
+          .in('user_id', allDealerIds)
+          .gte('created_at', currentMonthStart.toISOString()),
+        // Last 3 months - dealer + sub dealers
+        supabase
+          .from('transactions')
+          .select('amount, description')
+          .eq('type', 'earned')
+          .eq('status', 'approved')
+          .in('user_id', allDealerIds)
+          .gte('created_at', threeMonthsAgo.toISOString()),
+        // Last 6 months - dealer + sub dealers
+        supabase
+          .from('transactions')
+          .select('amount, description')
+          .eq('type', 'earned')
+          .eq('status', 'approved')
+          .in('user_id', allDealerIds)
+          .gte('created_at', sixMonthsAgo.toISOString()),
+        // This year - dealer + sub dealers
+        supabase
+          .from('transactions')
+          .select('amount, description')
+          .eq('type', 'earned')
+          .eq('status', 'approved')
+          .in('user_id', allDealerIds)
+          .gte('created_at', yearStart.toISOString()),
+        // Lifetime - dealer + sub dealers
+        supabase
+          .from('transactions')
+          .select('amount, description')
+          .eq('type', 'earned')
+          .eq('status', 'approved')
+          .in('user_id', allDealerIds)
+      ]);
       
       // Get current month name
       const currentMonthName = new Date().toLocaleDateString('en-US', { 
         month: 'long', 
         year: 'numeric' 
       });
+
+      // Calculate bags from transaction data (dealer + sub dealers)
+      const currentMonthBags = currentMonthData.data?.reduce((sum, t) => 
+        sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
+      const last3MonthsBags = last3MonthsData.data?.reduce((sum, t) => 
+        sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
+      const last6MonthsBags = last6MonthsData.data?.reduce((sum, t) => 
+        sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
+      const yearlyBags = yearlyData.data?.reduce((sum, t) => 
+        sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
+      const lifetimeBags = lifetimeData.data?.reduce((sum, t) => 
+        sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
       
       setPerformanceData({
         currentMonth: {
-          bags: results[0].data?.[0]?.total_bags_sold || 0,
-          points: results[0].data?.[0]?.total_points_approved || 0,
-          transactions: results[0].data?.[0]?.total_transactions || 0,
-          customers: results[0].data?.[0]?.unique_customers || 0,
+          bags: currentMonthBags,
+          points: rpcResults[0].data?.[0]?.total_points_approved || 0,
+          transactions: rpcResults[0].data?.[0]?.total_transactions || 0,
+          customers: rpcResults[0].data?.[0]?.unique_customers || 0,
           name: currentMonthName
         },
         last3Months: {
-          bags: results[1].data?.[0]?.total_bags_sold || 0,
-          points: results[1].data?.[0]?.total_points_approved || 0,
-          transactions: results[1].data?.[0]?.total_transactions || 0,
-          customers: results[1].data?.[0]?.unique_customers || 0
+          bags: last3MonthsBags,
+          points: rpcResults[1].data?.[0]?.total_points_approved || 0,
+          transactions: rpcResults[1].data?.[0]?.total_transactions || 0,
+          customers: rpcResults[1].data?.[0]?.unique_customers || 0
         },
         last6Months: {
-          bags: results[2].data?.[0]?.total_bags_sold || 0,
-          points: results[2].data?.[0]?.total_points_approved || 0,
-          transactions: results[2].data?.[0]?.total_transactions || 0,
-          customers: results[2].data?.[0]?.unique_customers || 0
+          bags: last6MonthsBags,
+          points: rpcResults[2].data?.[0]?.total_points_approved || 0,
+          transactions: rpcResults[2].data?.[0]?.total_transactions || 0,
+          customers: rpcResults[2].data?.[0]?.unique_customers || 0
         },
         yearly: {
-          bags: results[3].data?.[0]?.total_bags_sold || 0,
-          points: results[3].data?.[0]?.total_points_approved || 0,
-          transactions: results[3].data?.[0]?.total_transactions || 0,
-          customers: results[3].data?.[0]?.unique_customers || 0
+          bags: yearlyBags,
+          points: rpcResults[3].data?.[0]?.total_points_approved || 0,
+          transactions: rpcResults[3].data?.[0]?.total_transactions || 0,
+          customers: rpcResults[3].data?.[0]?.unique_customers || 0
         },
         lifetime: {
-          bags: results[4].data?.[0]?.total_bags_sold || 0,
-          points: results[4].data?.[0]?.total_points_approved || 0,
-          transactions: results[4].data?.[0]?.total_transactions || 0,
-          customers: results[4].data?.[0]?.unique_customers || 0
+          bags: lifetimeBags,
+          points: rpcResults[4].data?.[0]?.total_points_approved || 0,
+          transactions: rpcResults[4].data?.[0]?.total_transactions || 0,
+          customers: rpcResults[4].data?.[0]?.unique_customers || 0
         }
       });
     } catch (error) {
@@ -487,7 +576,7 @@ export default function DealerProfile() {
           >
             {saving ? (
               <>
-                <LoadingSpinner size="sm\" className="mr-2" />
+                <LoadingSpinner size="sm" className="mr-2" />
                 Saving...
               </>
             ) : (
