@@ -148,7 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
           if (!mounted) return;
 
-          console.log('Auth state changed:', event);
+          console.debug('Auth state changed:', event);
 
           try {
             if (event === 'SIGNED_IN' && session?.user) {
@@ -163,11 +163,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               }
             }
           } catch (error) {
-            console.error('Auth state change error:', error);
+            console.debug('Auth state change error:', error);
             
             // Check if this is a session_not_found error
             if (isSessionNotFoundError(error)) {
-              console.log('Session not found during auth state change, signing out...');
+              console.debug('Session not found during auth state change, signing out...');
               await supabase.auth.signOut();
             }
             
