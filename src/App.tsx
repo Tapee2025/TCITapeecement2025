@@ -217,11 +217,6 @@ function App() {
                       <AdminFAQ />
                     </Suspense>
                   } />
-                  <Route path="/admin/achievements" element={
-                    <Suspense fallback={<LoadingFallback />}>
-                      <AdminAchievements />
-                    </Suspense>
-                  } />
                   <Route path="/admin/support" element={
                     <Suspense fallback={<LoadingFallback />}>
                       <AdminSupport />
