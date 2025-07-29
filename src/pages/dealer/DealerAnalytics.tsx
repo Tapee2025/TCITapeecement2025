@@ -24,6 +24,17 @@ export default function DealerAnalytics() {
     try {
       setLoading(true);
       
+      // Get sub dealers created by this dealer
+      const { data: subDealers } = await supabase
+        .from('users')
+        .select('id, role')
+        .eq('created_by', currentUser.id)
+        .eq('role', 'sub_dealer');
+
+      const subDealerIds = subDealers?.map(sd => sd.id) || [];
+      const allDealerIds = [currentUser.id, ...subDealerIds];
+      console.log('Analytics - dealer and sub dealer IDs:', allDealerIds);
+
       // Get total customers (users who have made transactions through this dealer)
       // Get all customers in the same district
       const { data: allCustomersInDistrict } = await supabase
@@ -69,30 +80,35 @@ export default function DealerAnalytics() {
       
       const activeCustomerIds = new Set(activeCustomerData?.map(t => t.user_id) || []);
       
-      // Get total bags sold (from dealer's own transactions)
-      const { data: bagData } = await supabase.rpc(
-        'get_performance_metrics',
-        {
-          p_dealer_id: currentUser.id,
-          p_period: 'lifetime',
-          p_start_date: null,
-          p_end_date: null
-        }
-      );
+      // Get total bags sold (from dealer + sub dealers transactions)
+      const { data: bagData } = await supabase
+        .from('transactions')
+        .select('amount, description')
+        .in('user_id', allDealerIds)
+        .eq('type', 'earned')
+        .eq('status', 'approved');
+
+      const totalBagsSold = bagData?.reduce((sum, t) => sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
       
-      // Get total transactions (dealer's own transactions)
+      // Get total transactions (dealer + sub dealers transactions)
       const { count: transactionCount } = await supabase
         .from('transactions')
         .select('*', { count: 'exact', head: true })
-        .eq('user_id', currentUser.id)
+        .in('user_id', allDealerIds)
         .eq('type', 'earned');
       
       setDealerStats({
         totalCustomers: allCustomerIds.size,
         contractors,
-        subDealers,
+        subDealers: subDealers?.length || 0, // Count of sub dealers created by this dealer
         activeCustomers: activeCustomerIds.size,
-        totalBagsSold: bagData?.[0]?.total_bags_sold || 0,
+        totalBagsSold,
+        totalTransactions: transactionCount || 0
+      });
+
+      console.log('Analytics stats calculated:', {
+        totalBagsSold,
+        subDealersCount: subDealers?.length || 0,
         totalTransactions: transactionCount || 0
       });
     } catch (error) {
@@ -172,7 +188,7 @@ export default function DealerAnalytics() {
         <div className="bg-white rounded-lg p-4 shadow-sm border">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Total Bags Sold</p>
+              <p className="text-sm text-gray-500">Total Bags (Me + Sub Dealers)</p>
               <p className="text-2xl font-bold text-blue-600">{dealerStats.totalBagsSold}</p>
               <p className="text-xs text-gray-500">All time</p>
             </div>

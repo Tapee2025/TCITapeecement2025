@@ -63,6 +63,17 @@ export default function DealerDashboard() {
       if (profileError) throw profileError;
       setDealerData(profile);
 
+      // Get sub dealers created by this dealer
+      const { data: subDealers, error: subDealersError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('created_by', user.id)
+        .eq('role', 'sub_dealer');
+
+      if (subDealersError) throw subDealersError;
+      const subDealerIds = subDealers?.map(sd => sd.id) || [];
+      console.log('Sub dealers found:', subDealerIds.length);
+
       // Get recent customer transactions (pending approvals from customers)
       const { data: dealerTransactions, error: transactionError } = await supabase
         .from('transactions')
@@ -131,11 +142,14 @@ export default function DealerDashboard() {
 
       const uniqueCustomers = new Set(customerData?.map(t => t.user_id)).size;
 
-      // Get performance metrics for different periods - dealer's own transactions
+      // Get performance metrics for different periods - dealer + sub dealers transactions
+      const allDealerIds = [user.id, ...subDealerIds];
+      console.log('Fetching transactions for dealer IDs:', allDealerIds);
+
       const { data: currentMonthData } = await supabase
         .from('transactions')
         .select('amount, description')
-        .eq('user_id', user.id) // Dealer's own transactions
+        .in('user_id', allDealerIds) // Dealer + sub dealers transactions
         .eq('type', 'earned')
         .eq('status', 'approved')
         .gte('created_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString());
@@ -143,7 +157,7 @@ export default function DealerDashboard() {
       const { data: last3MonthsData } = await supabase
         .from('transactions')
         .select('amount, description')
-        .eq('user_id', user.id) // Dealer's own transactions
+        .in('user_id', allDealerIds) // Dealer + sub dealers transactions
         .eq('type', 'earned')
         .eq('status', 'approved')
         .gte('created_at', new Date(new Date().getFullYear(), new Date().getMonth() - 3, 1).toISOString());
@@ -151,7 +165,7 @@ export default function DealerDashboard() {
       const { data: last6MonthsData } = await supabase
         .from('transactions')
         .select('amount, description')
-        .eq('user_id', user.id) // Dealer's own transactions
+        .in('user_id', allDealerIds) // Dealer + sub dealers transactions
         .eq('type', 'earned')
         .eq('status', 'approved')
         .gte('created_at', new Date(new Date().getFullYear(), new Date().getMonth() - 6, 1).toISOString());
@@ -159,7 +173,7 @@ export default function DealerDashboard() {
       const { data: yearlyData } = await supabase
         .from('transactions')
         .select('amount, description')
-        .eq('user_id', user.id) // Dealer's own transactions
+        .in('user_id', allDealerIds) // Dealer + sub dealers transactions
         .eq('type', 'earned')
         .eq('status', 'approved')
         .gte('created_at', new Date(new Date().getFullYear(), 0, 1).toISOString());
@@ -167,7 +181,7 @@ export default function DealerDashboard() {
       const { data: lifetimeData } = await supabase
         .from('transactions')
         .select('amount, description')
-        .eq('user_id', user.id) // Dealer's own transactions
+        .in('user_id', allDealerIds) // Dealer + sub dealers transactions
         .eq('type', 'earned')
         .eq('status', 'approved');
 
@@ -177,12 +191,20 @@ export default function DealerDashboard() {
         year: 'numeric' 
       });
 
-      // Calculate bags sold from dealer's own transactions using proper calculation
+      // Calculate bags sold from dealer + sub dealers transactions using proper calculation
       const currentMonthBags = currentMonthData?.reduce((sum, t) => sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
       const last3MonthsBags = last3MonthsData?.reduce((sum, t) => sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
       const last6MonthsBags = last6MonthsData?.reduce((sum, t) => sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
       const yearlyBags = yearlyData?.reduce((sum, t) => sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
       const lifetimeBags = lifetimeData?.reduce((sum, t) => sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
+
+      console.log('Calculated bags:', {
+        currentMonthBags,
+        last3MonthsBags,
+        last6MonthsBags,
+        yearlyBags,
+        lifetimeBags
+      });
 
       // Calculate rewards stats
       const rewardsAvailable = rewardsData?.length || 0;
@@ -223,10 +245,20 @@ export default function DealerDashboard() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Get sub dealers created by this dealer
+      const { data: subDealers } = await supabase
+        .from('users')
+        .select('id')
+        .eq('created_by', user.id)
+        .eq('role', 'sub_dealer');
+
+      const subDealerIds = subDealers?.map(sd => sd.id) || [];
+      const allDealerIds = [user.id, ...subDealerIds];
+
       const { data: customData } = await supabase
         .from('transactions')
         .select('amount, description')
-        .eq('user_id', user.id) // Dealer's own transactions
+        .in('user_id', allDealerIds) // Dealer + sub dealers transactions
         .eq('type', 'earned')
         .eq('status', 'approved')
         .gte('created_at', customStartDate + 'T00:00:00')
@@ -410,7 +442,7 @@ export default function DealerDashboard() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
           <h3 className="font-semibold text-gray-900 flex items-center">
             <BarChart3 className="mr-2 text-primary-600" size={18} />
-            My Sales Performance (Bags Sold by Me)
+            Total Sales Performance (Me + Sub Dealers)
           </h3>
           <div className="mt-2 sm:mt-0 flex flex-col sm:flex-row gap-2">
             <select
@@ -458,7 +490,7 @@ export default function DealerDashboard() {
             <div className="text-center">
               <ShoppingBag className="w-6 h-6 text-green-600 mx-auto mb-1" />
               <p className="text-xl font-bold text-green-700">{getPerformanceValue()}</p>
-              <p className="text-xs text-green-600">Bags Sold by Me</p>
+              <p className="text-xs text-green-600">Total Bags Sold</p>
               <p className="text-xs text-green-500">{getPerformanceLabel()}</p>
             </div>
           </div>

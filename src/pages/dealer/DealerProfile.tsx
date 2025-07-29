@@ -78,16 +78,72 @@ export default function DealerProfile() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Fetch performance data for all periods - explicitly pass null for optional parameters
+      // Get sub dealers created by this dealer
+      const { data: subDealers } = await supabase
+        .from('users')
+        .select('id')
+        .eq('created_by', user.id)
+        .eq('role', 'sub_dealer');
+
+      const subDealerIds = subDealers?.map(sd => sd.id) || [];
+      const allDealerIds = [user.id, ...subDealerIds];
+      console.log('Dealer profile - fetching for IDs:', allDealerIds);
+
+      // Fetch performance data for all periods - dealer + sub dealers
       const periods = ['current_month', 'last_3_months', 'last_6_months', 'yearly', 'lifetime'];
-      const performancePromises = periods.map(period =>
-        supabase.rpc('get_performance_metrics', {
-          p_dealer_id: user.id,
-          p_period: period,
-          p_start_date: null,
-          p_end_date: null
-        })
-      );
+      
+      // Calculate performance data manually for each period
+      const now = new Date();
+      const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+      const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+      const yearStart = new Date(now.getFullYear(), 0, 1);
+
+      const performancePromises = [
+        // Current month
+        supabase
+          .from('transactions')
+          .select('amount, description, user_id')
+          .in('user_id', allDealerIds)
+          .eq('type', 'earned')
+          .eq('status', 'approved')
+          .gte('created_at', currentMonthStart.toISOString()),
+        
+        // Last 3 months
+        supabase
+          .from('transactions')
+          .select('amount, description, user_id')
+          .in('user_id', allDealerIds)
+          .eq('type', 'earned')
+          .eq('status', 'approved')
+          .gte('created_at', threeMonthsAgo.toISOString()),
+        
+        // Last 6 months
+        supabase
+          .from('transactions')
+          .select('amount, description, user_id')
+          .in('user_id', allDealerIds)
+          .eq('type', 'earned')
+          .eq('status', 'approved')
+          .gte('created_at', sixMonthsAgo.toISOString()),
+        
+        // This year
+        supabase
+          .from('transactions')
+          .select('amount, description, user_id')
+          .in('user_id', allDealerIds)
+          .eq('type', 'earned')
+          .eq('status', 'approved')
+          .gte('created_at', yearStart.toISOString()),
+        
+        // Lifetime
+        supabase
+          .from('transactions')
+          .select('amount, description, user_id')
+          .in('user_id', allDealerIds)
+          .eq('type', 'earned')
+          .eq('status', 'approved')
+      ];
 
       const results = await Promise.all(performancePromises);
       
@@ -97,38 +153,38 @@ export default function DealerProfile() {
         year: 'numeric' 
       });
       
+      // Calculate bags and other metrics from transaction data
+      const calculateMetrics = (transactions: any[]) => {
+        const bags = transactions?.reduce((sum, t) => sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
+        const points = transactions?.reduce((sum, t) => sum + t.amount, 0) || 0;
+        const transactionCount = transactions?.length || 0;
+        const uniqueCustomers = new Set(transactions?.map(t => t.user_id)).size || 0;
+        
+        return { bags, points, transactions: transactionCount, customers: uniqueCustomers };
+      };
+
       setPerformanceData({
         currentMonth: {
-          bags: results[0].data?.[0]?.total_bags_sold || 0,
-          points: results[0].data?.[0]?.total_points_approved || 0,
-          transactions: results[0].data?.[0]?.total_transactions || 0,
-          customers: results[0].data?.[0]?.unique_customers || 0,
+          ...calculateMetrics(results[0].data),
           name: currentMonthName
         },
         last3Months: {
-          bags: results[1].data?.[0]?.total_bags_sold || 0,
-          points: results[1].data?.[0]?.total_points_approved || 0,
-          transactions: results[1].data?.[0]?.total_transactions || 0,
-          customers: results[1].data?.[0]?.unique_customers || 0
+          ...calculateMetrics(results[1].data)
         },
         last6Months: {
-          bags: results[2].data?.[0]?.total_bags_sold || 0,
-          points: results[2].data?.[0]?.total_points_approved || 0,
-          transactions: results[2].data?.[0]?.total_transactions || 0,
-          customers: results[2].data?.[0]?.unique_customers || 0
+          ...calculateMetrics(results[2].data)
         },
         yearly: {
-          bags: results[3].data?.[0]?.total_bags_sold || 0,
-          points: results[3].data?.[0]?.total_points_approved || 0,
-          transactions: results[3].data?.[0]?.total_transactions || 0,
-          customers: results[3].data?.[0]?.unique_customers || 0
+          ...calculateMetrics(results[3].data)
         },
         lifetime: {
-          bags: results[4].data?.[0]?.total_bags_sold || 0,
-          points: results[4].data?.[0]?.total_points_approved || 0,
-          transactions: results[4].data?.[0]?.total_transactions || 0,
-          customers: results[4].data?.[0]?.unique_customers || 0
+          ...calculateMetrics(results[4].data)
         }
+      });
+
+      console.log('Performance data calculated:', {
+        currentMonth: calculateMetrics(results[0].data),
+        lifetime: calculateMetrics(results[4].data)
       });
     } catch (error) {
       console.error('Error fetching performance data:', error);
@@ -145,21 +201,37 @@ export default function DealerProfile() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Get sub dealers created by this dealer
+      const { data: subDealers } = await supabase
+        .from('users')
+        .select('id')
+        .eq('created_by', user.id)
+        .eq('role', 'sub_dealer');
+
+      const subDealerIds = subDealers?.map(sd => sd.id) || [];
+      const allDealerIds = [user.id, ...subDealerIds];
+
       const { data: customData } = await supabase
-        .rpc('get_performance_metrics', {
-          p_dealer_id: user.id,
-          p_period: 'custom',
-          p_start_date: customStartDate,
-          p_end_date: customEndDate
-        });
+        .from('transactions')
+        .select('amount, description, user_id')
+        .in('user_id', allDealerIds)
+        .eq('type', 'earned')
+        .eq('status', 'approved')
+        .gte('created_at', customStartDate + 'T00:00:00')
+        .lte('created_at', customEndDate + 'T23:59:59');
+
+      const bags = customData?.reduce((sum, t) => sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
+      const points = customData?.reduce((sum, t) => sum + t.amount, 0) || 0;
+      const transactions = customData?.length || 0;
+      const customers = new Set(customData?.map(t => t.user_id)).size || 0;
 
       setPerformanceData(prev => ({
         ...prev,
         currentMonth: {
-          bags: customData?.[0]?.total_bags_sold || 0,
-          points: customData?.[0]?.total_points_approved || 0,
-          transactions: customData?.[0]?.total_transactions || 0,
-          customers: customData?.[0]?.unique_customers || 0,
+          bags,
+          points,
+          transactions,
+          customers,
           name: `Custom Period (${customStartDate} to ${customEndDate})`
         }
       }));
@@ -517,7 +589,7 @@ export default function DealerProfile() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center">
             <BarChart3 className="mr-2 text-primary-600" size={20} />
-            Performance Metrics
+            Performance Metrics (Me + Sub Dealers)
           </h3>
           <div className="mt-4 sm:mt-0 flex flex-col sm:flex-row gap-2">
             <select
@@ -608,7 +680,7 @@ export default function DealerProfile() {
 
         {/* Performance Comparison */}
         <div className="pt-6 border-t border-gray-200">
-          <h4 className="text-md font-medium text-gray-900 mb-4">Bags Sold Comparison</h4>
+          <h4 className="text-md font-medium text-gray-900 mb-4">Total Bags Sold Comparison (Me + Sub Dealers)</h4>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div className="text-center p-3 bg-gray-50 rounded-lg">
               <p className="text-lg font-bold text-gray-900">{performanceData.currentMonth.bags}</p>
