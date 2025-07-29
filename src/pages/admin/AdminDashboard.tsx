@@ -646,6 +646,42 @@ export default function AdminDashboard() {
               </div>
             </div>
           </div>
+          
+          {/* Dealer Network Information */}
+          <div className="mt-6 pt-6 border-t border-gray-200">
+            <h4 className="text-md font-medium text-gray-900 mb-4 flex items-center">
+              <Building2 className="mr-2 text-primary-600" size={18} />
+              Dealer Network Overview
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200">
+                <div className="text-center">
+                  <Building2 className="w-8 h-8 text-blue-600 mx-auto mb-2" />
+                  <p className="text-2xl font-bold text-blue-700">{stats.totalDealers}</p>
+                  <p className="text-sm text-blue-600">Active Dealers</p>
+                  <p className="text-xs text-blue-500">Direct distributors</p>
+                </div>
+              </div>
+              
+              <div className="bg-gradient-to-r from-purple-50 to-purple-100 p-4 rounded-lg border border-purple-200">
+                <div className="text-center">
+                  <Users className="w-8 h-8 text-purple-600 mx-auto mb-2" />
+                  <p className="text-2xl font-bold text-purple-700">{users?.filter(u => u.role === 'sub_dealer').length || 0}</p>
+                  <p className="text-sm text-purple-600">Sub Dealers</p>
+                  <p className="text-xs text-purple-500">Network partners</p>
+                </div>
+              </div>
+              
+              <div className="bg-gradient-to-r from-green-50 to-green-100 p-4 rounded-lg border border-green-200">
+                <div className="text-center">
+                  <Package className="w-8 h-8 text-green-600 mx-auto mb-2" />
+                  <p className="text-2xl font-bold text-green-700">{((stats.dealerBagsSold / stats.totalBagsSold) * 100).toFixed(1)}%</p>
+                  <p className="text-sm text-green-600">Dealer Share</p>
+                  <p className="text-xs text-green-500">vs {((stats.subDealerBagsSold / stats.totalBagsSold) * 100).toFixed(1)}% Sub Dealer</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       

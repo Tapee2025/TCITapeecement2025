@@ -17,7 +17,7 @@ export default function AdminAnalytics() {
         <div className="flex items-center">
           <Info className="w-5 h-5 text-blue-600 mr-2" />
           <p className="text-sm text-blue-700">
-            <strong>Analytics Include:</strong> Comprehensive sales data with separate tracking for dealers and sub dealers, plus combined totals for complete business insights.
+            <strong>Analytics Include:</strong> Comprehensive sales data with separate tracking for dealers (direct distributors) and sub dealers (network partners), plus combined totals for complete business insights. Sub dealers are managed by their respective dealers.
           </p>
         </div>
       </div>
