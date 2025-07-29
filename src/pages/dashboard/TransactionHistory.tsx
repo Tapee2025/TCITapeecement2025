@@ -20,6 +20,10 @@ export default function TransactionHistory() {
     async () => {
       if (!currentUser) throw new Error('User not authenticated');
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+      try {
       const { data, error } = await supabase
         .from('transactions')
         .select(`
@@ -35,12 +39,22 @@ export default function TransactionHistory() {
           )
         `)
         .eq('user_id', currentUser.id)
-        .order('created_at', { ascending: false });
+          .order('created_at', { ascending: false })
+          .abortSignal(controller.signal);
 
+        clearTimeout(timeoutId);
       if (error) throw error;
       return data || [];
+      } catch (error) {
+        clearTimeout(timeoutId);
+        throw error;
+      }
     },
-    { key: `transactions-${currentUser?.id}`, ttl: 60 * 1000 }
+    { 
+      key: `transactions-${currentUser?.id}`, 
+      ttl: 60 * 1000,
+      enabled: !!currentUser
+    }
   );
 
   // Memoize filtered transactions

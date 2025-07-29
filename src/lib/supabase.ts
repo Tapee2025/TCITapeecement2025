@@ -103,8 +103,17 @@ export function getProfilePictureUrl(fileName: string | null): string {
 // Connection health check with timeout
 export async function checkConnection(): Promise<boolean> {
   try {
-    // Simple session check without timeout to avoid false negatives
-    const { data, error } = await supabase.auth.getSession();
+    // Simple session check with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    
+    const sessionPromise = supabase.auth.getSession();
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Connection timeout')), 5000);
+    });
+    
+    const { data, error } = await Promise.race([sessionPromise, timeoutPromise]);
+    clearTimeout(timeoutId);
     return !error;
   } catch {
     return false;

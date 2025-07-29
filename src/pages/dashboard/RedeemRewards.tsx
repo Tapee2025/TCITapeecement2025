@@ -30,17 +30,31 @@ export default function RedeemRewards() {
     async () => {
       if (!currentUser) throw new Error('Not authenticated');
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+      try {
       const { data: rewardsData, error: rewardsError } = await supabase
         .from('rewards')
         .select('*')
         .eq('available', true)
         .contains('visible_to', [currentUser.role])
-        .order('points_required', { ascending: true });
+          .order('points_required', { ascending: true })
+          .abortSignal(controller.signal);
 
+        clearTimeout(timeoutId);
       if (rewardsError) throw rewardsError;
       return rewardsData || [];
+      } catch (error) {
+        clearTimeout(timeoutId);
+        throw error;
+      }
     },
-    { key: `rewards-${currentUser?.role}`, ttl: 5 * 60 * 1000 }
+    { 
+      key: `rewards-${currentUser?.role}`, 
+      ttl: 5 * 60 * 1000,
+      enabled: !!currentUser
+    }
   );
 
   // Memoize filtered rewards to prevent unnecessary recalculations

@@ -4,6 +4,7 @@ interface CacheOptions {
   ttl?: number; // Time to live in milliseconds
   key: string;
   maxSize?: number; // Maximum size in bytes (approximate)
+  enabled?: boolean; // Allow disabling cache
 }
 
 interface CacheEntry<T> {
@@ -25,6 +26,11 @@ class MemoryCache {
   }
 
   set<T>(key: string, data: T, ttl: number = 3 * 60 * 1000): void {
+    // Don't cache if data is null or undefined
+    if (data === null || data === undefined) {
+      return;
+    }
+
     // Remove old entry if it exists
     if (this.cache.has(key)) {
       const oldEntry = this.cache.get(key)!;
@@ -84,6 +90,21 @@ class MemoryCache {
     }
   }
 
+  // Check if key exists and is not expired
+  has(key: string): boolean {
+    const entry = this.cache.get(key);
+    if (!entry) return false;
+    
+    const isExpired = Date.now() - entry.timestamp > entry.ttl;
+    if (isExpired) {
+      this.totalSize -= entry.size;
+      this.cache.delete(key);
+      return false;
+    }
+    
+    return true;
+  }
+
   // Evict oldest entries until we're under maxSize
   private evictOldest(): void {
     // Sort entries by timestamp (oldest first)
@@ -125,47 +146,108 @@ export function useCache<T>(
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const { key, ttl = 5 * 60 * 1000 } = options;
+  const { key, ttl = 5 * 60 * 1000, enabled = true } = options;
   const fetchRef = useRef(fetchFn);
+  const abortControllerRef = useRef<AbortController | null>(null);
   fetchRef.current = fetchFn;
 
   const fetchData = useCallback(async () => {
+    // Cancel any ongoing request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    // Create new abort controller
+    abortControllerRef.current = new AbortController();
+    
     try {
       setLoading(true);
       setError(null);
 
-      // Check cache first
-      const cachedData = memoryCache.get<T>(key);
-      if (cachedData) {
-        setData(cachedData);
-        setLoading(false);
-        return;
+      // Check cache first if enabled
+      if (enabled) {
+        const cachedData = memoryCache.get<T>(key);
+        if (cachedData) {
+          setData(cachedData);
+          setLoading(false);
+          return;
+        }
       }
 
-      // Fetch fresh data
-      const freshData = await fetchRef.current();
-      memoryCache.set(key, freshData, ttl);
+      // Fetch fresh data with timeout
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Request timeout')), 30000); // 30 second timeout
+      });
+      
+      const fetchPromise = fetchRef.current();
+      
+      const freshData = await Promise.race([fetchPromise, timeoutPromise]);
+      
+      // Check if request was aborted
+      if (abortControllerRef.current?.signal.aborted) {
+        return;
+      }
+      
+      // Cache the data if enabled and valid
+      if (enabled && freshData !== null && freshData !== undefined) {
+        memoryCache.set(key, freshData, ttl);
+      }
+      
       setData(freshData);
     } catch (err) {
+      // Don't set error if request was aborted
+      if (abortControllerRef.current?.signal.aborted) {
+        return;
+      }
+      
+      // Check if we have cached data to fall back to
+      if (enabled) {
+        const cachedData = memoryCache.get<T>(key);
+        if (cachedData) {
+          setData(cachedData);
+          setLoading(false);
+          console.warn('Using cached data due to fetch error:', err);
+          return;
+        }
+      }
+      
       setError(err instanceof Error ? err : new Error('Unknown error'));
     } finally {
       setLoading(false);
+      abortControllerRef.current = null;
     }
-  }, [key, ttl]);
+  }, [key, ttl, enabled]);
+
+  // Cleanup function
+  useEffect(() => {
+    return () => {
+      // Cancel any ongoing request when component unmounts
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   useEffect(() => {
-    fetchData();
+    // Only fetch if enabled
+    if (enabled) {
+      fetchData();
+    } else {
+      setLoading(false);
+    }
     
-    // Set up automatic cache cleanup
-    const cleanupInterval = setInterval(() => {
-      // This will trigger cache to check for expired items
-      memoryCache.get(key);
-    }, ttl);
-    
-    return () => {
-      clearInterval(cleanupInterval);
-    };
-  }, [key, ttl, fetchData]);
+    // Set up automatic cache cleanup only if enabled
+    if (enabled) {
+      const cleanupInterval = setInterval(() => {
+        // This will trigger cache to check for expired items
+        memoryCache.get(key);
+      }, ttl);
+      
+      return () => {
+        clearInterval(cleanupInterval);
+      };
+    }
+  }, [key, ttl, enabled, fetchData]);
 
   return {
     data,

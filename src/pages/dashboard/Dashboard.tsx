@@ -22,6 +22,11 @@ export default function Dashboard() {
     async () => {
       if (!currentUser) throw new Error('No user found');
 
+      // Add timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+
+      try {
       // Fetch all data in parallel for better performance
       const [transactionsResult, slidesResult] = await Promise.all([
         supabase
@@ -29,13 +34,17 @@ export default function Dashboard() {
           .select('*')
           .eq('user_id', currentUser.id)
           .order('created_at', { ascending: false })
-          .limit(3),
+            .limit(3)
+            .abortSignal(controller.signal),
         supabase
           .from('marketing_slides')
           .select('*')
           .eq('active', true)
           .order('order_number', { ascending: true })
+            .abortSignal(controller.signal)
       ]);
+
+        clearTimeout(timeoutId);
 
       if (transactionsResult.error) throw transactionsResult.error;
       if (slidesResult.error) throw slidesResult.error;
@@ -66,8 +75,16 @@ export default function Dashboard() {
           pendingApprovals
         }
       };
+      } catch (error) {
+        clearTimeout(timeoutId);
+        throw error;
+      }
     },
-    { key: `dashboard-${currentUser?.id}`, ttl: 2 * 60 * 1000 }
+    { 
+      key: `dashboard-${currentUser?.id}`, 
+      ttl: 2 * 60 * 1000,
+      enabled: !!currentUser
+    }
   );
 
   // Memoize slide rotation
