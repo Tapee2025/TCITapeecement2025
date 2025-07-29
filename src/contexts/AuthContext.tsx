@@ -157,8 +157,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               setCurrentUser(null);
               setLoading(false);
             } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-              // Keep user logged in when token is refreshed
-              await fetchUserProfile(session.user.id);
+              // Keep user logged in when token is refreshed - but don't refetch profile unnecessarily
+              if (!currentUser || currentUser.id !== session.user.id) {
+                await fetchUserProfile(session.user.id);
+              }
             }
           } catch (error) {
             console.error('Auth state change error:', error);

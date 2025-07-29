@@ -19,7 +19,8 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     detectSessionInUrl: true,
     storage: window.localStorage,
-    flowType: 'pkce'
+    flowType: 'pkce',
+    storageKey: 'tapee-cement-auth'
   },
   global: {
     headers: {
@@ -31,7 +32,7 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   },
   realtime: {
     params: {
-      eventsPerSecond: 10
+      eventsPerSecond: 5
     }
   }
 });
@@ -63,13 +64,14 @@ export async function checkConnection(): Promise<boolean> {
   try {
     // Set a timeout for the connection check
     const timeoutPromise = new Promise<boolean>((_, reject) => {
-      setTimeout(() => reject(new Error('Connection check timed out')), 5000);
+      setTimeout(() => reject(new Error('Connection check timed out')), 10000);
     });
     
     // Actual connection check
     const connectionPromise = new Promise<boolean>(async (resolve) => {
       try {
-        const { error } = await supabase.from('users').select('id').limit(1);
+        // Use a simpler health check
+        const { data, error } = await supabase.auth.getSession();
         resolve(!error);
       } catch {
         resolve(false);
@@ -93,9 +95,6 @@ export function clearSupabaseCache() {
       }
     });
     
-    // Force refresh auth session
-    supabase.auth.refreshSession();
-    
     return true;
   } catch (error) {
     console.error('Error clearing Supabase cache:', error);
@@ -106,15 +105,23 @@ export function clearSupabaseCache() {
 // Function to handle connection recovery
 export async function recoverConnection() {
   try {
-    // Clear cache first
-    clearSupabaseCache();
+    // Try to refresh the session first
+    const { error: refreshError } = await supabase.auth.refreshSession();
+    if (refreshError) {
+      console.warn('Session refresh failed:', refreshError);
+    }
     
     // Try to reconnect
     const isConnected = await checkConnection();
     
     if (!isConnected) {
-      // If still not connected, try to refresh the page
-      window.location.reload();
+      // Clear cache and try once more
+      clearSupabaseCache();
+      const retryConnected = await checkConnection();
+      if (!retryConnected) {
+        console.warn('Connection recovery failed');
+        return false;
+      }
       return false;
     }
     

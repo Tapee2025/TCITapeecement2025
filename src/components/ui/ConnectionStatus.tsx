@@ -16,8 +16,8 @@ export default function ConnectionStatus() {
       if (!connected && isOnline) {
         setShowStatus(true);
       } else if (connected && showStatus) {
-        // Hide status after 3 seconds when connection is restored
-        setTimeout(() => setShowStatus(false), 3000);
+        // Hide status after 5 seconds when connection is restored
+        setTimeout(() => setShowStatus(false), 5000);
       }
     } catch (error) {
       setIsConnected(false);
@@ -43,8 +43,8 @@ export default function ConnectionStatus() {
     // Initial connection check
     checkSupabaseConnection();
 
-    // Periodic connection check
-    const interval = setInterval(checkSupabaseConnection, 30000);
+    // Periodic connection check - less frequent
+    const interval = setInterval(checkSupabaseConnection, 60000);
 
     return () => {
       window.removeEventListener('online', handleOnline);

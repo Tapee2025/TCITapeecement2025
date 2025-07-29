@@ -16,7 +16,7 @@ interface CacheEntry<T> {
 class MemoryCache {
   private cache = new Map<string, CacheEntry<any>>();
   private totalSize = 0;
-  private maxSize = 10 * 1024 * 1024; // Default 10MB max cache size
+  private maxSize = 5 * 1024 * 1024; // Default 5MB max cache size
 
   constructor(maxSize?: number) {
     if (maxSize) {
@@ -24,7 +24,7 @@ class MemoryCache {
     }
   }
 
-  set<T>(key: string, data: T, ttl: number = 5 * 60 * 1000): void {
+  set<T>(key: string, data: T, ttl: number = 3 * 60 * 1000): void {
     // Remove old entry if it exists
     if (this.cache.has(key)) {
       const oldEntry = this.cache.get(key)!;
@@ -92,7 +92,7 @@ class MemoryCache {
     
     // Remove oldest entries until we're under the limit
     for (const [key, entry] of entries) {
-      if (this.totalSize <= this.maxSize * 0.8) { // Clear until we're at 80% capacity
+      if (this.totalSize <= this.maxSize * 0.7) { // Clear until we're at 70% capacity
         break;
       }
       this.totalSize -= entry.size;
