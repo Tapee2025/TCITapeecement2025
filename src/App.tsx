@@ -208,21 +208,9 @@ function App() {
                       <AdminAnalytics />
                     </Suspense>
                   } />
-                  <Route path="/admin/announcements" element={
-                    <Suspense fallback={<LoadingFallback />}>
-                      <AdminAnnouncements />
-                    </Suspense>
-                  } />
-                  <Route path="/admin/faq" element={
-                    <Suspense fallback={<LoadingFallback />}>
-                      <AdminFAQ />
-                    </Suspense>
-                  } />
-                  <Route path="/admin/support" element={
-                    <Suspense fallback={<LoadingFallback />}>
-                      <AdminSupport />
-                    </Suspense>
-                  } />
+                  <Route path="/admin/announcements" element={<Suspense fallback={<LoadingFallback />}><AdminAnnouncements /></Suspense>} />
+                  <Route path="/admin/faq" element={<Suspense fallback={<LoadingFallback />}><AdminFAQ /></Suspense>} />
+                  <Route path="/admin/support" element={<Suspense fallback={<LoadingFallback />}><AdminSupport /></Suspense>} />
                 </Route>
               </Route>
               
