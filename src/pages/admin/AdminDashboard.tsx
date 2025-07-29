@@ -104,16 +104,17 @@ export default function AdminDashboard() {
       
       // Calculate total bags sold - ONLY from dealer transactions (dealers selling to customers)
       // Bags sold = bags sold BY dealers (dealer's own transactions)
-      const { data: dealerTransactions, error: dealerTransactionsError } = await supabase
+      // Include both dealers and sub dealers in bag calculations
+      const { data: dealerAndSubDealerTransactions, error: dealerTransactionsError } = await supabase
         .from('transactions')
         .select('amount, description, user_id')
         .eq('status', 'approved')
         .eq('type', 'earned')
-        .in('user_id', users?.filter(u => u.role === 'dealer').map(u => u.id) || []);
+        .in('user_id', users?.filter(u => u.role === 'dealer' || u.role === 'sub_dealer').map(u => u.id) || []);
 
       if (dealerTransactionsError) throw dealerTransactionsError;
 
-      const totalBagsSold = dealerTransactions?.reduce((sum, t) => 
+      const totalBagsSold = dealerAndSubDealerTransactions?.reduce((sum, t) => 
         sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
 
       // Get total redemptions
@@ -155,49 +156,49 @@ export default function AdminDashboard() {
       const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, 1);
       const yearStart = new Date(now.getFullYear(), 0, 1);
 
-      // Current month bags - only dealer transactions
+      // Current month bags - dealer and sub dealer transactions
       const { data: currentMonthDealerTransactions } = await supabase
         .from('transactions')
         .select('amount, description, user_id')
         .eq('type', 'earned')
         .eq('status', 'approved')
-        .in('user_id', users?.filter(u => u.role === 'dealer').map(u => u.id) || [])
+        .in('user_id', users?.filter(u => u.role === 'dealer' || u.role === 'sub_dealer').map(u => u.id) || [])
         .gte('created_at', currentMonthStart.toISOString());
 
       const currentMonthBags = currentMonthDealerTransactions?.reduce((sum, t) => 
         sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
 
-      // Last 3 months bags - only dealer transactions
+      // Last 3 months bags - dealer and sub dealer transactions
       const { data: quarterlyDealerTransactions } = await supabase
         .from('transactions')
         .select('amount, description, user_id')
         .eq('type', 'earned')
         .eq('status', 'approved')
-        .in('user_id', users?.filter(u => u.role === 'dealer').map(u => u.id) || [])
+        .in('user_id', users?.filter(u => u.role === 'dealer' || u.role === 'sub_dealer').map(u => u.id) || [])
         .gte('created_at', threeMonthsAgo.toISOString());
 
       const quarterlyBagsSold = quarterlyDealerTransactions?.reduce((sum, t) => 
         sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
 
-      // Last 6 months bags - only dealer transactions
+      // Last 6 months bags - dealer and sub dealer transactions
       const { data: halfYearlyDealerTransactions } = await supabase
         .from('transactions')
         .select('amount, description, user_id')
         .eq('type', 'earned')
         .eq('status', 'approved')
-        .in('user_id', users?.filter(u => u.role === 'dealer').map(u => u.id) || [])
+        .in('user_id', users?.filter(u => u.role === 'dealer' || u.role === 'sub_dealer').map(u => u.id) || [])
         .gte('created_at', sixMonthsAgo.toISOString());
 
       const halfYearlyBagsSold = halfYearlyDealerTransactions?.reduce((sum, t) => 
         sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
 
-      // This year bags - only dealer transactions
+      // This year bags - dealer and sub dealer transactions
       const { data: yearlyDealerTransactions } = await supabase
         .from('transactions')
         .select('amount, description, user_id')
         .eq('type', 'earned')
         .eq('status', 'approved')
-        .in('user_id', users?.filter(u => u.role === 'dealer').map(u => u.id) || [])
+        .in('user_id', users?.filter(u => u.role === 'dealer' || u.role === 'sub_dealer').map(u => u.id) || [])
         .gte('created_at', yearStart.toISOString());
 
       const yearlyBagsSold = yearlyDealerTransactions?.reduce((sum, t) => 
@@ -426,7 +427,7 @@ export default function AdminDashboard() {
           <div className="bg-gradient-to-r from-green-50 to-green-100 p-4 rounded-lg border border-green-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-green-600 font-medium">Bags Sold by Dealers</p>
+                <p className="text-sm text-green-600 font-medium">Bags Sold (Dealers + Sub Dealers)</p>
                 <p className="text-2xl font-bold text-green-700">{getPerformanceValue()}</p>
                 <p className="text-xs text-green-600">{getPerformanceLabel()}</p>
               </div>
@@ -470,7 +471,7 @@ export default function AdminDashboard() {
 
         {/* Performance Comparison */}
         <div className="mt-6 pt-6 border-t border-gray-200">
-          <h4 className="text-md font-medium text-gray-900 mb-4">Bags Sold by Dealers Comparison</h4>
+          <h4 className="text-md font-medium text-gray-900 mb-4">Bags Sold Comparison (Dealers + Sub Dealers)</h4>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div className="text-center p-3 bg-gray-50 rounded-lg">
               <p className="text-lg font-bold text-gray-900">{stats.currentMonthBags}</p>
