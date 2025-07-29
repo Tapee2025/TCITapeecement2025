@@ -37,11 +37,6 @@ export default function DashboardLayout() {
   const extendedNavigation = [
     ...navigation,
     { 
-      name: 'Achievements', 
-      path: currentUser?.role === 'dealer' ? '/dealer/achievements' : '/achievements', 
-      icon: 'Trophy' 
-    },
-    { 
       name: 'FAQ', 
       path: currentUser?.role === 'dealer' ? '/dealer/faq' : '/faq', 
       icon: 'HelpCircle' 

@@ -23,7 +23,6 @@ const GetPoints = lazy(() => import('./pages/dashboard/GetPoints'));
 const RedeemRewards = lazy(() => import('./pages/dashboard/RedeemRewards'));
 const TransactionHistory = lazy(() => import('./pages/dashboard/TransactionHistory'));
 const UserProfile = lazy(() => import('./pages/dashboard/UserProfile'));
-const Achievements = lazy(() => import('./pages/dashboard/Achievements'));
 const FAQ = lazy(() => import('./pages/dashboard/FAQ'));
 
 // Dealer Pages
@@ -163,11 +162,6 @@ function App() {
                       <UserProfile />
                     </Suspense>
                   } />
-                  <Route path="/achievements" element={
-                    <Suspense fallback={<LoadingFallback />}>
-                      <Achievements />
-                    </Suspense>
-                  } />
                   <Route path="/faq" element={
                     <Suspense fallback={<LoadingFallback />}>
                       <FAQ />
@@ -217,11 +211,6 @@ function App() {
                   <Route path="/dealer/analytics" element={
                     <Suspense fallback={<LoadingFallback />}>
                       <DealerAnalytics />
-                    </Suspense>
-                  } />
-                  <Route path="/dealer/achievements" element={
-                    <Suspense fallback={<LoadingFallback />}>
-                      <Achievements />
                     </Suspense>
                   } />
                   <Route path="/dealer/faq" element={

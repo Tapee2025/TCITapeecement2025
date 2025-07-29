@@ -85,8 +85,8 @@ export default function GetPoints() {
         
         setCurrentUser(profile);
 
-        // Only fetch dealers if user is a contractor
-        if (profile.role === 'contractor') {
+        // Only fetch dealers if user is a contractor or sub_dealer
+        if (profile.role === 'contractor' || profile.role === 'sub_dealer') {
           // Get all dealers in the user's district
           const { data: dealersData, error: dealersError } = await supabase
             .from('users')
@@ -171,7 +171,7 @@ export default function GetPoints() {
           </div>
           <h2 className="text-2xl font-bold mb-2">Not Available</h2>
           <p className="text-gray-600 mb-6">
-            As a dealer, you cannot request points. This feature is only available for contractors.
+            As a dealer, you cannot request points. This feature is only available for contractors and sub dealers.
           </p>
         </div>
       </div>
