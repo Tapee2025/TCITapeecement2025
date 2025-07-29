@@ -21,7 +21,14 @@ const customerSchema = z.object({
   role: z.enum(['contractor', 'sub_dealer'] as const),
   city: z.string().min(2, 'City is required'),
   address: z.string().min(5, 'Address is required'),
-  mobile_number: z.string().regex(/^[0-9]{10}$/, 'Mobile number must be 10 digits')
+  mobile_number: z.string().regex(/^[0-9]{10}$/, 'Mobile number must be 10 digits'),
+  gst_number: z.string().optional()
+}).refine(
+  (data) => !(data.role === 'sub_dealer' && !data.gst_number),
+  {
+    message: 'GST Number is required for Sub Dealers',
+    path: ['gst_number'],
+  }
 });
 
 type CustomerFormData = z.infer<typeof customerSchema>;
@@ -46,6 +53,7 @@ export default function ManageCustomers() {
   const { 
     register, 
     handleSubmit,
+    watch,
     reset,
     formState: { errors } 
   } = useForm<CustomerFormData>({
@@ -54,6 +62,8 @@ export default function ManageCustomers() {
       role: 'sub_dealer'
     }
   });
+  
+  const selectedRole = watch('role');
 
   useEffect(() => {
     if (!authLoading && currentUser) {
@@ -363,6 +373,9 @@ export default function ManageCustomers() {
                   Contact
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  GST Number
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
@@ -407,6 +420,9 @@ export default function ManageCustomers() {
                       <div>{customer.mobile_number}</div>
                       <div className="text-xs text-gray-400">{customer.city}</div>
                     </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {customer.gst_number || 'Not provided'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-2">
@@ -530,6 +546,19 @@ export default function ManageCustomers() {
                   </div>
                 </div>
 
+                {selectedRole === 'sub_dealer' && (
+                  <div>
+                    <label className="form-label">GST Number <span className="text-red-500">*</span></label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      {...register('gst_number')}
+                      placeholder="GST Number"
+                    />
+                    {errors.gst_number && <p className="form-error">{errors.gst_number.message}</p>}
+                  </div>
+                )}
+
                 <div>
                   <label className="form-label">Address</label>
                   <input
@@ -553,7 +582,7 @@ export default function ManageCustomers() {
                 </div>
 
                 <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-md">
-                  <strong>Note:</strong> Customer will be created in your district ({currentUser?.district}) and can login with the provided email and password. Sub dealers can also manage their own customers.
+                  <strong>Note:</strong> Customer will be created in your district ({currentUser?.district}) and can login with the provided email and password. Sub dealers can also manage their own customers. GST number is required for Sub Dealers.
                 </div>
                 
                 <div className="flex justify-end space-x-2 pt-4 border-t">
