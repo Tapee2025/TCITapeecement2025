@@ -24,21 +24,33 @@ export default function DealerAnalytics() {
       setLoading(true);
       
       // Get total customers (users who have made transactions through this dealer)
-      // This counts ONLY unique users who have transactions where this dealer is the dealer_id
+      // Get all customers in the same district
+      const { data: allCustomersInDistrict } = await supabase
+        .from('users')
+        .select('id, role')
+        .eq('district', currentUser.district)
+        .in('role', ['contractor', 'sub_dealer'])
+        .neq('id', currentUser.id);
+      
+      // Also get customers who have made transactions through this dealer
       const { data: customerData } = await supabase
         .from('transactions')
         .select('user_id')
         .eq('dealer_id', currentUser.id)
         .neq('user_id', currentUser.id); // Exclude dealer's own transactions
       
-      // Count unique customers using Set to ensure each customer is counted only once
-      const uniqueCustomerIds = new Set(customerData?.map(t => t.user_id) || []);
+      // Combine both sets of customers
+      const transactionCustomerIds = new Set(customerData?.map(t => t.user_id) || []);
+      const allCustomerIds = new Set([
+        ...(allCustomersInDistrict?.map(c => c.id) || []),
+        ...transactionCustomerIds
+      ]);
       
-      // Get customer details to categorize by role
+      // Get customer details for all customers
       const { data: customerDetails } = await supabase
         .from('users')
         .select('id, role')
-        .in('id', Array.from(uniqueCustomerIds));
+        .in('id', Array.from(allCustomerIds));
       
       const contractors = customerDetails?.filter(c => c.role === 'contractor').length || 0;
       const subDealers = customerDetails?.filter(c => c.role === 'sub_dealer').length || 0;
@@ -75,7 +87,7 @@ export default function DealerAnalytics() {
         .eq('type', 'earned');
       
       setDealerStats({
-        totalCustomers: uniqueCustomerIds.size,
+        totalCustomers: allCustomerIds.size,
         contractors,
         subDealers,
         activeCustomers: activeCustomerIds.size,

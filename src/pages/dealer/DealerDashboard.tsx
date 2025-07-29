@@ -126,7 +126,8 @@ export default function DealerDashboard() {
         .from('transactions')
         .select('user_id')
         .eq('dealer_id', user.id)
-        .eq('type', 'earned'); // Only customer transactions
+        .eq('type', 'earned')
+        .neq('user_id', user.id); // Exclude dealer's own transactions
 
       const uniqueCustomers = new Set(customerData?.map(t => t.user_id)).size;
 

@@ -70,26 +70,24 @@ export default function ManageCustomers() {
     try {
       setLoading(true);
 
-      // Get customers created by this dealer
+      // Get all customers in the same district as the dealer
       let query = supabase
         .from('users')
         .select('*')
+        .eq('district', currentUser.district)
         .in('role', ['contractor', 'sub_dealer'])
+        .neq('id', currentUser.id) // Exclude the dealer themselves
         .order('created_at', { ascending: false });
 
       const { data, error } = await query;
       if (error) throw error;
 
-      // Show all customers in the same district as the dealer
-      const dealerDistrict = currentUser?.district;
-      const filteredCustomers = data?.filter(customer => customer.district === dealerDistrict) || [];
-
-      setCustomers(filteredCustomers);
+      setCustomers(data || []);
 
       // Calculate stats
-      const totalCustomers = filteredCustomers.length;
-      const contractors = filteredCustomers.filter(c => c.role === 'contractor').length;
-      const subDealers = filteredCustomers.filter(c => c.role === 'sub_dealer').length;
+      const totalCustomers = data?.length || 0;
+      const contractors = data?.filter(c => c.role === 'contractor').length || 0;
+      const subDealers = data?.filter(c => c.role === 'sub_dealer').length || 0;
 
       // Get customers active this month (with transactions)
       const thisMonth = new Date();
@@ -100,7 +98,7 @@ export default function ManageCustomers() {
         .from('transactions')
         .select('user_id')
         .gte('created_at', thisMonth.toISOString())
-        .in('user_id', filteredCustomers.map(c => c.id));
+        .in('user_id', data?.map(c => c.id) || []);
 
       const uniqueActiveCustomers = new Set(activeCustomers?.map(t => t.user_id)).size;
 
