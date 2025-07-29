@@ -17,7 +17,6 @@ import {
   BarChart3,
   Megaphone,
   HelpCircle,
-  Trophy,
   MessageSquare
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
