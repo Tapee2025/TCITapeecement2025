@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Users, ShoppingBag, Award, ClipboardCheck, Calendar, TrendingUp, Package, Building2, BarChart3 } from 'lucide-react';
 import DashboardCard from '../../components/ui/DashboardCard';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
@@ -6,43 +6,20 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-toastify';
 import { calculateBagsFromTransaction } from '../../utils/helpers';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function AdminDashboard() {
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    totalUsers: 0,
-    pendingPointsApprovals: 0,
-    pendingRedemptions: 0,
-    totalRewards: 0,
-    totalPoints: 0,
-    totalRedemptions: 0,
-    totalDealers: 0,
-    totalContractors: 0,
-    dealerBagsSold: 0,
-    subDealerBagsSold: 0,
-    totalBagsSold: 0,
-    activeSlides: 0,
-    currentMonthDealerBags: 0,
-    currentMonthSubDealerBags: 0,
-    currentMonthTotalBags: 0,
-    currentMonthName: '',
-    quarterlyDealerBags: 0,
-    quarterlySubDealerBags: 0,
-    quarterlyTotalBags: 0,
-    halfYearlyDealerBags: 0,
-    halfYearlySubDealerBags: 0,
-    halfYearlyTotalBags: 0,
-    yearlyDealerBags: 0,
-    yearlySubDealerBags: 0,
-    yearlyTotalBags: 0,
-    pendingDispatch: 0
-  });
+  const { currentUser } = useAuth();
+  const [users, setUsers] = useState<any[]>([]);
+  const [transactions, setTransactions] = useState<any[]>([]);
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [performancePeriod, setPerformancePeriod] = useState('current_month');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [showCustomPeriod, setShowCustomPeriod] = useState(false);
-  
+
   useEffect(() => {
     fetchDashboardData();
   }, []);
@@ -52,269 +29,35 @@ export default function AdminDashboard() {
       setShowCustomPeriod(true);
     } else {
       setShowCustomPeriod(false);
-      if (performancePeriod !== 'current_month') {
-        fetchPerformanceData();
-      }
     }
   }, [performancePeriod]);
 
-  async function fetchDashboardData() {
+  const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      
-      // Initialize users variable to prevent undefined errors
-      let users: any[] = [];
-      
-      // Get all users except admins
-      const { data, error: usersError } = await supabase
+      setError(null);
+
+      // Fetch all users except admins
+      const { data: usersData, error: usersError } = await supabase
         .from('users')
         .select('*')
         .neq('role', 'admin')
         .order('role', { ascending: true });
 
       if (usersError) throw usersError;
-      
-      // Assign the data to users variable
-      users = data || [];
+      setUsers(usersData || []);
 
-      // Count users by role
-      const dealerCount = users?.filter(u => u.role === 'dealer').length || 0;
-      const contractorCount = users?.filter(u => u.role === 'contractor').length || 0;
-      const subDealerCount = users?.filter(u => u.role === 'sub_dealer').length || 0;
-      
-      console.log('Admin Dashboard - Users found:', {
-        total: users?.length || 0,
-        dealers: dealerCount,
-        subDealers: subDealerCount,
-        contractors: contractorCount
-      });
-
-      // Get pending points approvals (earned transactions with pending or dealer_approved status)
-      const { data: pendingPointsData, error: pointsApprovalsError } = await supabase
+      // Fetch all transactions
+      const { data: transactionsData, error: transactionsError } = await supabase
         .from('transactions')
-        .select('*', { count: 'exact' })
-        .eq('type', 'earned')
-        .in('status', ['pending', 'dealer_approved']);
+        .select('*')
+        .order('created_at', { ascending: false });
 
-      if (pointsApprovalsError) throw pointsApprovalsError;
+      if (transactionsError) throw transactionsError;
+      setTransactions(transactionsData || []);
 
-      // Get pending redemptions (redeemed transactions with pending status)
-      const { data: pendingRedemptionsData, error: redemptionsError } = await supabase
-        .from('transactions')
-        .select('*', { count: 'exact' })
-        .eq('type', 'redeemed')
-        .eq('status', 'pending');
-
-      if (redemptionsError) throw redemptionsError;
-
-      // Get total rewards
-      const { data: rewards, error: rewardsError } = await supabase
-        .from('rewards')
-        .select('*', { count: 'exact' })
-        .eq('available', true);
-
-      if (rewardsError) throw rewardsError;
-
-      // Calculate total points issued (from approved transactions)
-      const { data: approvedTransactions, error: pointsError } = await supabase
-        .from('transactions')
-        .select('amount, description')
-        .eq('status', 'approved')
-        .eq('type', 'earned');
-
-      if (pointsError) throw pointsError;
-
-      const totalPointsIssued = approvedTransactions?.reduce((sum, t) => sum + t.amount, 0) || 0;
-      
-      // Calculate total bags sold - ONLY from dealer transactions (dealers selling to customers)
-      // Bags sold = bags sold BY dealers (dealer's own transactions)
-      // Include both dealers and sub dealers in bag calculations
-      const { data: dealerAndSubDealerTransactions, error: dealerTransactionsError } = await supabase
-        .from('transactions')
-        .select('amount, description, user_id')
-        .eq('status', 'approved')
-        .eq('type', 'earned')
-        .in('user_id', users?.filter(u => u.role === 'dealer' || u.role === 'sub_dealer').map(u => u.id) || []);
-
-      if (dealerTransactionsError) throw dealerTransactionsError;
-
-      const totalBagsSold = dealerAndSubDealerTransactions?.reduce((sum, t) => 
-        sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
-
-      // Get total redemptions
-      const { data: redemptions, error: redemptionsCountError } = await supabase
-        .from('transactions')
-        .select('*', { count: 'exact' })
-        .eq('type', 'redeemed')
-        .in('status', ['approved', 'completed']);
-
-      if (redemptionsCountError) throw redemptionsCountError;
-
-      // Get pending dispatch count (redeemed rewards not yet completed)
-      const { data: pendingDispatchData, error: pendingDispatchError } = await supabase
-        .from('transactions')
-        .select('*', { count: 'exact' })
-        .eq('type', 'redeemed')
-        .in('status', ['pending', 'approved']);
-
-      if (pendingDispatchError) throw pendingDispatchError;
-
-      // Get active marketing slides
-      const { data: activeSlides, error: slidesError } = await supabase
-        .from('marketing_slides')
-        .select('*', { count: 'exact' })
-        .eq('active', true);
-
-      if (slidesError) throw slidesError;
-
-      // Get current month name
-      const currentMonthName = new Date().toLocaleDateString('en-US', { 
-        month: 'long', 
-        year: 'numeric' 
-      });
-
-      // Calculate performance metrics for different periods using dealer transactions only
-      const now = new Date();
-      const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
-      const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, 1);
-      const yearStart = new Date(now.getFullYear(), 0, 1);
-
-      // Get dealers and sub dealers separately
-      const dealerIds = users?.filter(u => u.role === 'dealer').map(u => u.id) || [];
-      const subDealerIds = users?.filter(u => u.role === 'sub_dealer').map(u => u.id) || [];
-      
-      console.log('Admin Dashboard - IDs found:', {
-        dealerIds: dealerIds.length,
-        subDealerIds: subDealerIds.length,
-        dealerIdsSample: dealerIds.slice(0, 3),
-        subDealerIdsSample: subDealerIds.slice(0, 3)
-      });
-
-      // Current month bags - ONLY dealer transactions
-      const { data: currentMonthDealerTransactions } = await supabase
-        .from('transactions')
-        .select('amount, description, user_id')
-        .eq('type', 'earned')
-        .eq('status', 'approved')
-        .in('user_id', dealerIds)
-        .gte('created_at', currentMonthStart.toISOString());
-
-      // Current month bags - ONLY sub dealer transactions
-      const { data: currentMonthSubDealerTransactions } = await supabase
-        .from('transactions')
-        .select('amount, description, user_id')
-        .eq('type', 'earned')
-        .eq('status', 'approved')
-        .in('user_id', subDealerIds)
-        .gte('created_at', currentMonthStart.toISOString());
-      
-      console.log('Admin Dashboard - Current month transactions:', {
-        dealerTransactions: currentMonthDealerTransactions?.length || 0,
-        subDealerTransactions: currentMonthSubDealerTransactions?.length || 0
-      });
-
-      const currentMonthDealerBags = currentMonthDealerTransactions?.reduce((sum, t) => 
-        sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
-      const currentMonthSubDealerBags = currentMonthSubDealerTransactions?.reduce((sum, t) => 
-        sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
-      const currentMonthTotalBags = currentMonthDealerBags + currentMonthSubDealerBags;
-      
-      console.log('Admin Dashboard - Current month bags calculated:', {
-        dealerBags: currentMonthDealerBags,
-        subDealerBags: currentMonthSubDealerBags,
-        totalBags: currentMonthTotalBags
-      });
-
-      // Last 3 months bags - dealer transactions
-      const { data: quarterlyDealerTransactions } = await supabase
-        .from('transactions')
-        .select('amount, description, user_id')
-        .eq('type', 'earned')
-        .eq('status', 'approved')
-        .in('user_id', dealerIds)
-        .gte('created_at', threeMonthsAgo.toISOString());
-
-      // Last 3 months bags - sub dealer transactions
-      const { data: quarterlySubDealerTransactions } = await supabase
-        .from('transactions')
-        .select('amount, description, user_id')
-        .eq('type', 'earned')
-        .eq('status', 'approved')
-        .in('user_id', subDealerIds)
-        .gte('created_at', threeMonthsAgo.toISOString());
-
-      const quarterlyDealerBags = quarterlyDealerTransactions?.reduce((sum, t) => 
-        sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
-      const quarterlySubDealerBags = quarterlySubDealerTransactions?.reduce((sum, t) => 
-        sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
-      const quarterlyTotalBags = quarterlyDealerBags + quarterlySubDealerBags;
-
-      // Last 6 months bags - dealer transactions
-      const { data: halfYearlyDealerTransactions } = await supabase
-        .from('transactions')
-        .select('amount, description, user_id')
-        .eq('type', 'earned')
-        .eq('status', 'approved')
-        .in('user_id', dealerIds)
-        .gte('created_at', sixMonthsAgo.toISOString());
-
-      // Last 6 months bags - sub dealer transactions
-      const { data: halfYearlySubDealerTransactions } = await supabase
-        .from('transactions')
-        .select('amount, description, user_id')
-        .eq('type', 'earned')
-        .eq('status', 'approved')
-        .in('user_id', subDealerIds)
-        .gte('created_at', sixMonthsAgo.toISOString());
-
-      const halfYearlyDealerBags = halfYearlyDealerTransactions?.reduce((sum, t) => 
-        sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
-      const halfYearlySubDealerBags = halfYearlySubDealerTransactions?.reduce((sum, t) => 
-        sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
-      const halfYearlyTotalBags = halfYearlyDealerBags + halfYearlySubDealerBags;
-
-      // This year bags - dealer transactions
-      const { data: yearlyDealerTransactions } = await supabase
-        .from('transactions')
-        .select('amount, description, user_id')
-        .eq('type', 'earned')
-        .eq('status', 'approved')
-        .in('user_id', dealerIds)
-        .gte('created_at', yearStart.toISOString());
-
-      // This year bags - sub dealer transactions
-      const { data: yearlySubDealerTransactions } = await supabase
-        .from('transactions')
-        .select('amount, description, user_id')
-        .eq('type', 'earned')
-        .eq('status', 'approved')
-        .in('user_id', subDealerIds)
-        .gte('created_at', yearStart.toISOString());
-
-      const yearlyDealerBags = yearlyDealerTransactions?.reduce((sum, t) => 
-        sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
-      const yearlySubDealerBags = yearlySubDealerTransactions?.reduce((sum, t) => 
-        sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
-      const yearlyTotalBags = yearlyDealerBags + yearlySubDealerBags;
-
-      // Lifetime bags - separate dealer and sub dealer
-      const lifetimeDealerBags = dealerAndSubDealerTransactions?.filter(t => 
-        dealerIds.includes(t.user_id)).reduce((sum, t) => 
-        sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
-      const lifetimeSubDealerBags = dealerAndSubDealerTransactions?.filter(t => 
-        subDealerIds.includes(t.user_id)).reduce((sum, t) => 
-        sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
-      const lifetimeTotalBags = lifetimeDealerBags + lifetimeSubDealerBags;
-      
-      console.log('Admin Dashboard - Lifetime bags calculated:', {
-        dealerBags: lifetimeDealerBags,
-        subDealerBags: lifetimeSubDealerBags,
-        totalBags: lifetimeTotalBags
-      });
-
-      // Get recent activity (all transactions)
-      const { data: recentTransactions, error: transactionsError } = await supabase
+      // Fetch recent activity with user details
+      const { data: recentTransactions, error: recentError } = await supabase
         .from('transactions')
         .select(`
           *,
@@ -333,121 +76,197 @@ export default function AdminDashboard() {
         .order('created_at', { ascending: false })
         .limit(5);
 
-      if (transactionsError) throw transactionsError;
-
-      setStats({
-        totalUsers: users?.length || 0,
-        pendingPointsApprovals: pendingPointsData?.length || 0,
-        pendingRedemptions: pendingRedemptionsData?.length || 0,
-        totalRewards: rewards?.length || 0,
-        totalPoints: totalPointsIssued,
-        totalRedemptions: redemptions?.length || 0,
-        totalDealers: dealerCount,
-        totalContractors: contractorCount,
-        totalSubDealers: subDealerCount,
-        totalBagsSold,
-        activeSlides: activeSlides?.length || 0,
-        currentMonthTotalBags,
-        currentMonthName,
-        quarterlyTotalBags,
-        halfYearlyTotalBags,
-        yearlyTotalBags,
-        currentMonthDealerBags,
-        currentMonthSubDealerBags,
-        quarterlyDealerBags,
-        quarterlySubDealerBags,
-        halfYearlyDealerBags,
-        halfYearlySubDealerBags,
-        yearlyDealerBags,
-        yearlySubDealerBags,
-        dealerBagsSold: lifetimeDealerBags,
-        subDealerBagsSold: lifetimeSubDealerBags,
-        pendingDispatch: pendingDispatchData?.length || 0
-      });
-
+      if (recentError) throw recentError;
       setRecentActivity(recentTransactions || []);
-    } catch (error) {
+
+    } catch (error: any) {
       console.error('Error fetching dashboard data:', error);
+      setError(error.message || 'Failed to load dashboard data');
       toast.error('Failed to load dashboard data');
     } finally {
       setLoading(false);
     }
-  }
+  };
 
-  async function fetchPerformanceData() {
-    try {
-      // This would be implemented to fetch aggregated performance data for all dealers
-      // For now, we'll use the existing data
-    } catch (error) {
-      console.error('Error fetching performance data:', error);
-    }
-  }
-
-  async function fetchCustomPeriodData() {
+  const fetchCustomPeriodData = async () => {
     if (!customStartDate || !customEndDate) {
       toast.error('Please select both start and end dates');
       return;
     }
 
     try {
-      // Get all dealers
-      const { data: users } = await supabase
-        .from('users')
-        .select('id')
-        .eq('role', 'dealer');
-
-      // Calculate custom period performance from dealer transactions only
-      const { data: customDealerTransactions, error } = await supabase
+      const { data: customData, error } = await supabase
         .from('transactions')
         .select('amount, description, user_id')
         .eq('type', 'earned')
         .eq('status', 'approved')
-        .in('user_id', users?.map(u => u.id) || [])
-        .gte('created_at', customStartDate)
+        .gte('created_at', customStartDate + 'T00:00:00')
         .lte('created_at', customEndDate + 'T23:59:59');
 
       if (error) throw error;
-
-      const customPeriodBags = customDealerTransactions?.reduce((sum, t) => 
-        sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
-
-      setStats(prev => ({
-        ...prev,
-        currentMonthTotalBags: customPeriodBags,
-        currentMonthName: `Custom Period (${customStartDate} to ${customEndDate})`
-      }));
-
       toast.success('Custom period data loaded');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching custom period data:', error);
       toast.error('Failed to load custom period data');
     }
-  }
+  };
+
+  // Calculate stats
+  const totalUsers = users.length;
+  const dealerCount = users.filter(u => u.role === 'dealer').length;
+  const subDealerCount = users.filter(u => u.role === 'sub_dealer').length;
+  const contractorCount = users.filter(u => u.role === 'contractor').length;
+
+  const pendingPointsApprovals = transactions.filter(t => 
+    t.type === 'earned' && (t.status === 'pending' || t.status === 'dealer_approved')
+  ).length;
+
+  const pendingRedemptions = transactions.filter(t => 
+    t.type === 'redeemed' && t.status === 'pending'
+  ).length;
+
+  const pendingDispatch = transactions.filter(t => 
+    t.type === 'redeemed' && (t.status === 'pending' || t.status === 'approved')
+  ).length;
+
+  const totalPointsIssued = transactions
+    .filter(t => t.type === 'earned' && t.status === 'approved')
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  const totalRedemptions = transactions.filter(t => 
+    t.type === 'redeemed' && (t.status === 'approved' || t.status === 'completed')
+  ).length;
+
+  // Calculate bags sold by category
+  const dealerIds = users.filter(u => u.role === 'dealer').map(u => u.id);
+  const subDealerIds = users.filter(u => u.role === 'sub_dealer').map(u => u.id);
+
+  const dealerTransactions = transactions.filter(t => 
+    t.type === 'earned' && t.status === 'approved' && dealerIds.includes(t.user_id)
+  );
+  const subDealerTransactions = transactions.filter(t => 
+    t.type === 'earned' && t.status === 'approved' && subDealerIds.includes(t.user_id)
+  );
+
+  const dealerBagsSold = dealerTransactions.reduce((sum, t) => 
+    sum + calculateBagsFromTransaction(t.description, t.amount), 0
+  );
+  const subDealerBagsSold = subDealerTransactions.reduce((sum, t) => 
+    sum + calculateBagsFromTransaction(t.description, t.amount), 0
+  );
+  const totalBagsSold = dealerBagsSold + subDealerBagsSold;
+
+  // Calculate period-specific data
+  const now = new Date();
+  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+  const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+  const yearStart = new Date(now.getFullYear(), 0, 1);
+
+  const getCurrentMonthData = () => {
+    const currentMonthTransactions = transactions.filter(t => 
+      t.type === 'earned' && t.status === 'approved' && 
+      new Date(t.created_at) >= currentMonthStart
+    );
+    const dealerCurrentMonth = currentMonthTransactions
+      .filter(t => dealerIds.includes(t.user_id))
+      .reduce((sum, t) => sum + calculateBagsFromTransaction(t.description, t.amount), 0);
+    const subDealerCurrentMonth = currentMonthTransactions
+      .filter(t => subDealerIds.includes(t.user_id))
+      .reduce((sum, t) => sum + calculateBagsFromTransaction(t.description, t.amount), 0);
+    
+    return {
+      dealer: dealerCurrentMonth,
+      subDealer: subDealerCurrentMonth,
+      total: dealerCurrentMonth + subDealerCurrentMonth
+    };
+  };
+
+  const getQuarterlyData = () => {
+    const quarterlyTransactions = transactions.filter(t => 
+      t.type === 'earned' && t.status === 'approved' && 
+      new Date(t.created_at) >= threeMonthsAgo
+    );
+    const dealerQuarterly = quarterlyTransactions
+      .filter(t => dealerIds.includes(t.user_id))
+      .reduce((sum, t) => sum + calculateBagsFromTransaction(t.description, t.amount), 0);
+    const subDealerQuarterly = quarterlyTransactions
+      .filter(t => subDealerIds.includes(t.user_id))
+      .reduce((sum, t) => sum + calculateBagsFromTransaction(t.description, t.amount), 0);
+    
+    return {
+      dealer: dealerQuarterly,
+      subDealer: subDealerQuarterly,
+      total: dealerQuarterly + subDealerQuarterly
+    };
+  };
+
+  const getHalfYearlyData = () => {
+    const halfYearlyTransactions = transactions.filter(t => 
+      t.type === 'earned' && t.status === 'approved' && 
+      new Date(t.created_at) >= sixMonthsAgo
+    );
+    const dealerHalfYearly = halfYearlyTransactions
+      .filter(t => dealerIds.includes(t.user_id))
+      .reduce((sum, t) => sum + calculateBagsFromTransaction(t.description, t.amount), 0);
+    const subDealerHalfYearly = halfYearlyTransactions
+      .filter(t => subDealerIds.includes(t.user_id))
+      .reduce((sum, t) => sum + calculateBagsFromTransaction(t.description, t.amount), 0);
+    
+    return {
+      dealer: dealerHalfYearly,
+      subDealer: subDealerHalfYearly,
+      total: dealerHalfYearly + subDealerHalfYearly
+    };
+  };
+
+  const getYearlyData = () => {
+    const yearlyTransactions = transactions.filter(t => 
+      t.type === 'earned' && t.status === 'approved' && 
+      new Date(t.created_at) >= yearStart
+    );
+    const dealerYearly = yearlyTransactions
+      .filter(t => dealerIds.includes(t.user_id))
+      .reduce((sum, t) => sum + calculateBagsFromTransaction(t.description, t.amount), 0);
+    const subDealerYearly = yearlyTransactions
+      .filter(t => subDealerIds.includes(t.user_id))
+      .reduce((sum, t) => sum + calculateBagsFromTransaction(t.description, t.amount), 0);
+    
+    return {
+      dealer: dealerYearly,
+      subDealer: subDealerYearly,
+      total: dealerYearly + subDealerYearly
+    };
+  };
+
+  const currentMonthData = getCurrentMonthData();
+  const quarterlyData = getQuarterlyData();
+  const halfYearlyData = getHalfYearlyData();
+  const yearlyData = getYearlyData();
+  const lifetimeData = { dealer: dealerBagsSold, subDealer: subDealerBagsSold, total: totalBagsSold };
 
   const getPerformanceValue = () => {
     switch (performancePeriod) {
-      case 'current_month': return stats.currentMonthTotalBags;
-      case 'quarterly': return stats.quarterlyTotalBags;
-      case 'half_yearly': return stats.halfYearlyTotalBags;
-      case 'yearly': return stats.yearlyTotalBags;
-      case 'lifetime': return stats.totalBagsSold;
-      case 'custom': return stats.currentMonthTotalBags;
-      default: return stats.currentMonthTotalBags;
+      case 'current_month': return currentMonthData;
+      case 'quarterly': return quarterlyData;
+      case 'half_yearly': return halfYearlyData;
+      case 'yearly': return yearlyData;
+      case 'lifetime': return lifetimeData;
+      default: return currentMonthData;
     }
   };
 
   const getPerformanceLabel = () => {
     switch (performancePeriod) {
-      case 'current_month': return stats.currentMonthName;
+      case 'current_month': return new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
       case 'quarterly': return 'Last 3 Months';
       case 'half_yearly': return 'Last 6 Months';
       case 'yearly': return new Date().getFullYear().toString();
       case 'lifetime': return 'All Time';
-      case 'custom': return stats.currentMonthName;
-      default: return stats.currentMonthName;
+      default: return new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
     }
   };
-  
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -455,7 +274,23 @@ export default function AdminDashboard() {
       </div>
     );
   }
-  
+
+  if (error) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-red-500 mb-4">Error: {error}</p>
+        <button 
+          onClick={fetchDashboardData}
+          className="btn btn-primary"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  const performanceData = getPerformanceValue();
+
   return (
     <div className="space-y-6">
       <div>
@@ -463,31 +298,31 @@ export default function AdminDashboard() {
         <p className="text-gray-600">Welcome to the Tapee Cement Loyalty Program admin panel</p>
       </div>
       
-      {/* Stats Cards - Updated to separate points and redemptions */}
+      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <DashboardCard
           title="Total Users"
-          value={stats.totalUsers}
+          value={totalUsers}
           icon={Users}
           bgColor="bg-primary-500"
         />
         <DashboardCard
           title="Pending Points"
-          value={stats.pendingPointsApprovals}
+          value={pendingPointsApprovals}
           icon={ClipboardCheck}
           bgColor="bg-warning-500"
           description="Points awaiting approval"
         />
         <DashboardCard
           title="Pending Redemptions"
-          value={stats.pendingRedemptions}
+          value={pendingRedemptions}
           icon={Award}
           bgColor="bg-accent-500"
           description="Rewards awaiting approval"
         />
         <DashboardCard
           title="Pending Dispatch"
-          value={stats.pendingDispatch}
+          value={pendingDispatch}
           icon={Package}
           bgColor="bg-error-500"
           description="Items to be dispatched"
@@ -547,7 +382,7 @@ export default function AdminDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-green-600 font-medium">Total Bags Sold</p>
-                <p className="text-2xl font-bold text-green-700">{getPerformanceValue()}</p>
+                <p className="text-2xl font-bold text-green-700">{performanceData.total}</p>
                 <p className="text-xs text-green-600">{getPerformanceLabel()}</p>
               </div>
               <Package className="text-green-600" size={24} />
@@ -558,13 +393,7 @@ export default function AdminDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-blue-600 font-medium">Dealer Bags</p>
-                <p className="text-2xl font-bold text-blue-700">
-                  {performancePeriod === 'current_month' ? stats.currentMonthDealerBags :
-                   performancePeriod === 'quarterly' ? stats.quarterlyDealerBags :
-                   performancePeriod === 'half_yearly' ? stats.halfYearlyDealerBags :
-                   performancePeriod === 'yearly' ? stats.yearlyDealerBags :
-                   stats.dealerBagsSold}
-                </p>
+                <p className="text-2xl font-bold text-blue-700">{performanceData.dealer}</p>
                 <p className="text-xs text-blue-600">{getPerformanceLabel()}</p>
               </div>
               <Building2 className="text-blue-600" size={24} />
@@ -575,13 +404,7 @@ export default function AdminDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-purple-600 font-medium">Sub Dealer Bags</p>
-                <p className="text-2xl font-bold text-purple-700">
-                  {performancePeriod === 'current_month' ? stats.currentMonthSubDealerBags :
-                   performancePeriod === 'quarterly' ? stats.quarterlySubDealerBags :
-                   performancePeriod === 'half_yearly' ? stats.halfYearlySubDealerBags :
-                   performancePeriod === 'yearly' ? stats.yearlySubDealerBags :
-                   stats.subDealerBagsSold}
-                </p>
+                <p className="text-2xl font-bold text-purple-700">{performanceData.subDealer}</p>
                 <p className="text-xs text-purple-600">{getPerformanceLabel()}</p>
               </div>
               <Users className="text-purple-600" size={24} />
@@ -592,7 +415,7 @@ export default function AdminDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-blue-600 font-medium">Total Points Issued</p>
-                <p className="text-2xl font-bold text-blue-700">{stats.totalPoints}</p>
+                <p className="text-2xl font-bold text-blue-700">{totalPointsIssued}</p>
                 <p className="text-xs text-blue-600">All Time</p>
               </div>
               <TrendingUp className="text-blue-600" size={24} />
@@ -603,7 +426,7 @@ export default function AdminDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-orange-600 font-medium">Active Dealers</p>
-                <p className="text-2xl font-bold text-orange-700">{stats.totalDealers}</p>
+                <p className="text-2xl font-bold text-orange-700">{dealerCount}</p>
                 <p className="text-xs text-orange-600">Registered</p>
               </div>
               <Building2 className="text-orange-600" size={24} />
@@ -620,23 +443,23 @@ export default function AdminDashboard() {
             <h5 className="text-sm font-medium text-gray-700 mb-2">Total Sales (Dealers + Sub Dealers)</h5>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
               <div className="text-center p-2 bg-green-50 rounded-lg border border-green-200">
-                <p className="text-lg font-bold text-green-700">{stats.currentMonthTotalBags}</p>
-                <p className="text-xs text-green-600">{stats.currentMonthName.split(' ')[0]}</p>
+                <p className="text-lg font-bold text-green-700">{currentMonthData.total}</p>
+                <p className="text-xs text-green-600">This Month</p>
               </div>
               <div className="text-center p-2 bg-green-50 rounded-lg border border-green-200">
-                <p className="text-lg font-bold text-green-700">{stats.quarterlyTotalBags}</p>
+                <p className="text-lg font-bold text-green-700">{quarterlyData.total}</p>
                 <p className="text-xs text-green-600">Last 3 Months</p>
               </div>
               <div className="text-center p-2 bg-green-50 rounded-lg border border-green-200">
-                <p className="text-lg font-bold text-green-700">{stats.halfYearlyTotalBags}</p>
+                <p className="text-lg font-bold text-green-700">{halfYearlyData.total}</p>
                 <p className="text-xs text-green-600">Last 6 Months</p>
               </div>
               <div className="text-center p-2 bg-green-50 rounded-lg border border-green-200">
-                <p className="text-lg font-bold text-green-700">{stats.yearlyTotalBags}</p>
+                <p className="text-lg font-bold text-green-700">{yearlyData.total}</p>
                 <p className="text-xs text-green-600">This Year</p>
               </div>
               <div className="text-center p-2 bg-green-50 rounded-lg border border-green-200">
-                <p className="text-lg font-bold text-green-700">{stats.totalBagsSold}</p>
+                <p className="text-lg font-bold text-green-700">{lifetimeData.total}</p>
                 <p className="text-xs text-green-600">All Time</p>
               </div>
             </div>
@@ -647,23 +470,23 @@ export default function AdminDashboard() {
             <h5 className="text-sm font-medium text-gray-700 mb-2">Dealer Sales Only</h5>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
               <div className="text-center p-2 bg-blue-50 rounded-lg border border-blue-200">
-                <p className="text-lg font-bold text-blue-700">{stats.currentMonthDealerBags}</p>
-                <p className="text-xs text-blue-600">{stats.currentMonthName.split(' ')[0]}</p>
+                <p className="text-lg font-bold text-blue-700">{currentMonthData.dealer}</p>
+                <p className="text-xs text-blue-600">This Month</p>
               </div>
               <div className="text-center p-2 bg-blue-50 rounded-lg border border-blue-200">
-                <p className="text-lg font-bold text-blue-700">{stats.quarterlyDealerBags}</p>
+                <p className="text-lg font-bold text-blue-700">{quarterlyData.dealer}</p>
                 <p className="text-xs text-blue-600">Last 3 Months</p>
               </div>
               <div className="text-center p-2 bg-blue-50 rounded-lg border border-blue-200">
-                <p className="text-lg font-bold text-blue-700">{stats.halfYearlyDealerBags}</p>
+                <p className="text-lg font-bold text-blue-700">{halfYearlyData.dealer}</p>
                 <p className="text-xs text-blue-600">Last 6 Months</p>
               </div>
               <div className="text-center p-2 bg-blue-50 rounded-lg border border-blue-200">
-                <p className="text-lg font-bold text-blue-700">{stats.yearlyDealerBags}</p>
+                <p className="text-lg font-bold text-blue-700">{yearlyData.dealer}</p>
                 <p className="text-xs text-blue-600">This Year</p>
               </div>
               <div className="text-center p-2 bg-blue-50 rounded-lg border border-blue-200">
-                <p className="text-lg font-bold text-blue-700">{stats.dealerBagsSold}</p>
+                <p className="text-lg font-bold text-blue-700">{lifetimeData.dealer}</p>
                 <p className="text-xs text-blue-600">All Time</p>
               </div>
             </div>
@@ -674,23 +497,23 @@ export default function AdminDashboard() {
             <h5 className="text-sm font-medium text-gray-700 mb-2">Sub Dealer Sales Only</h5>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
               <div className="text-center p-2 bg-purple-50 rounded-lg border border-purple-200">
-                <p className="text-lg font-bold text-purple-700">{stats.currentMonthSubDealerBags}</p>
-                <p className="text-xs text-purple-600">{stats.currentMonthName.split(' ')[0]}</p>
+                <p className="text-lg font-bold text-purple-700">{currentMonthData.subDealer}</p>
+                <p className="text-xs text-purple-600">This Month</p>
               </div>
               <div className="text-center p-2 bg-purple-50 rounded-lg border border-purple-200">
-                <p className="text-lg font-bold text-purple-700">{stats.quarterlySubDealerBags}</p>
+                <p className="text-lg font-bold text-purple-700">{quarterlyData.subDealer}</p>
                 <p className="text-xs text-purple-600">Last 3 Months</p>
               </div>
               <div className="text-center p-2 bg-purple-50 rounded-lg border border-purple-200">
-                <p className="text-lg font-bold text-purple-700">{stats.halfYearlySubDealerBags}</p>
+                <p className="text-lg font-bold text-purple-700">{halfYearlyData.subDealer}</p>
                 <p className="text-xs text-purple-600">Last 6 Months</p>
               </div>
               <div className="text-center p-2 bg-purple-50 rounded-lg border border-purple-200">
-                <p className="text-lg font-bold text-purple-700">{stats.yearlySubDealerBags}</p>
+                <p className="text-lg font-bold text-purple-700">{yearlyData.subDealer}</p>
                 <p className="text-xs text-purple-600">This Year</p>
               </div>
               <div className="text-center p-2 bg-purple-50 rounded-lg border border-purple-200">
-                <p className="text-lg font-bold text-purple-700">{stats.subDealerBagsSold}</p>
+                <p className="text-lg font-bold text-purple-700">{lifetimeData.subDealer}</p>
                 <p className="text-xs text-purple-600">All Time</p>
               </div>
             </div>
@@ -706,7 +529,7 @@ export default function AdminDashboard() {
               <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200">
                 <div className="text-center">
                   <Building2 className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-                  <p className="text-2xl font-bold text-blue-700">{stats.totalDealers}</p>
+                  <p className="text-2xl font-bold text-blue-700">{dealerCount}</p>
                   <p className="text-sm text-blue-600">Active Dealers</p>
                   <p className="text-xs text-blue-500">Direct distributors</p>
                 </div>
@@ -715,7 +538,7 @@ export default function AdminDashboard() {
               <div className="bg-gradient-to-r from-purple-50 to-purple-100 p-4 rounded-lg border border-purple-200">
                 <div className="text-center">
                   <Users className="w-8 h-8 text-purple-600 mx-auto mb-2" />
-                  <p className="text-2xl font-bold text-purple-700">{users?.filter(u => u.role === 'sub_dealer').length || 0}</p>
+                  <p className="text-2xl font-bold text-purple-700">{subDealerCount}</p>
                   <p className="text-sm text-purple-600">Sub Dealers</p>
                   <p className="text-xs text-purple-500">Network partners</p>
                 </div>
@@ -725,11 +548,11 @@ export default function AdminDashboard() {
                 <div className="text-center">
                   <Package className="w-8 h-8 text-green-600 mx-auto mb-2" />
                   <p className="text-2xl font-bold text-green-700">
-                    {stats.totalBagsSold > 0 ? (((stats.dealerBagsSold || 0) / stats.totalBagsSold) * 100).toFixed(1) : 0}%
+                    {totalBagsSold > 0 ? ((dealerBagsSold / totalBagsSold) * 100).toFixed(1) : 0}%
                   </p>
                   <p className="text-sm text-green-600">Dealer Share</p>
                   <p className="text-xs text-green-500">
-                    vs {stats.totalBagsSold > 0 ? (((stats.subDealerBagsSold || 0) / stats.totalBagsSold) * 100).toFixed(1) : 0}% Sub Dealer
+                    vs {totalBagsSold > 0 ? ((subDealerBagsSold / totalBagsSold) * 100).toFixed(1) : 0}% Sub Dealer
                   </p>
                 </div>
               </div>
@@ -738,7 +561,7 @@ export default function AdminDashboard() {
         </div>
       </div>
       
-      {/* Quick Links - Updated with separate sections */}
+      {/* Quick Links */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Link
           to="/admin/approvals"
@@ -750,7 +573,7 @@ export default function AdminDashboard() {
           <div>
             <h3 className="font-semibold text-lg">Points Approvals</h3>
             <p className="text-gray-600 text-sm">
-              {stats.pendingPointsApprovals} points requests pending
+              {pendingPointsApprovals} points requests pending
             </p>
           </div>
         </Link>
@@ -765,7 +588,7 @@ export default function AdminDashboard() {
           <div>
             <h3 className="font-semibold text-lg">To Order</h3>
             <p className="text-gray-600 text-sm">
-              {stats.pendingDispatch} rewards pending dispatch
+              {pendingDispatch} rewards pending dispatch
             </p>
           </div>
         </Link>
@@ -809,24 +632,36 @@ export default function AdminDashboard() {
             <div>
               <div className="flex justify-between mb-1">
                 <span className="text-sm text-gray-700">Dealers/Distributors</span>
-                <span className="text-sm text-gray-700">{stats.totalDealers}</span>
+                <span className="text-sm text-gray-700">{dealerCount}</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div
                   className="bg-primary-600 h-2 rounded-full"
-                  style={{ width: `${stats.totalUsers > 0 ? (stats.totalDealers / stats.totalUsers) * 100 : 0}%` }}
+                  style={{ width: `${totalUsers > 0 ? (dealerCount / totalUsers) * 100 : 0}%` }}
+                ></div>
+              </div>
+            </div>
+            <div>
+              <div className="flex justify-between mb-1">
+                <span className="text-sm text-gray-700">Sub Dealers</span>
+                <span className="text-sm text-gray-700">{subDealerCount}</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div
+                  className="bg-purple-600 h-2 rounded-full"
+                  style={{ width: `${totalUsers > 0 ? (subDealerCount / totalUsers) * 100 : 0}%` }}
                 ></div>
               </div>
             </div>
             <div>
               <div className="flex justify-between mb-1">
                 <span className="text-sm text-gray-700">Contractors/Masons</span>
-                <span className="text-sm text-gray-700">{stats.totalContractors}</span>
+                <span className="text-sm text-gray-700">{contractorCount}</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div
                   className="bg-accent-600 h-2 rounded-full"
-                  style={{ width: `${stats.totalUsers > 0 ? (stats.totalContractors / stats.totalUsers) * 100 : 0}%` }}
+                  style={{ width: `${totalUsers > 0 ? (contractorCount / totalUsers) * 100 : 0}%` }}
                 ></div>
               </div>
             </div>
