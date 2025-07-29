@@ -65,7 +65,7 @@ export default function DealerAnalytics() {
         .in('id', Array.from(allCustomerIds));
       
       const contractors = customerDetails?.filter(c => c.role === 'contractor').length || 0;
-      const subDealers = customerDetails?.filter(c => c.role === 'sub_dealer').length || 0;
+      const subDealersCount = customerDetails?.filter(c => c.role === 'sub_dealer').length || 0;
       
       // Get active customers (made transactions in the last 30 days)
       const thirtyDaysAgo = new Date();
