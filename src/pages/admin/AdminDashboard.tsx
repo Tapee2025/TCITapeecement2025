@@ -341,12 +341,21 @@ export default function AdminDashboard() {
         totalSubDealers: subDealerCount,
         totalBagsSold,
         activeSlides: activeSlides?.length || 0,
-        currentMonthBags,
+        currentMonthTotalBags,
         currentMonthName,
-        quarterlyBagsSold,
-        halfYearlyBagsSold,
-        yearlyBagsSold,
-        lifetimeBagsSold: totalBagsSold,
+        quarterlyTotalBags,
+        halfYearlyTotalBags,
+        yearlyTotalBags,
+        currentMonthDealerBags,
+        currentMonthSubDealerBags,
+        quarterlyDealerBags,
+        quarterlySubDealerBags,
+        halfYearlyDealerBags,
+        halfYearlySubDealerBags,
+        yearlyDealerBags,
+        yearlySubDealerBags,
+        dealerBagsSold: lifetimeDealerBags,
+        subDealerBagsSold: lifetimeSubDealerBags,
         pendingDispatch: pendingDispatchData?.length || 0
       });
 
@@ -398,7 +407,7 @@ export default function AdminDashboard() {
 
       setStats(prev => ({
         ...prev,
-        currentMonthBags: customPeriodBags,
+        currentMonthTotalBags: customPeriodBags,
         currentMonthName: `Custom Period (${customStartDate} to ${customEndDate})`
       }));
 
@@ -411,13 +420,13 @@ export default function AdminDashboard() {
 
   const getPerformanceValue = () => {
     switch (performancePeriod) {
-      case 'current_month': return stats.currentMonthBags;
-      case 'quarterly': return stats.quarterlyBagsSold;
-      case 'half_yearly': return stats.halfYearlyBagsSold;
-      case 'yearly': return stats.yearlyBagsSold;
-      case 'lifetime': return stats.lifetimeBagsSold;
-      case 'custom': return stats.currentMonthBags;
-      default: return stats.currentMonthBags;
+      case 'current_month': return stats.currentMonthTotalBags;
+      case 'quarterly': return stats.quarterlyTotalBags;
+      case 'half_yearly': return stats.halfYearlyTotalBags;
+      case 'yearly': return stats.yearlyTotalBags;
+      case 'lifetime': return stats.totalBagsSold;
+      case 'custom': return stats.currentMonthTotalBags;
+      default: return stats.currentMonthTotalBags;
     }
   };
 
@@ -710,11 +719,11 @@ export default function AdminDashboard() {
                 <div className="text-center">
                   <Package className="w-8 h-8 text-green-600 mx-auto mb-2" />
                   <p className="text-2xl font-bold text-green-700">
-                    {stats.totalBagsSold > 0 ? ((stats.dealerBagsSold / stats.totalBagsSold) * 100).toFixed(1) : 0}%
+                    {stats.totalBagsSold > 0 ? (((stats.dealerBagsSold || 0) / stats.totalBagsSold) * 100).toFixed(1) : 0}%
                   </p>
                   <p className="text-sm text-green-600">Dealer Share</p>
                   <p className="text-xs text-green-500">
-                    vs {stats.totalBagsSold > 0 ? ((stats.subDealerBagsSold / stats.totalBagsSold) * 100).toFixed(1) : 0}% Sub Dealer
+                    vs {stats.totalBagsSold > 0 ? (((stats.subDealerBagsSold || 0) / stats.totalBagsSold) * 100).toFixed(1) : 0}% Sub Dealer
                   </p>
                 </div>
               </div>
@@ -799,7 +808,7 @@ export default function AdminDashboard() {
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div
                   className="bg-primary-600 h-2 rounded-full"
-                  style={{ width: `${(stats.totalDealers / stats.totalUsers) * 100}%` }}
+                  style={{ width: `${stats.totalUsers > 0 ? (stats.totalDealers / stats.totalUsers) * 100 : 0}%` }}
                 ></div>
               </div>
             </div>
@@ -811,7 +820,7 @@ export default function AdminDashboard() {
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div
                   className="bg-accent-600 h-2 rounded-full"
-                  style={{ width: `${(stats.totalContractors / stats.totalUsers) * 100}%` }}
+                  style={{ width: `${stats.totalUsers > 0 ? (stats.totalContractors / stats.totalUsers) * 100 : 0}%` }}
                 ></div>
               </div>
             </div>
