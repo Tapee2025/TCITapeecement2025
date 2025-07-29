@@ -4,6 +4,7 @@ import AnalyticsDashboard from '../../components/analytics/AnalyticsDashboard';
 import { supabase } from '../../lib/supabase';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { Users, ShoppingBag, TrendingUp, Calendar } from 'lucide-react';
+import { calculateBagsFromTransaction } from '../../utils/helpers';
 
 export default function DealerAnalytics() {
   const { currentUser } = useAuth();
