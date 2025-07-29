@@ -133,12 +133,15 @@
   
   @media (min-width: 768px) {
     .notification-panel {
-      min-width: 384px;
-      max-width: 420px;
-      right: 0 !important;
+      min-width: 384px !important;
+      max-width: 384px !important;
+      width: 384px !important;
+      position: fixed !important;
+      right: 1rem !important;
+      top: 4rem !important;
       left: auto !important;
-      transform: translateX(0) !important;
-      position: absolute !important;
+      transform: none !important;
+      inset: auto !important;
     }
   }
   
