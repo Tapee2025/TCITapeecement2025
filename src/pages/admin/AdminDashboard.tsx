@@ -700,7 +700,7 @@ export default function AdminDashboard() {
               <div className="bg-gradient-to-r from-purple-50 to-purple-100 p-4 rounded-lg border border-purple-200">
                 <div className="text-center">
                   <Users className="w-8 h-8 text-purple-600 mx-auto mb-2" />
-                  <p className="text-2xl font-bold text-purple-700">{stats.totalSubDealers}</p>
+                  <p className="text-2xl font-bold text-purple-700">{users?.filter(u => u.role === 'sub_dealer').length || 0}</p>
                   <p className="text-sm text-purple-600">Sub Dealers</p>
                   <p className="text-xs text-purple-500">Network partners</p>
                 </div>
@@ -709,9 +709,13 @@ export default function AdminDashboard() {
               <div className="bg-gradient-to-r from-green-50 to-green-100 p-4 rounded-lg border border-green-200">
                 <div className="text-center">
                   <Package className="w-8 h-8 text-green-600 mx-auto mb-2" />
-                  <p className="text-2xl font-bold text-green-700">{((stats.dealerBagsSold / stats.totalBagsSold) * 100).toFixed(1)}%</p>
+                  <p className="text-2xl font-bold text-green-700">
+                    {stats.totalBagsSold > 0 ? ((stats.dealerBagsSold / stats.totalBagsSold) * 100).toFixed(1) : 0}%
+                  </p>
                   <p className="text-sm text-green-600">Dealer Share</p>
-                  <p className="text-xs text-green-500">vs {((stats.subDealerBagsSold / stats.totalBagsSold) * 100).toFixed(1)}% Sub Dealer</p>
+                  <p className="text-xs text-green-500">
+                    vs {stats.totalBagsSold > 0 ? ((stats.subDealerBagsSold / stats.totalBagsSold) * 100).toFixed(1) : 0}% Sub Dealer
+                  </p>
                 </div>
               </div>
             </div>

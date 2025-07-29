@@ -211,7 +211,7 @@ export default function AnalyticsDashboard({ userRole = 'admin', dealerId }: Ana
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500">
-                {userRole === 'dealer' ? 'My Customers' : 'Total Users'}
+                {userRole === 'dealer' ? 'My Customers' : 'Total Users (All Roles)'}
               </p>
               <p className="text-2xl font-bold text-gray-900">{analyticsData.total_users}</p>
               <p className="text-sm text-green-600">
@@ -225,7 +225,9 @@ export default function AnalyticsDashboard({ userRole = 'admin', dealerId }: Ana
         <div className="bg-white p-6 rounded-lg shadow-sm border">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Active Users</p>
+              <p className="text-sm text-gray-500">
+                {userRole === 'dealer' ? 'Active Customers' : 'Active Users (All Roles)'}
+              </p>
               <p className="text-2xl font-bold text-gray-900">{analyticsData.active_users}</p>
               <p className="text-sm text-blue-600">
                 {analyticsData.user_engagement_rate}% engagement
@@ -238,7 +240,9 @@ export default function AnalyticsDashboard({ userRole = 'admin', dealerId }: Ana
         <div className="bg-white p-6 rounded-lg shadow-sm border">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Bags Sold</p>
+              <p className="text-sm text-gray-500">
+                {userRole === 'dealer' ? 'My Bags Sold' : 'Total Bags Sold (Dealers + Sub Dealers)'}
+              </p>
               <p className="text-2xl font-bold text-gray-900">{analyticsData.total_bags_sold}</p>
               <p className="text-sm text-green-600">
                 {analyticsData.total_points_issued} points issued
@@ -251,7 +255,9 @@ export default function AnalyticsDashboard({ userRole = 'admin', dealerId }: Ana
         <div className="bg-white p-6 rounded-lg shadow-sm border">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Rewards Redeemed</p>
+              <p className="text-sm text-gray-500">
+                {userRole === 'dealer' ? 'My Rewards Redeemed' : 'Total Rewards Redeemed'}
+              </p>
               <p className="text-2xl font-bold text-gray-900">{analyticsData.total_rewards_redeemed}</p>
               <p className="text-sm text-purple-600">
                 {analyticsData.total_transactions} transactions
