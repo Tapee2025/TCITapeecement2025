@@ -582,7 +582,7 @@ export default function ManageCustomers() {
                 </div>
 
                 <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-md">
-                  <strong>Note:</strong> Customer will be created in your district ({currentUser?.district}) and can login with the provided email and password. Sub dealers can also manage their own customers. GST number is required for Sub Dealers.
+                  <strong>Note:</strong> Customer will be created in your district ({currentUser?.district}) and can login with the provided email and password. Sub dealers can also manage their own customers.
                 </div>
                 
                 <div className="flex justify-end space-x-2 pt-4 border-t">
