@@ -45,6 +45,7 @@ const AdminMarketing = lazy(() => import('./pages/admin/AdminMarketing'));
 const AdminAnalytics = lazy(() => import('./pages/admin/AdminAnalytics'));
 const AdminAnnouncements = lazy(() => import('./pages/admin/AdminAnnouncements'));
 const AdminFAQ = lazy(() => import('./pages/admin/AdminFAQ'));
+const AdminSupport = lazy(() => import('./pages/admin/AdminSupport'));
 
 // Components
 import NotificationCenter from './components/notifications/NotificationCenter';
