@@ -127,17 +127,38 @@
 
   /* Notification panel styles */
   .notification-panel {
-    @apply bg-white shadow-lg border border-gray-200 overflow-hidden;
+    @apply bg-white shadow-xl border border-gray-200 overflow-hidden;
     max-height: 85vh;
+  }
+  
+  @media (min-width: 768px) {
+    .notification-panel {
+      min-width: 384px;
+      max-width: 420px;
+    }
   }
 
   /* Notification item styles */
   .notification-item {
-    @apply p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer;
+    @apply p-4 border-b border-gray-100 hover:bg-gray-50 transition-all duration-200 cursor-pointer;
   }
 
   .notification-item-unread {
-    @apply bg-blue-50/50;
+    @apply bg-blue-50/50 border-l-4 border-l-primary-500;
+  }
+  
+  /* Notification badge improvements */
+  .notification-badge {
+    @apply absolute -top-1 -right-1 flex items-center justify-center;
+    min-width: 1.25rem;
+    min-height: 1.25rem;
+    padding: 0 0.25rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1;
+    transform: translate(25%, -25%);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   }
 }
 

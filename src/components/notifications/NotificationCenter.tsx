@@ -93,7 +93,7 @@ export default function NotificationCenter() {
 
       {/* Notification Panel */}
       {isOpen && (
-        <div className="notification-panel fixed md:absolute z-50 inset-0 md:inset-auto md:right-0 md:top-full md:mt-2 bg-white md:rounded-lg shadow-xl border border-gray-200 md:w-96 md:max-h-[80vh] flex flex-col">
+        <div className="notification-panel fixed md:absolute z-50 inset-0 md:inset-auto md:right-0 md:top-full md:mt-2 bg-white md:rounded-lg shadow-xl border border-gray-200 w-full md:w-96 max-h-screen md:max-h-[85vh] flex flex-col">
           {/* Mobile Back Button (only shown when viewing a notification detail) */}
           {selectedNotification && window.innerWidth < 768 ? (
             <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
@@ -115,12 +115,12 @@ export default function NotificationCenter() {
             </div>
           ) : (
             <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
-              <h3 className="font-semibold text-gray-900">Notifications</h3>
+              <h3 className="font-semibold text-gray-900 text-lg">Notifications</h3>
               <div className="flex items-center space-x-2">
                 {unreadCount > 0 && (
                   <button
                     onClick={markAllAsRead}
-                    className="text-xs text-primary-600 hover:text-primary-700 flex items-center"
+                    className="text-sm text-primary-600 hover:text-primary-700 flex items-center px-2 py-1 rounded hover:bg-primary-50 transition-colors"
                   >
                     <CheckCheck size={14} className="mr-1" />
                     Mark all read
@@ -128,7 +128,7 @@ export default function NotificationCenter() {
                 )}
                 <button
                   onClick={() => setIsOpen(false)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100 transition-colors"
                 >
                   <X size={16} />
                 </button>
@@ -138,7 +138,7 @@ export default function NotificationCenter() {
 
           {/* Notification Detail View (Mobile) */}
           {selectedNotification && window.innerWidth < 768 ? (
-            <div className="flex-1 overflow-y-auto p-4">
+            <div className="flex-1 overflow-y-auto p-6">
               <div className={`p-4 rounded-lg mb-2 ${getNotificationColor(selectedNotification.type)}`}>
                 <div className="flex items-start space-x-3">
                   <div className="flex-shrink-0">
@@ -147,7 +147,7 @@ export default function NotificationCenter() {
                   <div className="flex-1 overflow-hidden">
                     <h4 className="font-medium text-gray-900 break-words">{selectedNotification.title}</h4>
                     <p className="text-gray-700 mt-1 break-words">{selectedNotification.message}</p>
-                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mt-3 gap-2">
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mt-4 gap-2">
                       <span className="text-xs text-gray-500">
                         {formatDistanceToNow(new Date(selectedNotification.created_at), { addSuffix: true })}
                       </span>
@@ -171,13 +171,13 @@ export default function NotificationCenter() {
               {/* Notification List */}
               <div className="flex-1 overflow-y-auto">
                 {notifications.length > 0 ? (
-                  <div className="divide-y divide-gray-100">
+                  <div className="divide-y divide-gray-100 max-h-[60vh] md:max-h-[65vh] overflow-y-auto">
                     {displayedNotifications.map((notification) => (
                       <div
                         key={notification.id}
-                        className={`p-4 hover:bg-gray-50 transition-colors cursor-pointer ${
+                        className={`p-4 hover:bg-gray-50 transition-colors cursor-pointer border-l-4 ${
                           !notification.read ? 'bg-blue-50/50' : ''
-                        }`}
+                        } ${!notification.read ? 'border-l-primary-500' : 'border-l-transparent'}`}
                         onClick={() => handleNotificationClick(notification)}
                       >
                         <div className="flex items-start space-x-3">
@@ -186,7 +186,9 @@ export default function NotificationCenter() {
                           </div>
                           <div className="flex-1 min-w-0 overflow-hidden">
                             <div className="flex justify-between items-start">
-                              <h4 className="text-sm font-medium text-gray-900 break-words pr-8 w-full">
+                              <h4 className={`text-sm font-medium break-words pr-2 flex-1 ${
+                                !notification.read ? 'text-gray-900 font-semibold' : 'text-gray-900'
+                              }`}>
                                 {notification.title}
                               </h4>
                               {!notification.read && (
@@ -195,24 +197,26 @@ export default function NotificationCenter() {
                                     e.stopPropagation();
                                     markAsRead(notification.id);
                                   }}
-                                  className="ml-2 flex-shrink-0 text-primary-600 hover:text-primary-700 p-1 rounded-full hover:bg-primary-50"
+                                  className="ml-2 flex-shrink-0 text-primary-600 hover:text-primary-700 p-1.5 rounded-full hover:bg-primary-50 transition-colors"
                                   title="Mark as read"
                                 >
                                   <Check size={14} />
                                 </button>
                               )}
                             </div>
-                            <p className="text-sm text-gray-600 mt-1 break-words line-clamp-2">
+                            <p className={`text-sm mt-1 break-words line-clamp-2 ${
+                              !notification.read ? 'text-gray-700' : 'text-gray-600'
+                            }`}>
                               {notification.message}
                             </p>
-                            <div className="flex flex-wrap justify-between items-center mt-2 gap-1">
+                            <div className="flex flex-wrap justify-between items-center mt-3 gap-2">
                               <span className="text-xs text-gray-500">
                                 {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
                               </span>
                               {notification.action_url && window.innerWidth >= 768 && (
                                 <Link
                                   to={notification.action_url}
-                                  className="text-xs text-primary-600 hover:text-primary-700 flex items-center"
+                                  className="text-xs text-primary-600 hover:text-primary-700 flex items-center px-2 py-1 rounded hover:bg-primary-50 transition-colors"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setIsOpen(false);
@@ -229,19 +233,20 @@ export default function NotificationCenter() {
                     ))}
                   </div>
                 ) : (
-                  <div className="p-8 text-center text-gray-500">
+                  <div className="p-12 text-center text-gray-500">
                     <Bell size={32} className="mx-auto mb-2 text-gray-400" />
-                    <p>No notifications yet</p>
+                    <p className="text-gray-600">No notifications yet</p>
+                    <p className="text-sm text-gray-500 mt-1">You'll see updates about your rewards here</p>
                   </div>
                 )}
               </div>
 
               {/* Footer with View All/View Less toggle */}
               {notifications.length > 5 && (
-                <div className="p-3 border-t border-gray-200 text-center">
+                <div className="p-4 border-t border-gray-200 text-center bg-gray-50">
                   <button
                     onClick={() => setShowAllNotifications(!showAllNotifications)}
-                    className="text-sm text-primary-600 hover:text-primary-700"
+                    className="text-sm text-primary-600 hover:text-primary-700 px-3 py-2 rounded hover:bg-primary-50 transition-colors font-medium"
                   >
                     {showAllNotifications ? 'Show less' : `View all (${notifications.length})`}
                   </button>
