@@ -283,44 +283,27 @@ export default function AdminDashboard() {
       // Get all dealers
       const { data: users } = await supabase
         .from('users')
-        .select('id, role')
-        .in('role', ['dealer', 'sub_dealer']);
+        .select('id')
+        .eq('role', 'dealer');
 
-      // Calculate custom period performance - dealers
-      const { data: customDealerTransactions, error: dealerError } = await supabase
+      // Calculate custom period performance from dealer transactions only
+      const { data: customDealerTransactions, error } = await supabase
         .from('transactions')
         .select('amount, description, user_id')
         .eq('type', 'earned')
         .eq('status', 'approved')
-        .in('user_id', users?.filter(u => u.role === 'dealer').map(u => u.id) || [])
+        .in('user_id', users?.map(u => u.id) || [])
         .gte('created_at', customStartDate)
         .lte('created_at', customEndDate + 'T23:59:59');
 
-      if (dealerError) throw dealerError;
+      if (error) throw error;
 
-      // Calculate custom period performance - sub dealers
-      const { data: customSubDealerTransactions, error: subDealerError } = await supabase
-        .from('transactions')
-        .select('amount, description, user_id')
-        .eq('type', 'earned')
-        .eq('status', 'approved')
-        .in('user_id', users?.filter(u => u.role === 'sub_dealer').map(u => u.id) || [])
-        .gte('created_at', customStartDate)
-        .lte('created_at', customEndDate + 'T23:59:59');
-
-      if (subDealerError) throw subDealerError;
-
-      const customDealerBags = customDealerTransactions?.reduce((sum, t) => 
-        sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
-      
-      const customSubDealerBags = customSubDealerTransactions?.reduce((sum, t) => 
+      const customPeriodBags = customDealerTransactions?.reduce((sum, t) => 
         sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
 
       setStats(prev => ({
         ...prev,
-        currentMonthDealerBags: customDealerBags,
-        currentMonthSubDealerBags: customSubDealerBags,
-        currentMonthTotalBags: customDealerBags + customSubDealerBags,
+        currentMonthBags: customPeriodBags,
         currentMonthName: `Custom Period (${customStartDate} to ${customEndDate})`
       }));
 
@@ -406,7 +389,7 @@ export default function AdminDashboard() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center">
             <BarChart3 className="mr-2 text-primary-600" size={20} />
-            Performance Metrics (Bags Sold by Dealers)
+            Sales Performance Metrics
           </h3>
           <div className="mt-4 sm:mt-0 flex flex-col sm:flex-row gap-2">
             <select
@@ -449,15 +432,49 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <div className="bg-gradient-to-r from-green-50 to-green-100 p-4 rounded-lg border border-green-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-green-600 font-medium">Bags Sold (Dealers + Sub Dealers)</p>
+                <p className="text-sm text-green-600 font-medium">Total Bags Sold</p>
                 <p className="text-2xl font-bold text-green-700">{getPerformanceValue()}</p>
                 <p className="text-xs text-green-600">{getPerformanceLabel()}</p>
               </div>
               <Package className="text-green-600" size={24} />
+            </div>
+          </div>
+          
+          <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-blue-600 font-medium">Dealer Bags</p>
+                <p className="text-2xl font-bold text-blue-700">
+                  {performancePeriod === 'current_month' ? stats.currentMonthDealerBags :
+                   performancePeriod === 'quarterly' ? stats.quarterlyDealerBags :
+                   performancePeriod === 'half_yearly' ? stats.halfYearlyDealerBags :
+                   performancePeriod === 'yearly' ? stats.yearlyDealerBags :
+                   stats.dealerBagsSold}
+                </p>
+                <p className="text-xs text-blue-600">{getPerformanceLabel()}</p>
+              </div>
+              <Building2 className="text-blue-600" size={24} />
+            </div>
+          </div>
+          
+          <div className="bg-gradient-to-r from-purple-50 to-purple-100 p-4 rounded-lg border border-purple-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-purple-600 font-medium">Sub Dealer Bags</p>
+                <p className="text-2xl font-bold text-purple-700">
+                  {performancePeriod === 'current_month' ? stats.currentMonthSubDealerBags :
+                   performancePeriod === 'quarterly' ? stats.quarterlySubDealerBags :
+                   performancePeriod === 'half_yearly' ? stats.halfYearlySubDealerBags :
+                   performancePeriod === 'yearly' ? stats.yearlySubDealerBags :
+                   stats.subDealerBagsSold}
+                </p>
+                <p className="text-xs text-purple-600">{getPerformanceLabel()}</p>
+              </div>
+              <Users className="text-purple-600" size={24} />
             </div>
           </div>
           
@@ -472,52 +489,100 @@ export default function AdminDashboard() {
             </div>
           </div>
           
-          <div className="bg-gradient-to-r from-purple-50 to-purple-100 p-4 rounded-lg border border-purple-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-purple-600 font-medium">Active Dealers</p>
-                <p className="text-2xl font-bold text-purple-700">{stats.totalDealers}</p>
-                <p className="text-xs text-purple-600">Registered</p>
-              </div>
-              <Building2 className="text-purple-600" size={24} />
-            </div>
-          </div>
-          
           <div className="bg-gradient-to-r from-orange-50 to-orange-100 p-4 rounded-lg border border-orange-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-orange-600 font-medium">Marketing Slides</p>
-                <p className="text-2xl font-bold text-orange-700">{stats.activeSlides}</p>
-                <p className="text-xs text-orange-600">Active</p>
+                <p className="text-sm text-orange-600 font-medium">Active Dealers</p>
+                <p className="text-2xl font-bold text-orange-700">{stats.totalDealers}</p>
+                <p className="text-xs text-orange-600">Registered</p>
               </div>
-              <Calendar className="text-orange-600" size={24} />
+              <Building2 className="text-orange-600" size={24} />
             </div>
           </div>
         </div>
 
         {/* Performance Comparison */}
         <div className="mt-6 pt-6 border-t border-gray-200">
-          <h4 className="text-md font-medium text-gray-900 mb-4">Bags Sold Comparison (Dealers + Sub Dealers)</h4>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <div className="text-center p-3 bg-gray-50 rounded-lg">
-              <p className="text-lg font-bold text-gray-900">{stats.currentMonthBags}</p>
-              <p className="text-xs text-gray-600">{stats.currentMonthName}</p>
+          <h4 className="text-md font-medium text-gray-900 mb-4">Detailed Sales Comparison</h4>
+          
+          {/* Total Sales Row */}
+          <div className="mb-4">
+            <h5 className="text-sm font-medium text-gray-700 mb-2">Total Sales (Dealers + Sub Dealers)</h5>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+              <div className="text-center p-2 bg-green-50 rounded-lg border border-green-200">
+                <p className="text-lg font-bold text-green-700">{stats.currentMonthTotalBags}</p>
+                <p className="text-xs text-green-600">{stats.currentMonthName.split(' ')[0]}</p>
+              </div>
+              <div className="text-center p-2 bg-green-50 rounded-lg border border-green-200">
+                <p className="text-lg font-bold text-green-700">{stats.quarterlyTotalBags}</p>
+                <p className="text-xs text-green-600">Last 3 Months</p>
+              </div>
+              <div className="text-center p-2 bg-green-50 rounded-lg border border-green-200">
+                <p className="text-lg font-bold text-green-700">{stats.halfYearlyTotalBags}</p>
+                <p className="text-xs text-green-600">Last 6 Months</p>
+              </div>
+              <div className="text-center p-2 bg-green-50 rounded-lg border border-green-200">
+                <p className="text-lg font-bold text-green-700">{stats.yearlyTotalBags}</p>
+                <p className="text-xs text-green-600">This Year</p>
+              </div>
+              <div className="text-center p-2 bg-green-50 rounded-lg border border-green-200">
+                <p className="text-lg font-bold text-green-700">{stats.totalBagsSold}</p>
+                <p className="text-xs text-green-600">All Time</p>
+              </div>
             </div>
-            <div className="text-center p-3 bg-gray-50 rounded-lg">
-              <p className="text-lg font-bold text-gray-900">{stats.quarterlyBagsSold}</p>
-              <p className="text-xs text-gray-600">Last 3 Months</p>
+          </div>
+          
+          {/* Dealer Sales Row */}
+          <div className="mb-4">
+            <h5 className="text-sm font-medium text-gray-700 mb-2">Dealer Sales Only</h5>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+              <div className="text-center p-2 bg-blue-50 rounded-lg border border-blue-200">
+                <p className="text-lg font-bold text-blue-700">{stats.currentMonthDealerBags}</p>
+                <p className="text-xs text-blue-600">{stats.currentMonthName.split(' ')[0]}</p>
+              </div>
+              <div className="text-center p-2 bg-blue-50 rounded-lg border border-blue-200">
+                <p className="text-lg font-bold text-blue-700">{stats.quarterlyDealerBags}</p>
+                <p className="text-xs text-blue-600">Last 3 Months</p>
+              </div>
+              <div className="text-center p-2 bg-blue-50 rounded-lg border border-blue-200">
+                <p className="text-lg font-bold text-blue-700">{stats.halfYearlyDealerBags}</p>
+                <p className="text-xs text-blue-600">Last 6 Months</p>
+              </div>
+              <div className="text-center p-2 bg-blue-50 rounded-lg border border-blue-200">
+                <p className="text-lg font-bold text-blue-700">{stats.yearlyDealerBags}</p>
+                <p className="text-xs text-blue-600">This Year</p>
+              </div>
+              <div className="text-center p-2 bg-blue-50 rounded-lg border border-blue-200">
+                <p className="text-lg font-bold text-blue-700">{stats.dealerBagsSold}</p>
+                <p className="text-xs text-blue-600">All Time</p>
+              </div>
             </div>
-            <div className="text-center p-3 bg-gray-50 rounded-lg">
-              <p className="text-lg font-bold text-gray-900">{stats.halfYearlyBagsSold}</p>
-              <p className="text-xs text-gray-600">Last 6 Months</p>
-            </div>
-            <div className="text-center p-3 bg-gray-50 rounded-lg">
-              <p className="text-lg font-bold text-gray-900">{stats.yearlyBagsSold}</p>
-              <p className="text-xs text-gray-600">This Year</p>
-            </div>
-            <div className="text-center p-3 bg-gray-50 rounded-lg">
-              <p className="text-lg font-bold text-gray-900">{stats.lifetimeBagsSold}</p>
-              <p className="text-xs text-gray-600">All Time</p>
+          </div>
+          
+          {/* Sub Dealer Sales Row */}
+          <div className="mb-4">
+            <h5 className="text-sm font-medium text-gray-700 mb-2">Sub Dealer Sales Only</h5>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+              <div className="text-center p-2 bg-purple-50 rounded-lg border border-purple-200">
+                <p className="text-lg font-bold text-purple-700">{stats.currentMonthSubDealerBags}</p>
+                <p className="text-xs text-purple-600">{stats.currentMonthName.split(' ')[0]}</p>
+              </div>
+              <div className="text-center p-2 bg-purple-50 rounded-lg border border-purple-200">
+                <p className="text-lg font-bold text-purple-700">{stats.quarterlySubDealerBags}</p>
+                <p className="text-xs text-purple-600">Last 3 Months</p>
+              </div>
+              <div className="text-center p-2 bg-purple-50 rounded-lg border border-purple-200">
+                <p className="text-lg font-bold text-purple-700">{stats.halfYearlySubDealerBags}</p>
+                <p className="text-xs text-purple-600">Last 6 Months</p>
+              </div>
+              <div className="text-center p-2 bg-purple-50 rounded-lg border border-purple-200">
+                <p className="text-lg font-bold text-purple-700">{stats.yearlySubDealerBags}</p>
+                <p className="text-xs text-purple-600">This Year</p>
+              </div>
+              <div className="text-center p-2 bg-purple-50 rounded-lg border border-purple-200">
+                <p className="text-lg font-bold text-purple-700">{stats.subDealerBagsSold}</p>
+                <p className="text-xs text-purple-600">All Time</p>
+              </div>
             </div>
           </div>
         </div>
@@ -599,11 +664,10 @@ export default function AdminDashboard() {
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div
                   className="bg-primary-600 h-2 rounded-full"
-                  style={{ width: `${stats.totalUsers > 0 ? (stats.totalDealers / stats.totalUsers) * 100 : 0}%` }}
+                  style={{ width: `${(stats.totalDealers / stats.totalUsers) * 100}%` }}
                 ></div>
               </div>
             </div>
-            
             <div>
               <div className="flex justify-between mb-1">
                 <span className="text-sm text-gray-700">Contractors/Masons</span>
@@ -612,7 +676,7 @@ export default function AdminDashboard() {
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div
                   className="bg-accent-600 h-2 rounded-full"
-                  style={{ width: `${stats.totalUsers > 0 ? (stats.totalContractors / stats.totalUsers) * 100 : 0}%` }}
+                  style={{ width: `${(stats.totalContractors / stats.totalUsers) * 100}%` }}
                 ></div>
               </div>
             </div>
