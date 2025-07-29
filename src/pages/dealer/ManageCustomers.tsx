@@ -422,7 +422,7 @@ export default function ManageCustomers() {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {customer.gst_number || 'Not provided'}
+                    {customer.gst_number || '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-2">
@@ -546,19 +546,6 @@ export default function ManageCustomers() {
                   </div>
                 </div>
 
-                {selectedRole === 'sub_dealer' && (
-                  <div>
-                    <label className="form-label">GST Number <span className="text-red-500">*</span></label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      {...register('gst_number')}
-                      placeholder="GST Number"
-                    />
-                    {errors.gst_number && <p className="form-error">{errors.gst_number.message}</p>}
-                  </div>
-                )}
-
                 <div>
                   <label className="form-label">Address</label>
                   <input
@@ -580,6 +567,19 @@ export default function ManageCustomers() {
                   />
                   {errors.city && <p className="form-error">{errors.city.message}</p>}
                 </div>
+
+                {selectedRole === 'sub_dealer' && (
+                  <div>
+                    <label className="form-label">GST Number</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      {...register('gst_number')}
+                      placeholder="GST Number (required for Sub Dealers)"
+                    />
+                    {errors.gst_number && <p className="form-error">{errors.gst_number.message}</p>}
+                  </div>
+                )}
 
                 <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-md">
                   <strong>Note:</strong> Customer will be created in your district ({currentUser?.district}) and can login with the provided email and password. Sub dealers can also manage their own customers.
