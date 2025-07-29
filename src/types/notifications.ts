@@ -12,29 +12,6 @@ export interface Notification {
   expires_at?: string;
 }
 
-export interface Achievement {
-  id: string;
-  title: string;
-  description: string;
-  icon: string;
-  badge_color: string;
-  points_threshold?: number;
-  bags_threshold?: number;
-  transactions_threshold?: number;
-  category: 'points' | 'bags' | 'transactions' | 'loyalty' | 'special';
-  is_active: boolean;
-  created_at: string;
-}
-
-export interface UserAchievement {
-  id: string;
-  user_id: string;
-  achievement_id: string;
-  earned_at: string;
-  progress?: number;
-  is_claimed: boolean;
-}
-
 export interface Announcement {
   id: string;
   title: string;

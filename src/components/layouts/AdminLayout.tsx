@@ -33,7 +33,6 @@ const ADMIN_NAVIGATION = [
   { name: 'Analytics', path: '/admin/analytics', icon: BarChart3 },
   { name: 'Announcements', path: '/admin/announcements', icon: Megaphone },
   { name: 'FAQ', path: '/admin/faq', icon: HelpCircle },
-  { name: 'Achievements', path: '/admin/achievements', icon: Trophy },
   { name: 'Support', path: '/admin/support', icon: MessageSquare }
 ];
 
