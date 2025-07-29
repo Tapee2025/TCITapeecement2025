@@ -135,16 +135,23 @@
     .notification-panel {
       min-width: 384px;
       max-width: 420px;
-      right: 0;
-      transform: translateX(0);
+      right: 0 !important;
+      left: auto !important;
+      transform: translateX(0) !important;
+      position: absolute !important;
     }
   }
   
-  /* Fix for fullscreen mode */
-  @media (display-mode: fullscreen) {
+  /* Fix for fullscreen and standalone modes */
+  @media (display-mode: fullscreen), (display-mode: standalone) {
     .notification-panel {
       right: 1rem !important;
+      left: auto !important;
       transform: translateX(0) !important;
+      position: fixed !important;
+      top: 4rem !important;
+      width: 384px !important;
+      max-width: 384px !important;
     }
   }
 
