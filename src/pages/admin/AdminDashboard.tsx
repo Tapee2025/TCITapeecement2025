@@ -62,14 +62,20 @@ export default function AdminDashboard() {
     try {
       setLoading(true);
       
+      // Initialize users variable to prevent undefined errors
+      let users: any[] = [];
+      
       // Get all users except admins
-      const { data: users, error: usersError } = await supabase
+      const { data, error: usersError } = await supabase
         .from('users')
         .select('*')
         .neq('role', 'admin')
         .order('role', { ascending: true });
 
       if (usersError) throw usersError;
+      
+      // Assign the data to users variable
+      users = data || [];
 
       // Count users by role
       const dealerCount = users?.filter(u => u.role === 'dealer').length || 0;
