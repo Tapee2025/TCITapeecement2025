@@ -37,6 +37,47 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   }
 });
 
+// Handle authentication errors globally
+supabase.auth.onAuthStateChange((event, session) => {
+  if (event === 'SIGNED_OUT' || (event === 'TOKEN_REFRESHED' && !session)) {
+    // Clear any stale data and redirect to login
+    clearSupabaseCache();
+    if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
+      window.location.href = '/login';
+    }
+  }
+});
+
+// Add global error handler for auth errors
+const originalFetch = window.fetch;
+window.fetch = async (...args) => {
+  try {
+    const response = await originalFetch(...args);
+    
+    // Check for Supabase auth errors
+    if (!response.ok && args[0]?.toString().includes('supabase.co/auth')) {
+      const responseText = await response.clone().text();
+      
+      if (response.status === 403 && 
+          (responseText.includes('session_not_found') || 
+           responseText.includes('Session from session_id claim in JWT does not exist'))) {
+        
+        // Clear invalid session and redirect to login
+        await supabase.auth.signOut();
+        clearSupabaseCache();
+        
+        if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
+          window.location.href = '/login';
+        }
+      }
+    }
+    
+    return response;
+  } catch (error) {
+    return originalFetch(...args);
+  }
+};
+
 // Helper function to get profile picture URL
 export function getProfilePictureUrl(fileName: string | null): string {
   if (!fileName) return '';
