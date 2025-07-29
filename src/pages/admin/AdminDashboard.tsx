@@ -66,13 +66,22 @@ export default function AdminDashboard() {
       const { data: users, error: usersError } = await supabase
         .from('users')
         .select('*')
-        .neq('role', 'admin');
+        .neq('role', 'admin')
+        .order('role', { ascending: true });
 
       if (usersError) throw usersError;
 
       // Count users by role
       const dealerCount = users?.filter(u => u.role === 'dealer').length || 0;
       const contractorCount = users?.filter(u => u.role === 'contractor').length || 0;
+      const subDealerCount = users?.filter(u => u.role === 'sub_dealer').length || 0;
+      
+      console.log('Admin Dashboard - Users found:', {
+        total: users?.length || 0,
+        dealers: dealerCount,
+        subDealers: subDealerCount,
+        contractors: contractorCount
+      });
 
       // Get pending points approvals (earned transactions with pending or dealer_approved status)
       const { data: pendingPointsData, error: pointsApprovalsError } = await supabase
@@ -168,6 +177,13 @@ export default function AdminDashboard() {
       // Get dealers and sub dealers separately
       const dealerIds = users?.filter(u => u.role === 'dealer').map(u => u.id) || [];
       const subDealerIds = users?.filter(u => u.role === 'sub_dealer').map(u => u.id) || [];
+      
+      console.log('Admin Dashboard - IDs found:', {
+        dealerIds: dealerIds.length,
+        subDealerIds: subDealerIds.length,
+        dealerIdsSample: dealerIds.slice(0, 3),
+        subDealerIdsSample: subDealerIds.slice(0, 3)
+      });
 
       // Current month bags - ONLY dealer transactions
       const { data: currentMonthDealerTransactions } = await supabase
@@ -186,12 +202,23 @@ export default function AdminDashboard() {
         .eq('status', 'approved')
         .in('user_id', subDealerIds)
         .gte('created_at', currentMonthStart.toISOString());
+      
+      console.log('Admin Dashboard - Current month transactions:', {
+        dealerTransactions: currentMonthDealerTransactions?.length || 0,
+        subDealerTransactions: currentMonthSubDealerTransactions?.length || 0
+      });
 
       const currentMonthDealerBags = currentMonthDealerTransactions?.reduce((sum, t) => 
         sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
       const currentMonthSubDealerBags = currentMonthSubDealerTransactions?.reduce((sum, t) => 
         sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
       const currentMonthTotalBags = currentMonthDealerBags + currentMonthSubDealerBags;
+      
+      console.log('Admin Dashboard - Current month bags calculated:', {
+        dealerBags: currentMonthDealerBags,
+        subDealerBags: currentMonthSubDealerBags,
+        totalBags: currentMonthTotalBags
+      });
 
       // Last 3 months bags - dealer transactions
       const { data: quarterlyDealerTransactions } = await supabase
@@ -273,6 +300,12 @@ export default function AdminDashboard() {
         subDealerIds.includes(t.user_id)).reduce((sum, t) => 
         sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
       const lifetimeTotalBags = lifetimeDealerBags + lifetimeSubDealerBags;
+      
+      console.log('Admin Dashboard - Lifetime bags calculated:', {
+        dealerBags: lifetimeDealerBags,
+        subDealerBags: lifetimeSubDealerBags,
+        totalBags: lifetimeTotalBags
+      });
 
       // Get recent activity (all transactions)
       const { data: recentTransactions, error: transactionsError } = await supabase
@@ -305,6 +338,7 @@ export default function AdminDashboard() {
         totalRedemptions: redemptions?.length || 0,
         totalDealers: dealerCount,
         totalContractors: contractorCount,
+        totalSubDealers: subDealerCount,
         totalBagsSold,
         activeSlides: activeSlides?.length || 0,
         currentMonthBags,
