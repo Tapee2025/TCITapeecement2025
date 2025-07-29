@@ -9,6 +9,7 @@ import { calculateBagsFromTransaction } from '../../utils/helpers';
 export default function DealerAnalytics() {
   const { currentUser } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [salesView, setSalesView] = useState<'my_sales' | 'network_sales'>('my_sales');
   const [dealerStats, setDealerStats] = useState({
     totalCustomers: 0,
     contractors: 0,
@@ -32,7 +33,12 @@ export default function DealerAnalytics() {
         .eq('role', 'sub_dealer');
 
       const subDealerIds = subDealers?.map(sd => sd.id) || [];
-      const allDealerIds = [currentUser.id, ...subDealerIds];
+      let allDealerIds: string[];
+      if (salesView === 'my_sales') {
+        allDealerIds = [currentUser.id]; // Only dealer's own transactions
+      } else {
+        allDealerIds = subDealerIds; // Only sub dealers' transactions
+      }
       console.log('Analytics - dealer and sub dealer IDs:', allDealerIds);
 
       // Get total customers (users who have made transactions through this dealer)
@@ -116,13 +122,17 @@ export default function DealerAnalytics() {
     } finally {
       setLoading(false);
     }
-  }, [currentUser]);
+  }, [currentUser, salesView]);
 
   useEffect(() => {
     if (currentUser) {
       fetchDealerCustomerStats();
     }
   }, [currentUser, fetchDealerCustomerStats]);
+
+  const getSalesViewLabel = () => {
+    return salesView === 'my_sales' ? 'My Performance' : 'Network Performance';
+  };
 
   if (loading) {
     return (
@@ -135,8 +145,41 @@ export default function DealerAnalytics() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">My Performance</h1>
-        <p className="text-gray-600">Track your sales performance and customer engagement</p>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">{getSalesViewLabel()}</h1>
+            <p className="text-gray-600">
+              {salesView === 'my_sales' 
+                ? 'Track your direct sales performance and customer engagement'
+                : 'Track your sub dealers network performance and engagement'
+              }
+            </p>
+          </div>
+          
+          {/* Sales View Switch */}
+          <div className="flex bg-gray-100 rounded-lg p-1">
+            <button
+              onClick={() => setSalesView('my_sales')}
+              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                salesView === 'my_sales'
+                  ? 'bg-white text-primary-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              My Sales
+            </button>
+            <button
+              onClick={() => setSalesView('network_sales')}
+              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                salesView === 'network_sales'
+                  ? 'bg-white text-primary-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Network Sales
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Customer Stats */}
@@ -144,7 +187,9 @@ export default function DealerAnalytics() {
         <div className="bg-white rounded-lg p-4 shadow-sm border">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">My Customers</p>
+              <p className="text-sm text-gray-500">
+                {salesView === 'my_sales' ? 'My Customers' : 'Network Customers'}
+              </p>
               <p className="text-2xl font-bold text-primary-600">{dealerStats.totalCustomers}</p>
               <p className="text-xs text-gray-500">Unique customers</p>
             </div>
@@ -188,13 +233,25 @@ export default function DealerAnalytics() {
         <div className="bg-white rounded-lg p-4 shadow-sm border">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Total Bags (Me + Sub Dealers)</p>
+              <p className="text-sm text-gray-500">
+                {salesView === 'my_sales' ? 'My Total Bags' : 'Network Total Bags'}
+              </p>
               <p className="text-2xl font-bold text-blue-600">{dealerStats.totalBagsSold}</p>
               <p className="text-xs text-gray-500">All time</p>
             </div>
             <ShoppingBag className="w-8 h-8 text-blue-500" />
           </div>
         </div>
+      </div>
+
+      {/* Sales View Info */}
+      <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+        <p className="text-sm text-blue-700">
+          {salesView === 'my_sales' 
+            ? '📊 Showing your direct sales analytics only'
+            : '🌐 Showing analytics for your sub dealers network only (excludes contractors/masons)'
+          }
+        </p>
       </div>
 
       {/* Analytics Dashboard */}

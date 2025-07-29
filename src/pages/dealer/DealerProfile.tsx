@@ -17,6 +17,7 @@ export default function DealerProfile() {
   const [showImageUpload, setShowImageUpload] = useState(false);
   const [editedEmail, setEditedEmail] = useState('');
   const [editedPhone, setEditedPhone] = useState('');
+  const [salesView, setSalesView] = useState<'my_sales' | 'network_sales'>('my_sales');
   const [performanceData, setPerformanceData] = useState({
     currentMonth: { bags: 0, points: 0, transactions: 0, customers: 0, name: '' },
     last3Months: { bags: 0, points: 0, transactions: 0, customers: 0 },
@@ -32,7 +33,7 @@ export default function DealerProfile() {
   useEffect(() => {
     fetchProfile();
     fetchPerformanceData();
-  }, []);
+  }, [salesView]);
 
   useEffect(() => {
     if (selectedPeriod === 'custom') {
@@ -86,7 +87,12 @@ export default function DealerProfile() {
         .eq('role', 'sub_dealer');
 
       const subDealerIds = subDealers?.map(sd => sd.id) || [];
-      const allDealerIds = [user.id, ...subDealerIds];
+      let allDealerIds: string[];
+      if (salesView === 'my_sales') {
+        allDealerIds = [user.id]; // Only dealer's own transactions
+      } else {
+        allDealerIds = subDealerIds; // Only sub dealers' transactions
+      }
       console.log('Dealer profile - fetching for IDs:', allDealerIds);
 
       // Fetch performance data for all periods - dealer + sub dealers
@@ -209,7 +215,12 @@ export default function DealerProfile() {
         .eq('role', 'sub_dealer');
 
       const subDealerIds = subDealers?.map(sd => sd.id) || [];
-      const allDealerIds = [user.id, ...subDealerIds];
+      let allDealerIds: string[];
+      if (salesView === 'my_sales') {
+        allDealerIds = [user.id]; // Only dealer's own transactions
+      } else {
+        allDealerIds = subDealerIds; // Only sub dealers' transactions
+      }
 
       const { data: customData } = await supabase
         .from('transactions')
@@ -364,6 +375,10 @@ export default function DealerProfile() {
       case 'custom': return performanceData.currentMonth.name;
       default: return performanceData.currentMonth.name;
     }
+  };
+
+  const getSalesViewLabel = () => {
+    return salesView === 'my_sales' ? 'My Performance' : 'Network Performance';
   };
 
   if (loading) {
@@ -589,9 +604,32 @@ export default function DealerProfile() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center">
             <BarChart3 className="mr-2 text-primary-600" size={20} />
-            Performance Metrics (Me + Sub Dealers)
+            {getSalesViewLabel()} Metrics
           </h3>
           <div className="mt-4 sm:mt-0 flex flex-col sm:flex-row gap-2">
+            {/* Sales View Switch */}
+            <div className="flex bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => setSalesView('my_sales')}
+                className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                  salesView === 'my_sales'
+                    ? 'bg-white text-primary-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                My Sales
+              </button>
+              <button
+                onClick={() => setSalesView('network_sales')}
+                className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                  salesView === 'network_sales'
+                    ? 'bg-white text-primary-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Network Sales
+              </button>
+            </div>
             <select
               value={selectedPeriod}
               onChange={(e) => setSelectedPeriod(e.target.value)}
@@ -680,7 +718,9 @@ export default function DealerProfile() {
 
         {/* Performance Comparison */}
         <div className="pt-6 border-t border-gray-200">
-          <h4 className="text-md font-medium text-gray-900 mb-4">Total Bags Sold Comparison (Me + Sub Dealers)</h4>
+          <h4 className="text-md font-medium text-gray-900 mb-4">
+            {salesView === 'my_sales' ? 'My Bags Sold Comparison' : 'Network Bags Sold Comparison'}
+          </h4>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div className="text-center p-3 bg-gray-50 rounded-lg">
               <p className="text-lg font-bold text-gray-900">{performanceData.currentMonth.bags}</p>
@@ -702,6 +742,16 @@ export default function DealerProfile() {
               <p className="text-lg font-bold text-gray-900">{performanceData.lifetime.bags}</p>
               <p className="text-xs text-gray-600">Lifetime</p>
             </div>
+          </div>
+          
+          {/* Sales View Info */}
+          <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+            <p className="text-sm text-blue-700">
+              {salesView === 'my_sales' 
+                ? '📊 Showing your direct sales performance only'
+                : '🌐 Showing sales performance of your sub dealers network only'
+              }
+            </p>
           </div>
         </div>
       </div>

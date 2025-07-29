@@ -16,6 +16,7 @@ export default function DealerDashboard() {
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [dealerData, setDealerData] = useState<User | null>(null);
   const [availableRewards, setAvailableRewards] = useState<Reward[]>([]);
+  const [salesView, setSalesView] = useState<'my_sales' | 'network_sales'>('my_sales');
   const [stats, setStats] = useState({
     totalTransactions: 0,
     pendingApprovals: 0,
@@ -38,7 +39,7 @@ export default function DealerDashboard() {
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+  }, [salesView]);
 
   useEffect(() => {
     if (performancePeriod === 'custom') {
@@ -143,7 +144,12 @@ export default function DealerDashboard() {
       const uniqueCustomers = new Set(customerData?.map(t => t.user_id)).size;
 
       // Get performance metrics for different periods - dealer + sub dealers transactions
-      const allDealerIds = [user.id, ...subDealerIds];
+      let allDealerIds: string[];
+      if (salesView === 'my_sales') {
+        allDealerIds = [user.id]; // Only dealer's own transactions
+      } else {
+        allDealerIds = subDealerIds; // Only sub dealers' transactions
+      }
       console.log('Fetching transactions for dealer IDs:', allDealerIds);
 
       const { data: currentMonthData } = await supabase
@@ -253,7 +259,12 @@ export default function DealerDashboard() {
         .eq('role', 'sub_dealer');
 
       const subDealerIds = subDealers?.map(sd => sd.id) || [];
-      const allDealerIds = [user.id, ...subDealerIds];
+      let allDealerIds: string[];
+      if (salesView === 'my_sales') {
+        allDealerIds = [user.id]; // Only dealer's own transactions
+      } else {
+        allDealerIds = subDealerIds; // Only sub dealers' transactions
+      }
 
       const { data: customData } = await supabase
         .from('transactions')
@@ -361,6 +372,9 @@ export default function DealerDashboard() {
     }
   };
 
+  const getSalesViewLabel = () => {
+    return salesView === 'my_sales' ? 'My Sales' : 'My Network Sales';
+  };
   // Get achievement level based on points
   const getAchievementLevel = () => {
     if (!dealerData) return { level: 'Bronze', icon: Star, color: 'text-amber-600' };
@@ -442,9 +456,32 @@ export default function DealerDashboard() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
           <h3 className="font-semibold text-gray-900 flex items-center">
             <BarChart3 className="mr-2 text-primary-600" size={18} />
-            Total Sales Performance (Me + Sub Dealers)
+            {getSalesViewLabel()} Performance
           </h3>
           <div className="mt-2 sm:mt-0 flex flex-col sm:flex-row gap-2">
+            {/* Sales View Switch */}
+            <div className="flex bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => setSalesView('my_sales')}
+                className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                  salesView === 'my_sales'
+                    ? 'bg-white text-primary-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                My Sales
+              </button>
+              <button
+                onClick={() => setSalesView('network_sales')}
+                className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                  salesView === 'network_sales'
+                    ? 'bg-white text-primary-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Network Sales
+              </button>
+            </div>
             <select
               value={performancePeriod}
               onChange={(e) => setPerformancePeriod(e.target.value)}
@@ -490,7 +527,9 @@ export default function DealerDashboard() {
             <div className="text-center">
               <ShoppingBag className="w-6 h-6 text-green-600 mx-auto mb-1" />
               <p className="text-xl font-bold text-green-700">{getPerformanceValue()}</p>
-              <p className="text-xs text-green-600">Total Bags Sold</p>
+              <p className="text-xs text-green-600">
+                {salesView === 'my_sales' ? 'My Bags Sold' : 'Network Bags Sold'}
+              </p>
               <p className="text-xs text-green-500">{getPerformanceLabel()}</p>
             </div>
           </div>
@@ -527,6 +566,16 @@ export default function DealerDashboard() {
             <p className="font-medium text-gray-900">{stats.lifetimeBags}</p>
             <p className="text-gray-600">Lifetime</p>
           </div>
+        </div>
+        
+        {/* Sales View Info */}
+        <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+          <p className="text-sm text-blue-700">
+            {salesView === 'my_sales' 
+              ? '📊 Showing your direct sales performance only'
+              : '🌐 Showing sales performance of your sub dealers network only'
+            }
+          </p>
         </div>
       </div>
       
