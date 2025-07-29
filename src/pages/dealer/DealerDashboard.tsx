@@ -499,7 +499,7 @@ export default function DealerDashboard() {
       </div>
       
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 gap-3">
+          <h4 className="text-md font-medium text-gray-900 mb-4">Total Sales Comparison (Including Sub Dealers)</h4>
         <div className="bg-white rounded-lg p-4 shadow-sm border">
           <div className="flex items-center justify-between">
             <div>
