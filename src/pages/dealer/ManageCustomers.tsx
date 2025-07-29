@@ -18,7 +18,7 @@ const customerSchema = z.object({
   last_name: z.string().min(2, 'Last name is required'),
   email: z.string().email('Please enter a valid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
-  role: z.enum(['contractor'] as const), // Only contractor now
+  role: z.enum(['contractor', 'sub_dealer'] as const),
   city: z.string().min(2, 'City is required'),
   address: z.string().min(5, 'Address is required'),
   mobile_number: z.string().regex(/^[0-9]{10}$/, 'Mobile number must be 10 digits')
@@ -35,9 +35,11 @@ export default function ManageCustomers() {
   const [editingCustomer, setEditingCustomer] = useState<User | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [roleFilter, setRoleFilter] = useState('all');
   const [stats, setStats] = useState({
     totalCustomers: 0,
     contractors: 0,
+    subDealers: 0,
     activeThisMonth: 0
   });
 
@@ -68,18 +70,17 @@ export default function ManageCustomers() {
     try {
       setLoading(true);
 
-      // Get customers created by this dealer (we'll add a created_by field)
+      // Get customers created by this dealer
       let query = supabase
         .from('users')
         .select('*')
-        .eq('role', 'contractor') // Only contractors now
+        .in('role', ['contractor', 'sub_dealer'])
         .order('created_at', { ascending: false });
 
       const { data, error } = await query;
       if (error) throw error;
 
-      // For now, show all customers in the same district as the dealer
-      // In production, you'd want to add a created_by field to track which dealer created which customer
+      // Show all customers in the same district as the dealer
       const dealerDistrict = currentUser?.district;
       const filteredCustomers = data?.filter(customer => customer.district === dealerDistrict) || [];
 
@@ -88,6 +89,7 @@ export default function ManageCustomers() {
       // Calculate stats
       const totalCustomers = filteredCustomers.length;
       const contractors = filteredCustomers.filter(c => c.role === 'contractor').length;
+      const subDealers = filteredCustomers.filter(c => c.role === 'sub_dealer').length;
 
       // Get customers active this month (with transactions)
       const thisMonth = new Date();
@@ -105,6 +107,7 @@ export default function ManageCustomers() {
       setStats({
         totalCustomers,
         contractors,
+        subDealers,
         activeThisMonth: uniqueActiveCustomers
       });
     } catch (error) {
@@ -161,7 +164,8 @@ export default function ManageCustomers() {
           district: currentUser.district, // Same district as dealer
           mobile_number: data.mobile_number,
           user_code: userCode,
-          points: 0
+          points: 0,
+          created_by: currentUser.id
         }]);
 
       if (profileError) {
@@ -212,12 +216,16 @@ export default function ManageCustomers() {
   // Filter customers based on search
   const filteredCustomers = customers.filter(customer => {
     const searchString = searchQuery.toLowerCase();
-    return (
+    const matchesSearch = (
       customer.first_name.toLowerCase().includes(searchString) ||
       customer.last_name.toLowerCase().includes(searchString) ||
       customer.email.toLowerCase().includes(searchString) ||
       customer.user_code.toLowerCase().includes(searchString)
     );
+    
+    const matchesRole = roleFilter === 'all' || customer.role === roleFilter;
+    
+    return matchesSearch && matchesRole;
   });
 
   // Show loading spinner while auth is loading
@@ -255,7 +263,7 @@ export default function ManageCustomers() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Manage Customers</h1>
-          <p className="text-gray-600">Add and manage your customers (contractors/masons)</p>
+          <p className="text-gray-600">Add and manage your customers (contractors and sub dealers)</p>
         </div>
         <button
           onClick={openAddModal}
@@ -267,7 +275,7 @@ export default function ManageCustomers() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white rounded-lg p-4 shadow-sm border">
           <div className="flex items-center justify-between">
             <div>
@@ -291,6 +299,16 @@ export default function ManageCustomers() {
         <div className="bg-white rounded-lg p-4 shadow-sm border">
           <div className="flex items-center justify-between">
             <div>
+              <p className="text-sm text-gray-500">Sub Dealers</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.subDealers}</p>
+            </div>
+            <Users className="w-8 h-8 text-blue-500" />
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg p-4 shadow-sm border">
+          <div className="flex items-center justify-between">
+            <div>
               <p className="text-sm text-gray-500">Active This Month</p>
               <p className="text-2xl font-bold text-gray-900">{stats.activeThisMonth}</p>
             </div>
@@ -301,15 +319,27 @@ export default function ManageCustomers() {
 
       {/* Filters */}
       <div className="bg-white rounded-lg shadow-sm border p-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-          <input
-            type="text"
-            placeholder="Search customers..."
-            className="form-input pl-10"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+            <input
+              type="text"
+              placeholder="Search customers..."
+              className="form-input pl-10"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          
+          <select
+            className="form-input"
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+          >
+            <option value="all">All Customer Types</option>
+            <option value="contractor">Contractors Only</option>
+            <option value="sub_dealer">Sub Dealers Only</option>
+          </select>
         </div>
       </div>
 
@@ -323,7 +353,7 @@ export default function ManageCustomers() {
                   Customer
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Role
+                  Type
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Points
@@ -362,8 +392,10 @@ export default function ManageCustomers() {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                      {customer.role}
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                      customer.role === 'contractor' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'
+                    }`}>
+                      {customer.role === 'sub_dealer' ? 'Sub Dealer' : 'Contractor'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -477,14 +509,15 @@ export default function ManageCustomers() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="form-label">Role</label>
-                    <input
-                      type="text"
-                      className="form-input bg-gray-50"
-                      value="Contractor/Mason"
-                      disabled
-                    />
-                    <input type="hidden" {...register('role')} value="contractor" />
+                    <label className="form-label">Customer Type</label>
+                    <select
+                      className="form-input"
+                      {...register('role')}
+                    >
+                      <option value="contractor">Contractor/Mason</option>
+                      <option value="sub_dealer">Sub Dealer</option>
+                    </select>
+                    {errors.role && <p className="form-error">{errors.role.message}</p>}
                   </div>
                   
                   <div>
@@ -522,7 +555,7 @@ export default function ManageCustomers() {
                 </div>
 
                 <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-md">
-                  <strong>Note:</strong> Customer will be created in your district ({currentUser?.district}) and can login with the provided email and password.
+                  <strong>Note:</strong> Customer will be created in your district ({currentUser?.district}) and can login with the provided email and password. Sub dealers can also manage their own customers.
                 </div>
                 
                 <div className="flex justify-end space-x-2 pt-4 border-t">

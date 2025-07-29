@@ -17,7 +17,7 @@ const registerSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
   confirmPassword: z.string().min(6, 'Password must be at least 6 characters'),
-  role: z.enum(['dealer', 'contractor'] as const),
+  role: z.enum(['dealer', 'contractor', 'sub_dealer'] as const),
   city: z.string().min(2, 'City is required'),
   address: z.string().min(5, 'Address is required'),
   district: z.string().min(1, 'District is required'),

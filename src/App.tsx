@@ -136,7 +136,7 @@ function App() {
               </Route>
               
               {/* User Routes */}
-              <Route element={<ProtectedRoute allowedRoles={['contractor']} />}>
+              <Route element={<ProtectedRoute allowedRoles={['contractor', 'sub_dealer']} />}>
                 <Route element={<DashboardLayout />}>
                   <Route path="/dashboard" element={
                     <Suspense fallback={<LoadingFallback />}>

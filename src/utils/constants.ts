@@ -38,7 +38,8 @@ export const GUJARAT_DISTRICTS = [
 // User Roles - Removed builder
 export const USER_ROLES = [
   { value: 'dealer', label: 'Dealer/Distributor' },
-  { value: 'contractor', label: 'Contractor/Mason' }
+  { value: 'contractor', label: 'Contractor/Mason' },
+  { value: 'sub_dealer', label: 'Sub Dealer' }
 ];
 
 // Cement Types with Points

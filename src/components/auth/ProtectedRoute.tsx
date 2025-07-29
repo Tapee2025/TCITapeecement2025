@@ -74,6 +74,8 @@ export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
       return <Navigate to="/admin/dashboard" replace />;
     } else if (userData.role === 'dealer') {
       return <Navigate to="/dealer/dashboard" replace />;
+    } else if (userData.role === 'sub_dealer') {
+      return <Navigate to="/dashboard" replace />;
     } else {
       return <Navigate to="/dashboard" replace />;
     }

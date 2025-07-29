@@ -1,5 +1,5 @@
 // User Types
-export type UserRole = 'dealer' | 'contractor' | 'admin';
+export type UserRole = 'dealer' | 'contractor' | 'admin' | 'sub_dealer';
 
 export interface User {
   uid: string;

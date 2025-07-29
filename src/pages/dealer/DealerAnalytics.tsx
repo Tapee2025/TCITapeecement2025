@@ -10,6 +10,8 @@ export default function DealerAnalytics() {
   const [loading, setLoading] = useState(true);
   const [dealerStats, setDealerStats] = useState({
     totalCustomers: 0,
+    contractors: 0,
+    subDealers: 0,
     activeCustomers: 0,
     totalBagsSold: 0,
     totalTransactions: 0
@@ -31,6 +33,15 @@ export default function DealerAnalytics() {
       
       // Count unique customers using Set to ensure each customer is counted only once
       const uniqueCustomerIds = new Set(customerData?.map(t => t.user_id) || []);
+      
+      // Get customer details to categorize by role
+      const { data: customerDetails } = await supabase
+        .from('users')
+        .select('id, role')
+        .in('id', Array.from(uniqueCustomerIds));
+      
+      const contractors = customerDetails?.filter(c => c.role === 'contractor').length || 0;
+      const subDealers = customerDetails?.filter(c => c.role === 'sub_dealer').length || 0;
       
       // Get active customers (made transactions in the last 30 days)
       const thirtyDaysAgo = new Date();
@@ -65,6 +76,8 @@ export default function DealerAnalytics() {
       
       setDealerStats({
         totalCustomers: uniqueCustomerIds.size,
+        contractors,
+        subDealers,
         activeCustomers: activeCustomerIds.size,
         totalBagsSold: bagData?.[0]?.total_bags_sold || 0,
         totalTransactions: transactionCount || 0
@@ -98,7 +111,7 @@ export default function DealerAnalytics() {
       </div>
 
       {/* Customer Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div className="bg-white rounded-lg p-4 shadow-sm border">
           <div className="flex items-center justify-between">
             <div>
@@ -107,6 +120,28 @@ export default function DealerAnalytics() {
               <p className="text-xs text-gray-500">Unique customers</p>
             </div>
             <Users className="w-8 h-8 text-primary-500" />
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg p-4 shadow-sm border">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">Contractors</p>
+              <p className="text-2xl font-bold text-yellow-600">{dealerStats.contractors}</p>
+              <p className="text-xs text-gray-500">Contractor customers</p>
+            </div>
+            <Users className="w-8 h-8 text-yellow-500" />
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg p-4 shadow-sm border">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">Sub Dealers</p>
+              <p className="text-2xl font-bold text-blue-600">{dealerStats.subDealers}</p>
+              <p className="text-xs text-gray-500">Sub dealer customers</p>
+            </div>
+            <Users className="w-8 h-8 text-blue-500" />
           </div>
         </div>
 
@@ -129,17 +164,6 @@ export default function DealerAnalytics() {
               <p className="text-xs text-gray-500">All time</p>
             </div>
             <ShoppingBag className="w-8 h-8 text-blue-500" />
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg p-4 shadow-sm border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Total Transactions</p>
-              <p className="text-2xl font-bold text-purple-600">{dealerStats.totalTransactions}</p>
-              <p className="text-xs text-gray-500">All time</p>
-            </div>
-            <Calendar className="w-8 h-8 text-purple-500" />
           </div>
         </div>
       </div>
