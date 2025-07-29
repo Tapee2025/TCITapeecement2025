@@ -93,7 +93,7 @@ export default function NotificationCenter() {
 
       {/* Notification Panel */}
       {isOpen && (
-        <div className="notification-panel fixed md:absolute z-50 inset-0 md:inset-auto md:right-0 md:top-full md:mt-2 bg-white md:rounded-lg shadow-xl border border-gray-200 w-full md:w-96 max-h-screen md:max-h-[85vh] flex flex-col">
+        <div className="notification-panel fixed md:absolute z-50 inset-0 md:inset-auto md:right-0 md:top-full md:mt-2 bg-white md:rounded-lg shadow-xl border border-gray-200 w-full md:w-96 max-h-screen md:max-h-[85vh] flex flex-col md:transform md:translate-x-0">
           {/* Mobile Back Button (only shown when viewing a notification detail) */}
           {selectedNotification && window.innerWidth < 768 ? (
             <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">

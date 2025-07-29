@@ -135,6 +135,16 @@
     .notification-panel {
       min-width: 384px;
       max-width: 420px;
+      right: 0;
+      transform: translateX(0);
+    }
+  }
+  
+  /* Fix for fullscreen mode */
+  @media (display-mode: fullscreen) {
+    .notification-panel {
+      right: 1rem !important;
+      transform: translateX(0) !important;
     }
   }
 
