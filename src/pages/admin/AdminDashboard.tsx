@@ -165,53 +165,114 @@ export default function AdminDashboard() {
       const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, 1);
       const yearStart = new Date(now.getFullYear(), 0, 1);
 
-      // Current month bags - dealer and sub dealer transactions
+      // Get dealers and sub dealers separately
+      const dealerIds = users?.filter(u => u.role === 'dealer').map(u => u.id) || [];
+      const subDealerIds = users?.filter(u => u.role === 'sub_dealer').map(u => u.id) || [];
+
+      // Current month bags - ONLY dealer transactions
       const { data: currentMonthDealerTransactions } = await supabase
         .from('transactions')
         .select('amount, description, user_id')
         .eq('type', 'earned')
         .eq('status', 'approved')
-        .in('user_id', users?.filter(u => u.role === 'dealer' || u.role === 'sub_dealer').map(u => u.id) || [])
+        .in('user_id', dealerIds)
         .gte('created_at', currentMonthStart.toISOString());
 
-      const currentMonthBags = currentMonthDealerTransactions?.reduce((sum, t) => 
-        sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
+      // Current month bags - ONLY sub dealer transactions
+      const { data: currentMonthSubDealerTransactions } = await supabase
+        .from('transactions')
+        .select('amount, description, user_id')
+        .eq('type', 'earned')
+        .eq('status', 'approved')
+        .in('user_id', subDealerIds)
+        .gte('created_at', currentMonthStart.toISOString());
 
-      // Last 3 months bags - dealer and sub dealer transactions
+      const currentMonthDealerBags = currentMonthDealerTransactions?.reduce((sum, t) => 
+        sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
+      const currentMonthSubDealerBags = currentMonthSubDealerTransactions?.reduce((sum, t) => 
+        sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
+      const currentMonthTotalBags = currentMonthDealerBags + currentMonthSubDealerBags;
+
+      // Last 3 months bags - dealer transactions
       const { data: quarterlyDealerTransactions } = await supabase
         .from('transactions')
         .select('amount, description, user_id')
         .eq('type', 'earned')
         .eq('status', 'approved')
-        .in('user_id', users?.filter(u => u.role === 'dealer' || u.role === 'sub_dealer').map(u => u.id) || [])
+        .in('user_id', dealerIds)
         .gte('created_at', threeMonthsAgo.toISOString());
 
-      const quarterlyBagsSold = quarterlyDealerTransactions?.reduce((sum, t) => 
-        sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
+      // Last 3 months bags - sub dealer transactions
+      const { data: quarterlySubDealerTransactions } = await supabase
+        .from('transactions')
+        .select('amount, description, user_id')
+        .eq('type', 'earned')
+        .eq('status', 'approved')
+        .in('user_id', subDealerIds)
+        .gte('created_at', threeMonthsAgo.toISOString());
 
-      // Last 6 months bags - dealer and sub dealer transactions
+      const quarterlyDealerBags = quarterlyDealerTransactions?.reduce((sum, t) => 
+        sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
+      const quarterlySubDealerBags = quarterlySubDealerTransactions?.reduce((sum, t) => 
+        sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
+      const quarterlyTotalBags = quarterlyDealerBags + quarterlySubDealerBags;
+
+      // Last 6 months bags - dealer transactions
       const { data: halfYearlyDealerTransactions } = await supabase
         .from('transactions')
         .select('amount, description, user_id')
         .eq('type', 'earned')
         .eq('status', 'approved')
-        .in('user_id', users?.filter(u => u.role === 'dealer' || u.role === 'sub_dealer').map(u => u.id) || [])
+        .in('user_id', dealerIds)
         .gte('created_at', sixMonthsAgo.toISOString());
 
-      const halfYearlyBagsSold = halfYearlyDealerTransactions?.reduce((sum, t) => 
-        sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
+      // Last 6 months bags - sub dealer transactions
+      const { data: halfYearlySubDealerTransactions } = await supabase
+        .from('transactions')
+        .select('amount, description, user_id')
+        .eq('type', 'earned')
+        .eq('status', 'approved')
+        .in('user_id', subDealerIds)
+        .gte('created_at', sixMonthsAgo.toISOString());
 
-      // This year bags - dealer and sub dealer transactions
+      const halfYearlyDealerBags = halfYearlyDealerTransactions?.reduce((sum, t) => 
+        sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
+      const halfYearlySubDealerBags = halfYearlySubDealerTransactions?.reduce((sum, t) => 
+        sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
+      const halfYearlyTotalBags = halfYearlyDealerBags + halfYearlySubDealerBags;
+
+      // This year bags - dealer transactions
       const { data: yearlyDealerTransactions } = await supabase
         .from('transactions')
         .select('amount, description, user_id')
         .eq('type', 'earned')
         .eq('status', 'approved')
-        .in('user_id', users?.filter(u => u.role === 'dealer' || u.role === 'sub_dealer').map(u => u.id) || [])
+        .in('user_id', dealerIds)
         .gte('created_at', yearStart.toISOString());
 
-      const yearlyBagsSold = yearlyDealerTransactions?.reduce((sum, t) => 
+      // This year bags - sub dealer transactions
+      const { data: yearlySubDealerTransactions } = await supabase
+        .from('transactions')
+        .select('amount, description, user_id')
+        .eq('type', 'earned')
+        .eq('status', 'approved')
+        .in('user_id', subDealerIds)
+        .gte('created_at', yearStart.toISOString());
+
+      const yearlyDealerBags = yearlyDealerTransactions?.reduce((sum, t) => 
         sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
+      const yearlySubDealerBags = yearlySubDealerTransactions?.reduce((sum, t) => 
+        sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
+      const yearlyTotalBags = yearlyDealerBags + yearlySubDealerBags;
+
+      // Lifetime bags - separate dealer and sub dealer
+      const lifetimeDealerBags = dealerAndSubDealerTransactions?.filter(t => 
+        dealerIds.includes(t.user_id)).reduce((sum, t) => 
+        sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
+      const lifetimeSubDealerBags = dealerAndSubDealerTransactions?.filter(t => 
+        subDealerIds.includes(t.user_id)).reduce((sum, t) => 
+        sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
+      const lifetimeTotalBags = lifetimeDealerBags + lifetimeSubDealerBags;
 
       // Get recent activity (all transactions)
       const { data: recentTransactions, error: transactionsError } = await supabase
