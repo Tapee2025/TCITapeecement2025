@@ -58,7 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       // Add timeout to prevent hanging requests
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Profile fetch timeout')), 30000);
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 60000);
       });
       
       const profilePromise = supabase
