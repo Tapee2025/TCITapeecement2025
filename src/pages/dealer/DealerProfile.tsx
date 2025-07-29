@@ -487,7 +487,7 @@ export default function DealerProfile() {
           >
             {saving ? (
               <>
-                <LoadingSpinner size="sm\" className="mr-2" />
+                <LoadingSpinner size="sm" className="mr-2" />
                 Saving...
               </>
             ) : (
@@ -608,7 +608,7 @@ export default function DealerProfile() {
 
         {/* Performance Comparison */}
         <div className="pt-6 border-t border-gray-200">
-          <h4 className="text-md font-medium text-gray-900 mb-4">Total Sales Comparison (Including Sub Dealers)</h4>
+          <h4 className="text-md font-medium text-gray-900 mb-4">Bags Sold Comparison</h4>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div className="text-center p-3 bg-gray-50 rounded-lg">
               <p className="text-lg font-bold text-gray-900">{performanceData.currentMonth.bags}</p>
