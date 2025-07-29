@@ -51,7 +51,7 @@ export default function ManageCustomers() {
   } = useForm<CustomerFormData>({
     resolver: zodResolver(customerSchema),
     defaultValues: {
-      role: 'contractor'
+      role: 'sub_dealer'
     }
   });
 
@@ -512,8 +512,8 @@ export default function ManageCustomers() {
                       className="form-input"
                       {...register('role')}
                     >
-                      <option value="contractor">Contractor/Mason</option>
                       <option value="sub_dealer">Sub Dealer</option>
+                      <option value="contractor">Contractor/Mason</option>
                     </select>
                     {errors.role && <p className="form-error">{errors.role.message}</p>}
                   </div>
