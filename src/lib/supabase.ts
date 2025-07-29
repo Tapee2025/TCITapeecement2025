@@ -62,24 +62,9 @@ export function getProfilePictureUrl(fileName: string | null): string {
 // Connection health check with timeout
 export async function checkConnection(): Promise<boolean> {
   try {
-    // Set a timeout for the connection check
-    const timeoutPromise = new Promise<boolean>((_, reject) => {
-      setTimeout(() => reject(new Error('Connection check timed out')), 10000);
-    });
-    
-    // Actual connection check
-    const connectionPromise = new Promise<boolean>(async (resolve) => {
-      try {
-        // Use a simpler health check
-        const { data, error } = await supabase.auth.getSession();
-        resolve(!error);
-      } catch {
-        resolve(false);
-      }
-    });
-    
-    // Race the connection check against the timeout
-    return await Promise.race([connectionPromise, timeoutPromise]);
+    // Simple session check without timeout to avoid false negatives
+    const { data, error } = await supabase.auth.getSession();
+    return !error;
   } catch {
     return false;
   }
@@ -102,32 +87,94 @@ export function clearSupabaseCache() {
   }
 }
 
-// Function to handle connection recovery
-export async function recoverConnection() {
+// Function to handle silent connection recovery
+export async function recoverConnection(silent: boolean = true) {
   try {
     // Try to refresh the session first
     const { error: refreshError } = await supabase.auth.refreshSession();
     if (refreshError) {
-      console.warn('Session refresh failed:', refreshError);
+      if (!silent) console.warn('Session refresh failed:', refreshError);
     }
     
     // Try to reconnect
     const isConnected = await checkConnection();
     
     if (!isConnected) {
-      // Clear cache and try once more
-      clearSupabaseCache();
-      const retryConnected = await checkConnection();
-      if (!retryConnected) {
-        console.warn('Connection recovery failed');
+      // For silent recovery, just return false without aggressive actions
+      if (silent) {
         return false;
+      } else {
+        // Clear cache and try once more only if not silent
+        clearSupabaseCache();
+        const retryConnected = await checkConnection();
+        if (!retryConnected) {
+          console.warn('Connection recovery failed');
+          return false;
+        }
       }
-      return false;
     }
     
     return true;
   } catch (error) {
-    console.error('Error recovering connection:', error);
+    if (!silent) console.error('Error recovering connection:', error);
     return false;
   }
+}
+
+// Background connection manager
+class BackgroundConnectionManager {
+  private isRunning = false;
+  private checkInterval: NodeJS.Timeout | null = null;
+  private recoveryAttempts = 0;
+  private maxRecoveryAttempts = 3;
+  
+  start() {
+    if (this.isRunning) return;
+    
+    this.isRunning = true;
+    this.recoveryAttempts = 0;
+    
+    // Check connection every 2 minutes
+    this.checkInterval = setInterval(async () => {
+      await this.performBackgroundCheck();
+    }, 2 * 60 * 1000);
+  }
+  
+  stop() {
+    this.isRunning = false;
+    if (this.checkInterval) {
+      clearInterval(this.checkInterval);
+      this.checkInterval = null;
+    }
+  }
+  
+  private async performBackgroundCheck() {
+    try {
+      const isConnected = await checkConnection();
+      
+      if (!isConnected && this.recoveryAttempts < this.maxRecoveryAttempts) {
+        this.recoveryAttempts++;
+        
+        // Try silent recovery
+        const recovered = await recoverConnection(true);
+        
+        if (recovered) {
+          this.recoveryAttempts = 0; // Reset on successful recovery
+        } else if (this.recoveryAttempts >= this.maxRecoveryAttempts) {
+          // After max attempts, do a silent page refresh
+          setTimeout(() => {
+            window.location.reload();
+          }, 5000); // Wait 5 seconds before refresh
+        }
+      } else if (isConnected) {
+        this.recoveryAttempts = 0; // Reset on successful connection
+      }
+    } catch (error) {
+      // Silent error handling
+      console.debug('Background connection check failed:', error);
+    }
+  }
+}
+
+export const backgroundConnectionManager = new BackgroundConnectionManager();
 }

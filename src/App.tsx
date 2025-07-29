@@ -4,6 +4,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import { AuthProvider } from './contexts/AuthContext';
 import ErrorBoundary from './components/ui/ErrorBoundary';
 import { Suspense, lazy, useEffect } from 'react';
+import { backgroundConnectionManager } from './lib/supabase';
 
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import AuthLayout from './components/layouts/AuthLayout';
@@ -59,73 +60,14 @@ const LoadingFallback = () => (
 );
 
 function App() {
-  // Add memory management and activity tracking
+  // Initialize background connection management
   useEffect(() => {
-    // Set up periodic memory check and cleanup - less aggressive
-    const memoryCheckInterval = setInterval(() => {
-      // Force garbage collection if supported (only in development)
-      if (typeof window.gc === 'function' && process.env.NODE_ENV === 'development') {
-        window.gc();
-      }
-      
-      // Check for memory leaks in localStorage
-      try {
-        const localStorageSize = Object.keys(localStorage).reduce((total, key) => {
-          return total + (localStorage[key] ? localStorage[key].length : 0);
-        }, 0);
-        
-        // If localStorage is getting too large (over 8MB), clear non-essential items
-        if (localStorageSize > 8 * 1024 * 1024) {
-          console.warn('LocalStorage size is large, cleaning up...');
-          // Clear only non-essential items
-          Object.keys(localStorage).forEach(key => {
-            if (key.includes('temp') || key.includes('cache')) {
-              localStorage.removeItem(key);
-            }
-          });
-        }
-      } catch (error) {
-        console.error('Error checking localStorage:', error);
-      }
-    }, 5 * 60 * 1000); // Check every 5 minutes
-
-    // Track user activity for session management
-    let lastActivityTime = Date.now();
-    const activityCheck = () => { lastActivityTime = Date.now(); };
-    
-    // Add event listeners to track user activity
-    window.addEventListener('click', activityCheck);
-    window.addEventListener('keypress', activityCheck);
-    window.addEventListener('scroll', activityCheck);
-    window.addEventListener('mousemove', activityCheck);
-    window.addEventListener('touchstart', activityCheck);
-    
-    // Check for extended inactivity - much longer timeout
-    const unresponsiveCheckInterval = setInterval(() => {
-      const currentTime = Date.now();
-      const timeSinceLastActivity = currentTime - lastActivityTime;
-      
-      // If app has been inactive for more than 2 hours, show a warning
-      if (timeSinceLastActivity > 2 * 60 * 60 * 1000) {
-        console.log('App inactive for 2 hours, showing refresh suggestion...');
-        // Show a toast notification instead of forcing refresh
-        if (window.confirm('You have been inactive for a while. Would you like to refresh the page for better performance?')) {
-          window.location.reload();
-        } else {
-          // Reset the timer if user chooses not to refresh
-          lastActivityTime = Date.now();
-        }
-      }
-    }, 15 * 60 * 1000); // Check every 15 minutes
+    // Start background connection management
+    backgroundConnectionManager.start();
 
     return () => {
-      clearInterval(memoryCheckInterval);
-      clearInterval(unresponsiveCheckInterval);
-      window.removeEventListener('click', activityCheck);
-      window.removeEventListener('keypress', activityCheck);
-      window.removeEventListener('scroll', activityCheck);
-      window.removeEventListener('mousemove', activityCheck);
-      window.removeEventListener('touchstart', activityCheck);
+      // Stop background connection management
+      backgroundConnectionManager.stop();
     };
   }, []);
 
