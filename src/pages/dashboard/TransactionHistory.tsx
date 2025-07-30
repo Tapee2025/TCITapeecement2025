@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Database } from '../../lib/database.types';
-import { ArrowUp, ArrowDown, FileText, Download, Filter, Calendar } from 'lucide-react';
+import { ArrowUp, ArrowDown, FileText, Download, Filter, Calendar, X } from 'lucide-react';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { toast } from 'react-toastify';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCache } from '../../hooks/useCache';
+import { calculateBagsFromTransaction, getCementTypeFromDescription } from '../../utils/helpers';
 
 type Transaction = Database['public']['Tables']['transactions']['Row'];
 
@@ -24,27 +25,125 @@ export default function TransactionHistory() {
       const timeoutId = setTimeout(() => controller.abort(), 10000);
 
       try {
-      const { data, error } = await supabase
-        .from('transactions')
-        .select(`
-          *,
-          dealers:users!transactions_dealer_id_fkey (
-            first_name,
-            last_name,
-            user_code
-          ),
-          rewards (
-            title,
-            points_required
-          )
-        `)
-        .eq('user_id', currentUser.id)
-          .order('created_at', { ascending: false })
-          .abortSignal(controller.signal);
+        let allTransactions: any[] = [];
+
+        if (currentUser.role === 'dealer') {
+          // For dealers, get their own transactions AND sub dealer transactions
+          
+          // Get dealer's own transactions
+          const { data: dealerTransactions, error: dealerError } = await supabase
+            .from('transactions')
+            .select(`
+              *,
+              dealers:users!transactions_dealer_id_fkey (
+                first_name,
+                last_name,
+                user_code
+              ),
+              rewards (
+                title,
+                points_required
+              ),
+              cancelled_by_user:users!transactions_cancelled_by_fkey (
+                first_name,
+                last_name,
+                role
+              )
+            `)
+            .eq('user_id', currentUser.id)
+            .order('created_at', { ascending: false })
+            .abortSignal(controller.signal);
+
+          if (dealerError) throw dealerError;
+
+          // Get sub dealers created by this dealer
+          const { data: subDealers, error: subDealerError } = await supabase
+            .from('users')
+            .select('id')
+            .eq('created_by', currentUser.id)
+            .eq('role', 'sub_dealer')
+            .abortSignal(controller.signal);
+
+          if (subDealerError) throw subDealerError;
+
+          // Get sub dealer transactions if any sub dealers exist
+          let subDealerTransactions: any[] = [];
+          if (subDealers && subDealers.length > 0) {
+            const subDealerIds = subDealers.map(sd => sd.id);
+            
+            const { data: subDealerTxns, error: subDealerTxnError } = await supabase
+              .from('transactions')
+              .select(`
+                *,
+                dealers:users!transactions_dealer_id_fkey (
+                  first_name,
+                  last_name,
+                  user_code
+                ),
+                rewards (
+                  title,
+                  points_required
+                ),
+                cancelled_by_user:users!transactions_cancelled_by_fkey (
+                  first_name,
+                  last_name,
+                  role
+                ),
+                sub_dealer:users!transactions_user_id_fkey (
+                  first_name,
+                  last_name,
+                  user_code,
+                  role
+                )
+              `)
+              .in('user_id', subDealerIds)
+              .order('created_at', { ascending: false })
+              .abortSignal(controller.signal);
+
+            if (subDealerTxnError) throw subDealerTxnError;
+            subDealerTransactions = subDealerTxns || [];
+          }
+
+          // Combine dealer and sub dealer transactions
+          allTransactions = [
+            ...(dealerTransactions || []),
+            ...subDealerTransactions
+          ];
+
+          // Sort by created_at descending
+          allTransactions.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+        } else {
+          // For non-dealers, get only their own transactions
+          const { data, error } = await supabase
+            .from('transactions')
+            .select(`
+              *,
+              dealers:users!transactions_dealer_id_fkey (
+                first_name,
+                last_name,
+                user_code
+              ),
+              rewards (
+                title,
+                points_required
+              ),
+              cancelled_by_user:users!transactions_cancelled_by_fkey (
+                first_name,
+                last_name,
+                role
+              )
+            `)
+            .eq('user_id', currentUser.id)
+            .order('created_at', { ascending: false })
+            .abortSignal(controller.signal);
+
+          if (error) throw error;
+          allTransactions = data || [];
+        }
 
         clearTimeout(timeoutId);
-      if (error) throw error;
-      return data || [];
+        return allTransactions;
       } catch (error) {
         clearTimeout(timeoutId);
         throw error;
@@ -204,9 +303,12 @@ export default function TransactionHistory() {
                 <div className="flex items-start justify-between">
                   <div className="flex items-start space-x-3 flex-1">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                      transaction.status === 'cancelled' ? 'bg-error-100' :
                       transaction.type === 'earned' ? 'bg-success-100' : 'bg-accent-100'
                     }`}>
-                      {transaction.type === 'earned' ? (
+                      {transaction.status === 'cancelled' ? (
+                        <X className="w-5 h-5 text-error-600" />
+                      ) : transaction.type === 'earned' ? (
                         <ArrowUp className="w-5 h-5 text-success-600" />
                       ) : (
                         <ArrowDown className="w-5 h-5 text-accent-600" />
@@ -216,7 +318,14 @@ export default function TransactionHistory() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1">
                         <p className="text-sm font-medium text-gray-900">
-                          {transaction.type === 'earned' ? 'Points Earned' : 'Points Redeemed'}
+                          {transaction.status === 'cancelled' ? 'Transaction Cancelled' :
+                           transaction.type === 'earned' ? 'Points Earned' : 'Points Redeemed'}
+                          {/* Show if this is a sub dealer transaction */}
+                          {(transaction as any).sub_dealer && currentUser?.role === 'dealer' && (
+                            <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+                              Sub Dealer: {(transaction as any).sub_dealer.first_name} {(transaction as any).sub_dealer.last_name}
+                            </span>
+                          )}
                         </p>
                         <span className={`text-sm font-semibold ${
                           transaction.type === 'earned' ? 'text-success-600' : 'text-accent-600'
@@ -244,6 +353,8 @@ export default function TransactionHistory() {
                             ? 'bg-warning-100 text-warning-700'
                             : transaction.status === 'dealer_approved'
                             ? 'bg-blue-100 text-blue-700'
+                            : transaction.status === 'cancelled'
+                            ? 'bg-error-100 text-error-700'
                             : 'bg-error-100 text-error-700'
                         }`}>
                           {transaction.status === 'dealer_approved' ? 'Pending Admin' : transaction.status}
@@ -251,6 +362,25 @@ export default function TransactionHistory() {
                       </div>
                       
                       {/* Additional Info */}
+                      {transaction.status === 'cancelled' && (
+                        <div className="mt-2 pt-2 border-t border-gray-100">
+                          <div className="bg-error-50 p-2 rounded text-xs">
+                            <p className="text-error-700 font-medium">Cancellation Details:</p>
+                            {transaction.cancellation_reason && (
+                              <p className="text-error-600 mt-1">Reason: {transaction.cancellation_reason}</p>
+                            )}
+                            {transaction.cancelled_at && (
+                              <p className="text-error-600">Cancelled: {new Date(transaction.cancelled_at).toLocaleDateString()}</p>
+                            )}
+                            {(transaction as any).cancelled_by_user && (
+                              <p className="text-error-600">
+                                By: {(transaction as any).cancelled_by_user.first_name} {(transaction as any).cancelled_by_user.last_name} 
+                                ({(transaction as any).cancelled_by_user.role})
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
                       {((transaction as any).rewards || (transaction as any).dealers) && (
                         <div className="mt-2 pt-2 border-t border-gray-100">
                           {(transaction as any).rewards && (

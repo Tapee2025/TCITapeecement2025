@@ -88,6 +88,11 @@ export default function DealerDashboard() {
             role,
             district,
             points
+          ),
+          cancelled_by_user:users!transactions_cancelled_by_fkey (
+            first_name,
+            last_name,
+            role
           )
         `)
         .eq('dealer_id', user.id)
