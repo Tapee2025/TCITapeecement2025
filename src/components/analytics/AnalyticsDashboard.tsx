@@ -61,47 +61,38 @@ export default function AnalyticsDashboard({ userRole = 'admin', dealerId }: Ana
       console.log('Fetching analytics data for period:', period, 'from', startDate, 'to', endDate);
       console.log('Dealer ID:', dealerId);
 
-      // First, fetch users data based on role
-      let usersQuery = supabase.from('users').select('*');
-      
-      // Apply filters based on user role
+      let usersData: any[] = [];
+      let transactionsData: any[] = [];
+
       if (userRole === 'admin') {
         // Admin sees all users except other admins
-        usersQuery = usersQuery.neq('role', 'admin');
-      } else if (userRole === 'dealer' && dealerId) {
-        // Dealer sees only their customers and sub dealers
-        const { data: subDealers } = await supabase
+        const { data: adminUsersData, error: usersError } = await supabase
           .from('users')
-          .select('id')
-          .eq('created_by', dealerId)
-          .eq('role', 'sub_dealer');
+          .select('*')
+          .neq('role', 'admin');
         
-        const subDealerIds = subDealers?.map(sd => sd.id) || [];
-        const allDealerIds = [dealerId, ...subDealerIds];
+        if (usersError) throw usersError;
+        usersData = adminUsersData || [];
         
-        usersQuery = usersQuery.in('id', allDealerIds);
-      }
-      
-      // Execute users query first
-      const usersResult = await usersQuery;
-      
-      if (usersResult.error) throw usersResult.error;
-      
-      const usersData = usersResult.data || [];
-      
-      // Now fetch transactions with proper user filtering using the fetched usersData
-      let finalTransactionsQuery = supabase.from('transactions').select('*')
-        .gte('created_at', startDate.toISOString())
-        .lte('created_at', endDate.toISOString());
-      
-      if (userRole === 'admin') {
-        // For admin, only get transactions from dealers and sub_dealers
+        // For admin, get transactions from dealers and sub_dealers only (who sell bags)
         const dealerAndSubDealerIds = usersData
           .filter(u => u.role === 'dealer' || u.role === 'sub_dealer')
           .map(u => u.id);
-        finalTransactionsQuery = finalTransactionsQuery.in('user_id', dealerAndSubDealerIds);
+        
+        const { data: adminTransactionsData, error: transactionsError } = await supabase
+          .from('transactions')
+          .select('*')
+          .in('user_id', dealerAndSubDealerIds)
+          .eq('type', 'earned')
+          .eq('status', 'approved')
+          .gte('created_at', startDate.toISOString())
+          .lte('created_at', endDate.toISOString());
+        
+        if (transactionsError) throw transactionsError;
+        transactionsData = adminTransactionsData || [];
+        
       } else if (userRole === 'dealer' && dealerId) {
-        // For dealer, get their own transactions + sub dealers
+        // For dealer, get their own data + sub dealers they created
         const { data: subDealers } = await supabase
           .from('users')
           .select('id')
@@ -109,14 +100,30 @@ export default function AnalyticsDashboard({ userRole = 'admin', dealerId }: Ana
           .eq('role', 'sub_dealer');
         
         const subDealerIds = subDealers?.map(sd => sd.id) || [];
-        const allDealerIds = [dealerId, ...subDealerIds];
-        finalTransactionsQuery = finalTransactionsQuery.in('user_id', allDealerIds);
+        
+        // Get user data for dealer + their sub dealers
+        const { data: dealerUsersData, error: usersError } = await supabase
+          .from('users')
+          .select('*')
+          .in('id', [dealerId, ...subDealerIds]);
+        
+        if (usersError) throw usersError;
+        usersData = dealerUsersData || [];
+        
+        // Get transactions from dealer + their sub dealers (their own sales)
+        const { data: dealerTransactionsData, error: transactionsError } = await supabase
+          .from('transactions')
+          .select('*')
+          .in('user_id', [dealerId, ...subDealerIds])
+          .eq('type', 'earned')
+          .eq('status', 'approved')
+          .gte('created_at', startDate.toISOString())
+          .lte('created_at', endDate.toISOString());
+        
+        if (transactionsError) throw transactionsError;
+        transactionsData = dealerTransactionsData || [];
       }
-      
-      const transactionsResult = await finalTransactionsQuery;
-      if (transactionsResult.error) throw transactionsResult.error;
-      const transactionsData = transactionsResult.data || [];
-      
+
       // Calculate analytics
       const totalUsers = usersData.length;
       const newRegistrations = usersData.filter(u => 
@@ -125,19 +132,46 @@ export default function AnalyticsDashboard({ userRole = 'admin', dealerId }: Ana
       
       const activeUsers = new Set(transactionsData.map(t => t.user_id)).size;
       const totalTransactions = transactionsData.length;
-      const totalPointsIssued = transactionsData
-        .filter(t => t.type === 'earned' && t.status === 'approved')
-        .reduce((sum, t) => sum + t.amount, 0);
-      
-      const totalBagsSold = transactionsData
-        .filter(t => t.type === 'earned' && t.status === 'approved')
-        .reduce((sum, t) => sum + calculateBagsFromTransaction(t.description, t.amount), 0);
+      const totalPointsIssued = transactionsData.reduce((sum, t) => sum + t.amount, 0);
+      const totalBagsSold = transactionsData.reduce((sum, t) => sum + calculateBagsFromTransaction(t.description, t.amount), 0);
       
       const totalRewardsRedeemed = transactionsData
         .filter(t => t.type === 'redeemed' && (t.status === 'approved' || t.status === 'completed'))
         .length;
       
       const userEngagementRate = totalUsers > 0 ? Math.round((activeUsers / totalUsers) * 100) : 0;
+      
+      // Get redemption transactions for rewards calculation
+      let redemptionTransactions: any[] = [];
+      if (userRole === 'admin') {
+        const { data: redemptions } = await supabase
+          .from('transactions')
+          .select('*')
+          .eq('type', 'redeemed')
+          .in('status', ['approved', 'completed'])
+          .gte('created_at', startDate.toISOString())
+          .lte('created_at', endDate.toISOString());
+        redemptionTransactions = redemptions || [];
+      } else if (userRole === 'dealer' && dealerId) {
+        const { data: subDealers } = await supabase
+          .from('users')
+          .select('id')
+          .eq('created_by', dealerId)
+          .eq('role', 'sub_dealer');
+        
+        const subDealerIds = subDealers?.map(sd => sd.id) || [];
+        const { data: redemptions } = await supabase
+          .from('transactions')
+          .select('*')
+          .eq('type', 'redeemed')
+          .in('status', ['approved', 'completed'])
+          .in('user_id', [dealerId, ...subDealerIds])
+          .gte('created_at', startDate.toISOString())
+          .lte('created_at', endDate.toISOString());
+        redemptionTransactions = redemptions || [];
+      }
+      
+      const actualRewardsRedeemed = redemptionTransactions.length;
       
       // Get top performing dealers (only for admin)
       let topPerformingDealers: any[] = [];
@@ -186,7 +220,7 @@ export default function AnalyticsDashboard({ userRole = 'admin', dealerId }: Ana
         total_transactions: totalTransactions,
         total_points_issued: totalPointsIssued,
         total_bags_sold: totalBagsSold,
-        total_rewards_redeemed: totalRewardsRedeemed,
+        total_rewards_redeemed: actualRewardsRedeemed,
         revenue_impact: totalBagsSold * 500, // Estimated revenue impact
         user_engagement_rate: userEngagementRate,
         top_performing_dealers: topPerformingDealers,
