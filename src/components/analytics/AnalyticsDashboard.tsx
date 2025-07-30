@@ -4,6 +4,8 @@ import { supabase } from '../../lib/supabase';
 import { AnalyticsData } from '../../types/notifications';
 import { format, subDays, startOfMonth, endOfMonth } from 'date-fns';
 import { toast } from 'react-toastify';
+import { calculateBagsFromTransaction } from '../../utils/helpers';
+import LoadingSpinner from '../ui/LoadingSpinner';
 
 interface AnalyticsDashboardProps {
   userRole?: 'admin' | 'dealer';
@@ -13,6 +15,7 @@ interface AnalyticsDashboardProps {
 export default function AnalyticsDashboard({ userRole = 'admin', dealerId }: AnalyticsDashboardProps) {
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState('30_days');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
@@ -24,6 +27,7 @@ export default function AnalyticsDashboard({ userRole = 'admin', dealerId }: Ana
     
     try {
       setLoading(true);
+      setError(null);
       
       let startDate: Date;
       let endDate: Date = new Date();
@@ -57,68 +61,79 @@ export default function AnalyticsDashboard({ userRole = 'admin', dealerId }: Ana
       console.log('Fetching analytics data for period:', period, 'from', startDate, 'to', endDate);
       console.log('Dealer ID:', dealerId);
 
-      // For admin, fetch comprehensive analytics data manually since RPC might have issues
+      // Fetch analytics data manually for both admin and dealer
+      let usersQuery = supabase.from('users').select('*');
+      let transactionsQuery = supabase.from('transactions').select('*');
+      
+      // Apply filters based on user role
       if (userRole === 'admin') {
-        // Fetch users data
-        const { data: usersData, error: usersError } = await supabase
+        // Admin sees all users except other admins
+        usersQuery = usersQuery.neq('role', 'admin');
+      } else if (userRole === 'dealer' && dealerId) {
+        // Dealer sees only their customers and sub dealers
+        const { data: subDealers } = await supabase
           .from('users')
-          .select('*')
-          .neq('role', 'admin');
-
-        if (usersError) throw usersError;
-
-        // Fetch transactions data
-        const { data: transactionsData, error: transactionsError } = await supabase
-          .from('transactions')
-          .select('*')
-          .gte('created_at', startDate.toISOString())
-          .lte('created_at', endDate.toISOString());
-
-        if (transactionsError) throw transactionsError;
-
-        // Calculate analytics manually
-        const totalUsers = usersData?.length || 0;
-        const newRegistrations = usersData?.filter(u => 
-          new Date(u.created_at) >= startDate && new Date(u.created_at) <= endDate
-        ).length || 0;
-
-        const activeUsers = new Set(transactionsData?.map(t => t.user_id)).size || 0;
-        const totalTransactions = transactionsData?.length || 0;
-        const totalPointsIssued = transactionsData
-          ?.filter(t => t.type === 'earned' && t.status === 'approved')
-          .reduce((sum, t) => sum + t.amount, 0) || 0;
-
-        // Calculate bags sold using helper function
-        const totalBagsSold = transactionsData
-          ?.filter(t => t.type === 'earned' && t.status === 'approved')
-          .reduce((sum, t) => {
-            // Import calculateBagsFromTransaction function
-            const bags = t.description.includes('OPC') 
-              ? Math.round(t.amount / 5) 
-              : Math.round(t.amount / 10);
-            return sum + bags;
-          }, 0) || 0;
-
-        const totalRewardsRedeemed = transactionsData
-          ?.filter(t => t.type === 'redeemed' && (t.status === 'approved' || t.status === 'completed'))
-          .length || 0;
-
-        const userEngagementRate = totalUsers > 0 ? Math.round((activeUsers / totalUsers) * 100) : 0;
-
-        // Get top performing dealers
-        const dealerUsers = usersData?.filter(u => u.role === 'dealer') || [];
-        const topPerformingDealers = dealerUsers.map(dealer => {
-          const dealerTransactions = transactionsData?.filter(t => 
+          .select('id')
+          .eq('created_by', dealerId)
+          .eq('role', 'sub_dealer');
+        
+        const subDealerIds = subDealers?.map(sd => sd.id) || [];
+        const allDealerIds = [dealerId, ...subDealerIds];
+        
+        usersQuery = usersQuery.in('id', allDealerIds);
+        transactionsQuery = transactionsQuery.in('user_id', allDealerIds);
+      }
+      
+      // Add date filters
+      transactionsQuery = transactionsQuery
+        .gte('created_at', startDate.toISOString())
+        .lte('created_at', endDate.toISOString());
+      
+      // Execute queries
+      const [usersResult, transactionsResult] = await Promise.all([
+        usersQuery,
+        transactionsQuery
+      ]);
+      
+      if (usersResult.error) throw usersResult.error;
+      if (transactionsResult.error) throw transactionsResult.error;
+      
+      const usersData = usersResult.data || [];
+      const transactionsData = transactionsResult.data || [];
+      
+      // Calculate analytics
+      const totalUsers = usersData.length;
+      const newRegistrations = usersData.filter(u => 
+        new Date(u.created_at) >= startDate && new Date(u.created_at) <= endDate
+      ).length;
+      
+      const activeUsers = new Set(transactionsData.map(t => t.user_id)).size;
+      const totalTransactions = transactionsData.length;
+      const totalPointsIssued = transactionsData
+        .filter(t => t.type === 'earned' && t.status === 'approved')
+        .reduce((sum, t) => sum + t.amount, 0);
+      
+      const totalBagsSold = transactionsData
+        .filter(t => t.type === 'earned' && t.status === 'approved')
+        .reduce((sum, t) => sum + calculateBagsFromTransaction(t.description, t.amount), 0);
+      
+      const totalRewardsRedeemed = transactionsData
+        .filter(t => t.type === 'redeemed' && (t.status === 'approved' || t.status === 'completed'))
+        .length;
+      
+      const userEngagementRate = totalUsers > 0 ? Math.round((activeUsers / totalUsers) * 100) : 0;
+      
+      // Get top performing dealers (only for admin)
+      let topPerformingDealers: any[] = [];
+      if (userRole === 'admin') {
+        const dealerUsers = usersData.filter(u => u.role === 'dealer' || u.role === 'sub_dealer');
+        topPerformingDealers = dealerUsers.map(dealer => {
+          const dealerTransactions = transactionsData.filter(t => 
             t.user_id === dealer.id && t.type === 'earned' && t.status === 'approved'
-          ) || [];
+          );
           
-          const bags = dealerTransactions.reduce((sum, t) => {
-            const bags = t.description.includes('OPC') 
-              ? Math.round(t.amount / 5) 
-              : Math.round(t.amount / 10);
-            return sum + bags;
-          }, 0);
-          
+          const bags = dealerTransactions.reduce((sum, t) => 
+            sum + calculateBagsFromTransaction(t.description, t.amount), 0);
           const points = dealerTransactions.reduce((sum, t) => sum + t.amount, 0);
           
           return {
@@ -128,40 +143,42 @@ export default function AnalyticsDashboard({ userRole = 'admin', dealerId }: Ana
             points_issued: points
           };
         }).sort((a, b) => b.bags_sold - a.bags_sold).slice(0, 5);
-
-        // Get popular rewards (placeholder since we don't have reward redemption details)
-        const popularRewards = [
-          { reward_id: '1', title: 'Cash Discount', redemption_count: totalRewardsRedeemed }
-        ];
-
-        const calculatedData = {
-          period: `${startDate.toISOString()} to ${endDate.toISOString()}`,
-          total_users: totalUsers,
-          active_users: activeUsers,
-          new_registrations: newRegistrations,
-          total_transactions: totalTransactions,
-          total_points_issued: totalPointsIssued,
-          total_bags_sold: totalBagsSold,
-          total_rewards_redeemed: totalRewardsRedeemed,
-          revenue_impact: totalBagsSold * 500, // Estimated revenue impact
-          user_engagement_rate: userEngagementRate,
-          top_performing_dealers: topPerformingDealers,
-          popular_rewards: popularRewards
-        };
-
-        console.log('Calculated analytics data:', calculatedData);
-        setAnalyticsData(calculatedData);
-      } else {
-        // For dealers, try the RPC function
-        const { data, error } = await supabase.rpc('get_analytics_data', {
-          p_start_date: startDate.toISOString(),
-          p_end_date: endDate.toISOString(),
-          p_dealer_id: dealerId || null
-        });
-
-        if (error) throw error;
-        setAnalyticsData(data);
       }
+      
+      // Get popular rewards
+      const { data: rewardsData } = await supabase
+        .from('rewards')
+        .select('id, title');
+      
+      const popularRewards = (rewardsData || []).map(reward => {
+        const redemptionCount = transactionsData.filter(t => 
+          t.type === 'redeemed' && t.reward_id === reward.id
+        ).length;
+        
+        return {
+          reward_id: reward.id,
+          title: reward.title,
+          redemption_count: redemptionCount
+        };
+      }).sort((a, b) => b.redemption_count - a.redemption_count).slice(0, 5);
+      
+      const calculatedData: AnalyticsData = {
+        period: `${format(startDate, 'yyyy-MM-dd')} to ${format(endDate, 'yyyy-MM-dd')}`,
+        total_users: totalUsers,
+        active_users: activeUsers,
+        new_registrations: newRegistrations,
+        total_transactions: totalTransactions,
+        total_points_issued: totalPointsIssued,
+        total_bags_sold: totalBagsSold,
+        total_rewards_redeemed: totalRewardsRedeemed,
+        revenue_impact: totalBagsSold * 500, // Estimated revenue impact
+        user_engagement_rate: userEngagementRate,
+        top_performing_dealers: topPerformingDealers,
+        popular_rewards: popularRewards
+      };
+      
+      console.log('Calculated analytics data:', calculatedData);
+      setAnalyticsData(calculatedData);
 
     } catch (error) {
       console.error('Error fetching analytics:', error);
@@ -169,13 +186,13 @@ export default function AnalyticsDashboard({ userRole = 'admin', dealerId }: Ana
     } finally {
       setLoading(false);
     }
-  }, [period, dealerId, customStartDate, customEndDate]);
+  }, [period, dealerId, customStartDate, customEndDate, userRole]);
 
   useEffect(() => {
     if (period !== 'custom') {
       fetchAnalytics();
     }
-  }, [period, dealerId, fetchAnalytics]);
+  }, [fetchAnalytics]);
 
   const exportData = () => {
     if (!analyticsData) return;
@@ -201,33 +218,10 @@ export default function AnalyticsDashboard({ userRole = 'admin', dealerId }: Ana
     link.click();
   };
 
-  const copyToClipboard = async () => {
-    if (!analyticsData) return;
-    
-    try {
-      const csvContent = [
-        ['Metric', 'Value'],
-        ['Total Users', analyticsData.total_users],
-        ['Active Users', analyticsData.active_users],
-        ['New Registrations', analyticsData.new_registrations],
-        ['Total Transactions', analyticsData.total_transactions],
-        ['Total Points Issued', analyticsData.total_points_issued],
-        ['Total Bags Sold', analyticsData.total_bags_sold],
-        ['Total Rewards Redeemed', analyticsData.total_rewards_redeemed],
-        ['User Engagement Rate', `${analyticsData.user_engagement_rate}%`]
-      ].map(row => row.join(',')).join('\n');
-      
-      await navigator.clipboard.writeText(csvContent);
-      toast.success("CSV copied to clipboard");
-    } catch {
-      toast.error("Failed to copy to clipboard");
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+        <LoadingSpinner size="lg" />
       </div>
     );
   }
