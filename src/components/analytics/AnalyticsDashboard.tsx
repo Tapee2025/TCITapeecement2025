@@ -69,6 +69,10 @@ export default function AnalyticsDashboard({ userRole = 'admin', dealerId }: Ana
       if (userRole === 'admin') {
         // Admin sees all users except other admins
         usersQuery = usersQuery.neq('role', 'admin');
+        // For admin, get all transactions from dealers and sub_dealers only (not contractors)
+        transactionsQuery = transactionsQuery.in('user_id', 
+          usersData.filter(u => u.role === 'dealer' || u.role === 'sub_dealer').map(u => u.id)
+        );
       } else if (userRole === 'dealer' && dealerId) {
         // Dealer sees only their customers and sub dealers
         const { data: subDealers } = await supabase
@@ -90,15 +94,40 @@ export default function AnalyticsDashboard({ userRole = 'admin', dealerId }: Ana
         .lte('created_at', endDate.toISOString());
       
       // Execute queries
-      const [usersResult, transactionsResult] = await Promise.all([
+      const [usersResult] = await Promise.all([
         usersQuery,
-        transactionsQuery
       ]);
       
       if (usersResult.error) throw usersResult.error;
-      if (transactionsResult.error) throw transactionsResult.error;
       
       const usersData = usersResult.data || [];
+      
+      // Now fetch transactions with proper user filtering
+      let finalTransactionsQuery = supabase.from('transactions').select('*')
+        .gte('created_at', startDate.toISOString())
+        .lte('created_at', endDate.toISOString());
+      
+      if (userRole === 'admin') {
+        // For admin, only get transactions from dealers and sub_dealers
+        const dealerAndSubDealerIds = usersData
+          .filter(u => u.role === 'dealer' || u.role === 'sub_dealer')
+          .map(u => u.id);
+        finalTransactionsQuery = finalTransactionsQuery.in('user_id', dealerAndSubDealerIds);
+      } else if (userRole === 'dealer' && dealerId) {
+        // For dealer, get their own transactions + sub dealers
+        const { data: subDealers } = await supabase
+          .from('users')
+          .select('id')
+          .eq('created_by', dealerId)
+          .eq('role', 'sub_dealer');
+        
+        const subDealerIds = subDealers?.map(sd => sd.id) || [];
+        const allDealerIds = [dealerId, ...subDealerIds];
+        finalTransactionsQuery = finalTransactionsQuery.in('user_id', allDealerIds);
+      }
+      
+      const transactionsResult = await finalTransactionsQuery;
+      if (transactionsResult.error) throw transactionsResult.error;
       const transactionsData = transactionsResult.data || [];
       
       // Calculate analytics
