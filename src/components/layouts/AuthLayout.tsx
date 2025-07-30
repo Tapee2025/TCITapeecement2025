@@ -20,7 +20,7 @@ export default function AuthLayout() {
             <img 
               src="/logo.png" 
               alt="Tapee Cement" 
-              className="h-28 w-auto mx-auto mb-6 drop-shadow-lg mix-blend-multiply"
+              className="h-28 w-auto mx-auto mb-6 drop-shadow-lg"
             />
             <h1 className="text-4xl font-bold bg-gradient-to-r from-primary-600 via-primary-700 to-purple-600 bg-clip-text text-transparent mb-3">
               Tapee Cement
