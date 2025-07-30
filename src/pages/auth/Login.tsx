@@ -53,60 +53,6 @@ export default function Login() {
   
   return (
     <div className="fade-in relative">
-      {/* Floating Elements */}
-      {/* Building Silhouettes */}
-      <div className="absolute -top-2 -left-4 opacity-10 animate-pulse">
-        <svg width="80" height="100" viewBox="0 0 80 100" className="text-primary-400">
-          <rect x="10" y="30" width="15" height="70" fill="currentColor" />
-          <rect x="30" y="20" width="20" height="80" fill="currentColor" />
-          <rect x="55" y="40" width="15" height="60" fill="currentColor" />
-          <rect x="12" y="35" width="2" height="3" fill="white" opacity="0.6" />
-          <rect x="16" y="35" width="2" height="3" fill="white" opacity="0.6" />
-          <rect x="12" y="42" width="2" height="3" fill="white" opacity="0.6" />
-          <rect x="16" y="42" width="2" height="3" fill="white" opacity="0.6" />
-          <rect x="32" y="25" width="3" height="4" fill="white" opacity="0.6" />
-          <rect x="38" y="25" width="3" height="4" fill="white" opacity="0.6" />
-          <rect x="44" y="25" width="3" height="4" fill="white" opacity="0.6" />
-          <rect x="32" y="35" width="3" height="4" fill="white" opacity="0.6" />
-          <rect x="38" y="35" width="3" height="4" fill="white" opacity="0.6" />
-          <rect x="44" y="35" width="3" height="4" fill="white" opacity="0.6" />
-        </svg>
-      </div>
-      
-      <div className="absolute -bottom-4 -right-6 opacity-15 animate-pulse" style={{ animationDelay: '1s' }}>
-        <svg width="120" height="80" viewBox="0 0 120 80" className="text-accent-400">
-          <rect x="5" y="25" width="25" height="55" fill="currentColor" />
-          <rect x="35" y="15" width="30" height="65" fill="currentColor" />
-          <rect x="70" y="30" width="20" height="50" fill="currentColor" />
-          <rect x="95" y="20" width="20" height="60" fill="currentColor" />
-          {/* Windows */}
-          <rect x="8" y="30" width="3" height="4" fill="white" opacity="0.7" />
-          <rect x="14" y="30" width="3" height="4" fill="white" opacity="0.7" />
-          <rect x="20" y="30" width="3" height="4" fill="white" opacity="0.7" />
-          <rect x="8" y="40" width="3" height="4" fill="white" opacity="0.7" />
-          <rect x="14" y="40" width="3" height="4" fill="white" opacity="0.7" />
-          <rect x="20" y="40" width="3" height="4" fill="white" opacity="0.7" />
-          <rect x="40" y="20" width="4" height="5" fill="white" opacity="0.7" />
-          <rect x="48" y="20" width="4" height="5" fill="white" opacity="0.7" />
-          <rect x="56" y="20" width="4" height="5" fill="white" opacity="0.7" />
-          <rect x="40" y="30" width="4" height="5" fill="white" opacity="0.7" />
-          <rect x="48" y="30" width="4" height="5" fill="white" opacity="0.7" />
-          <rect x="56" y="30" width="4" height="5" fill="white" opacity="0.7" />
-        </svg>
-      </div>
-      
-      <div className="absolute top-1/3 -left-6 opacity-12 animate-pulse" style={{ animationDelay: '2s' }}>
-        <svg width="60" height="70" viewBox="0 0 60 70" className="text-secondary-400">
-          <rect x="15" y="20" width="12" height="50" fill="currentColor" />
-          <rect x="30" y="10" width="15" height="60" fill="currentColor" />
-          <rect x="48" y="25" width="10" height="45" fill="currentColor" />
-          {/* Construction crane */}
-          <line x1="52" y1="25" x2="52" y2="5" stroke="currentColor" strokeWidth="1" />
-          <line x1="52" y1="5" x2="70" y2="5" stroke="currentColor" strokeWidth="1" />
-          <line x1="70" y1="5" x2="65" y2="15" stroke="currentColor" strokeWidth="1" />
-        </svg>
-      </div>
-      
       <div className="text-center mb-8">
         <div className="relative">
           <h2 className="text-3xl font-bold bg-gradient-to-r from-primary-600 via-primary-700 to-purple-600 bg-clip-text text-transparent mb-3">
@@ -114,13 +60,13 @@ export default function Login() {
           </h2>
           <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-20 h-1 bg-gradient-to-r from-primary-400 to-purple-400 rounded-full opacity-60"></div>
         </div>
-        <p className="text-gray-600 text-lg">Sign in to access your cement rewards</p>
+        <p className="text-gray-600 text-lg">Sign in to access your rewards</p>
         <div className="flex justify-center mt-4">
           <div className="flex space-x-2">
-            {/* Construction/cement themed dots */}
-            <div className="w-2 h-2 bg-gray-400 rounded-sm animate-bounce"></div>
-            <div className="w-2 h-2 bg-gray-500 rounded-sm animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-            <div className="w-2 h-2 bg-gray-600 rounded-sm animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+            {/* Animated dots */}
+            <div className="w-2 h-2 bg-primary-400 rounded-full animate-bounce"></div>
+            <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+            <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
           </div>
         </div>
       </div>
