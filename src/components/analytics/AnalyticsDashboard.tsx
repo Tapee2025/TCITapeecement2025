@@ -92,7 +92,7 @@ export default function AnalyticsDashboard({ userRole = 'admin', dealerId }: Ana
         transactionsData = adminTransactionsData || [];
         
       } else if (userRole === 'dealer' && dealerId) {
-        // For dealer, get their own data + sub dealers they created
+        // Get sub dealers created by this dealer
         const { data: subDealers } = await supabase
           .from('users')
           .select('id')
@@ -101,20 +101,50 @@ export default function AnalyticsDashboard({ userRole = 'admin', dealerId }: Ana
         
         const subDealerIds = subDealers?.map(sd => sd.id) || [];
         
-        // Get user data for dealer + their sub dealers
-        const { data: dealerUsersData, error: usersError } = await supabase
+        // Get customers (contractors) in the same district as the dealer
+        const { data: dealerData } = await supabase
+          .from('users')
+          .select('district')
+          .eq('id', dealerId)
+          .single();
+        
+        if (!dealerData) throw new Error('Dealer not found');
+        
+        // Get all customers (contractors + sub dealers) in the dealer's district
+        const { data: customersData } = await supabase
           .from('users')
           .select('*')
-          .in('id', [dealerId, ...subDealerIds]);
+          .eq('district', dealerData.district)
+          .in('role', ['contractor', 'sub_dealer'])
+          .neq('id', dealerId); // Exclude the dealer themselves
+        
+        // Get dealer's own data
+        const { data: dealerUserData, error: usersError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', dealerId)
+          .single();
         
         if (usersError) throw usersError;
-        usersData = dealerUsersData || [];
         
-        // Get transactions from dealer + their sub dealers (their own sales)
+        // For user counting, include dealer + all customers in district
+        usersData = [dealerUserData, ...(customersData || [])];
+        
+        // For transactions, filter based on sales view toggle
+        let transactionUserIds: string[];
+        if (salesView === 'my_sales') {
+          // Only dealer's own transactions (bags sold by the dealer)
+          transactionUserIds = [dealerId];
+        } else {
+          // Only sub dealers' transactions (network sales)
+          transactionUserIds = subDealerIds;
+        }
+        
+        // Get transactions based on the selected view
         const { data: dealerTransactionsData, error: transactionsError } = await supabase
           .from('transactions')
           .select('*')
-          .in('user_id', [dealerId, ...subDealerIds])
+          .in('user_id', transactionUserIds)
           .eq('type', 'earned')
           .eq('status', 'approved')
           .gte('created_at', startDate.toISOString())
@@ -153,19 +183,29 @@ export default function AnalyticsDashboard({ userRole = 'admin', dealerId }: Ana
           .lte('created_at', endDate.toISOString());
         redemptionTransactions = redemptions || [];
       } else if (userRole === 'dealer' && dealerId) {
-        const { data: subDealers } = await supabase
+        // Get sub dealers for this dealer
+        const { data: subDealersForRedemption } = await supabase
           .from('users')
           .select('id')
           .eq('created_by', dealerId)
           .eq('role', 'sub_dealer');
         
-        const subDealerIds = subDealers?.map(sd => sd.id) || [];
+        const subDealerIdsForRedemption = subDealersForRedemption?.map(sd => sd.id) || [];
+        
+        // Filter redemptions based on sales view
+        let redemptionUserIds: string[];
+        if (salesView === 'my_sales') {
+          redemptionUserIds = [dealerId];
+        } else {
+          redemptionUserIds = subDealerIdsForRedemption;
+        }
+        
         const { data: redemptions } = await supabase
           .from('transactions')
           .select('*')
           .eq('type', 'redeemed')
           .in('status', ['approved', 'completed'])
-          .in('user_id', [dealerId, ...subDealerIds])
+          .in('user_id', redemptionUserIds)
           .gte('created_at', startDate.toISOString())
           .lte('created_at', endDate.toISOString());
         redemptionTransactions = redemptions || [];
