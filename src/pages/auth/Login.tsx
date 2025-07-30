@@ -114,12 +114,13 @@ export default function Login() {
           </h2>
           <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-20 h-1 bg-gradient-to-r from-primary-400 to-purple-400 rounded-full opacity-60"></div>
         </div>
-        <p className="text-gray-600 text-lg">Sign in to your account to continue</p>
+        <p className="text-gray-600 text-lg">Sign in to access your cement rewards</p>
         <div className="flex justify-center mt-4">
           <div className="flex space-x-2">
-            <div className="w-2 h-2 bg-primary-400 rounded-full animate-bounce"></div>
-            <div className="w-2 h-2 bg-primary-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-            <div className="w-2 h-2 bg-primary-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+            {/* Construction/cement themed dots */}
+            <div className="w-2 h-2 bg-gray-400 rounded-sm animate-bounce"></div>
+            <div className="w-2 h-2 bg-gray-500 rounded-sm animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+            <div className="w-2 h-2 bg-gray-600 rounded-sm animate-bounce" style={{ animationDelay: '0.2s' }}></div>
           </div>
         </div>
       </div>
