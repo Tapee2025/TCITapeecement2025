@@ -61,18 +61,13 @@ export default function AnalyticsDashboard({ userRole = 'admin', dealerId }: Ana
       console.log('Fetching analytics data for period:', period, 'from', startDate, 'to', endDate);
       console.log('Dealer ID:', dealerId);
 
-      // Fetch analytics data manually for both admin and dealer
+      // First, fetch users data based on role
       let usersQuery = supabase.from('users').select('*');
-      let transactionsQuery = supabase.from('transactions').select('*');
       
       // Apply filters based on user role
       if (userRole === 'admin') {
         // Admin sees all users except other admins
         usersQuery = usersQuery.neq('role', 'admin');
-        // For admin, get all transactions from dealers and sub_dealers only (not contractors)
-        transactionsQuery = transactionsQuery.in('user_id', 
-          usersData.filter(u => u.role === 'dealer' || u.role === 'sub_dealer').map(u => u.id)
-        );
       } else if (userRole === 'dealer' && dealerId) {
         // Dealer sees only their customers and sub dealers
         const { data: subDealers } = await supabase
@@ -85,24 +80,16 @@ export default function AnalyticsDashboard({ userRole = 'admin', dealerId }: Ana
         const allDealerIds = [dealerId, ...subDealerIds];
         
         usersQuery = usersQuery.in('id', allDealerIds);
-        transactionsQuery = transactionsQuery.in('user_id', allDealerIds);
       }
       
-      // Add date filters
-      transactionsQuery = transactionsQuery
-        .gte('created_at', startDate.toISOString())
-        .lte('created_at', endDate.toISOString());
-      
-      // Execute queries
-      const [usersResult] = await Promise.all([
-        usersQuery,
-      ]);
+      // Execute users query first
+      const usersResult = await usersQuery;
       
       if (usersResult.error) throw usersResult.error;
       
       const usersData = usersResult.data || [];
       
-      // Now fetch transactions with proper user filtering
+      // Now fetch transactions with proper user filtering using the fetched usersData
       let finalTransactionsQuery = supabase.from('transactions').select('*')
         .gte('created_at', startDate.toISOString())
         .lte('created_at', endDate.toISOString());
