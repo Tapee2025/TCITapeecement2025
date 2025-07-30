@@ -10,9 +10,10 @@ import LoadingSpinner from '../ui/LoadingSpinner';
 interface AnalyticsDashboardProps {
   userRole?: 'admin' | 'dealer';
   dealerId?: string;
+  salesView?: 'my_sales' | 'network_sales';
 }
 
-export default function AnalyticsDashboard({ userRole = 'admin', dealerId }: AnalyticsDashboardProps) {
+export default function AnalyticsDashboard({ userRole = 'admin', dealerId, salesView = 'my_sales' }: AnalyticsDashboardProps) {
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

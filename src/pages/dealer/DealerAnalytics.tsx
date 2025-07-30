@@ -256,7 +256,7 @@ export default function DealerAnalytics() {
 
       {/* Analytics Dashboard */}
       {currentUser && (
-        <AnalyticsDashboard userRole="dealer" dealerId={currentUser.id} />
+        <AnalyticsDashboard userRole="dealer" dealerId={currentUser.id} salesView={salesView} />
       )}
     </div>
   );
