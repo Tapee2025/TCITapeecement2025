@@ -80,24 +80,51 @@ export default function ManageCustomers() {
     try {
       setLoading(true);
 
-      // Get all customers in the same district as the dealer
-      let query = supabase
+      // Get customers who have made transactions through this specific dealer
+      const { data: customerTransactionData } = await supabase
+        .from('transactions')
+        .select('user_id')
+        .eq('dealer_id', currentUser.id)
+        .neq('user_id', currentUser.id); // Exclude the dealer themselves
+      
+      const transactionCustomerIds = [...new Set(customerTransactionData?.map(t => t.user_id) || [])];
+      
+      // Get sub dealers created by this dealer
+      const { data: createdSubDealers } = await supabase
         .from('users')
-        .select('*')
-        .eq('district', currentUser.district)
-        .in('role', ['contractor', 'sub_dealer'])
-        .neq('id', currentUser.id) // Exclude the dealer themselves
-        .order('created_at', { ascending: false });
+        .select('id')
+        .eq('created_by', currentUser.id)
+        .eq('role', 'sub_dealer');
+      
+      const createdSubDealerIds = createdSubDealers?.map(sd => sd.id) || [];
+      
+      // Combine transaction customers and created sub dealers
+      const allCustomerIds = [...new Set([...transactionCustomerIds, ...createdSubDealerIds])];
+      
+      console.log('Dealer customers - Transaction customers:', transactionCustomerIds.length);
+      console.log('Dealer customers - Created sub dealers:', createdSubDealerIds.length);
+      console.log('Dealer customers - Total unique customers:', allCustomerIds.length);
+      
+      // Get customer details for all customers (only those related to this dealer)
+      let customers: any[] = [];
+      if (allCustomerIds.length > 0) {
+        const { data, error } = await supabase
+          .from('users')
+          .select('*')
+          .in('id', allCustomerIds)
+          .in('role', ['contractor', 'sub_dealer'])
+          .order('created_at', { ascending: false });
 
-      const { data, error } = await query;
-      if (error) throw error;
+        if (error) throw error;
+        customers = data || [];
+      }
 
-      setCustomers(data || []);
+      setCustomers(customers);
 
       // Calculate stats
-      const totalCustomers = data?.length || 0;
-      const contractors = data?.filter(c => c.role === 'contractor').length || 0;
-      const subDealers = data?.filter(c => c.role === 'sub_dealer').length || 0;
+      const totalCustomers = customers.length;
+      const contractors = customers.filter(c => c.role === 'contractor').length;
+      const subDealers = customers.filter(c => c.role === 'sub_dealer').length;
 
       // Get customers active this month (with transactions)
       const thisMonth = new Date();
@@ -108,7 +135,8 @@ export default function ManageCustomers() {
         .from('transactions')
         .select('user_id')
         .gte('created_at', thisMonth.toISOString())
-        .in('user_id', data?.map(c => c.id) || []);
+        .eq('dealer_id', currentUser.id) // Only transactions through this dealer
+        .in('user_id', allCustomerIds);
 
       const uniqueActiveCustomers = new Set(activeCustomers?.map(t => t.user_id)).size;
 
