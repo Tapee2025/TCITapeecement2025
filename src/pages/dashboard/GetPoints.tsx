@@ -85,9 +85,9 @@ export default function GetPoints() {
         
         setCurrentUser(profile);
 
-        // Only fetch dealers if user is a contractor or sub_dealer
-        if (profile.role === 'contractor' || profile.role === 'sub_dealer') {
-          // Get all dealers in the user's district
+        // Fetch dealers based on user role and relationship
+        if (profile.role === 'contractor') {
+          // Contractors can see all dealers in their district
           const { data: dealersData, error: dealersError } = await supabase
             .from('users')
             .select('*')
@@ -97,6 +97,36 @@ export default function GetPoints() {
 
           if (dealersError) throw dealersError;
           setDealers(dealersData || []);
+        } else if (profile.role === 'sub_dealer') {
+          // Sub dealers can only see their creator dealer
+          if (profile.created_by) {
+            const { data: creatorDealer, error: dealerError } = await supabase
+              .from('users')
+              .select('*')
+              .eq('id', profile.created_by)
+              .eq('role', 'dealer')
+              .single();
+
+            if (dealerError) {
+              console.error('Error fetching creator dealer:', dealerError);
+              setDealers([]);
+            } else if (creatorDealer) {
+              setDealers([creatorDealer]);
+            } else {
+              setDealers([]);
+            }
+          } else {
+            // If no creator found, show all dealers in district as fallback
+            const { data: dealersData, error: dealersError } = await supabase
+              .from('users')
+              .select('*')
+              .eq('role', 'dealer')
+              .eq('district', profile.district)
+              .order('first_name', { ascending: true });
+
+            if (dealersError) throw dealersError;
+            setDealers(dealersData || []);
+          }
         }
       } catch (error) {
         console.error('Error fetching data:', error);

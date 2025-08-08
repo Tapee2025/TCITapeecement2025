@@ -37,32 +37,28 @@ export default function DealerAnalytics() {
       if (salesView === 'my_sales') {
         allDealerIds = [currentUser.id]; // Only dealer's own transactions
       } else {
-        allDealerIds = subDealerIds; // Only sub dealers' transactions
+        allDealerIds = subDealerIds; // Only THIS dealer's sub dealers' transactions
       }
       console.log('Analytics - dealer and sub dealer IDs:', allDealerIds);
 
-      // Get total customers (users who have made transactions through this dealer)
-      // Get all customers in the same district
-      const { data: allCustomersInDistrict } = await supabase
-        .from('users')
-        .select('id, role')
-        .eq('district', currentUser.district)
-        .in('role', ['contractor', 'sub_dealer'])
-        .neq('id', currentUser.id);
-      
-      // Also get customers who have made transactions through this dealer
+      // Get customers who have made transactions through this specific dealer
       const { data: customerData } = await supabase
         .from('transactions')
         .select('user_id')
         .eq('dealer_id', currentUser.id)
         .neq('user_id', currentUser.id); // Exclude dealer's own transactions
       
-      // Combine both sets of customers
+      // Get sub dealers created by this dealer
+      const { data: subDealersCreated } = await supabase
+        .from('users')
+        .select('id')
+        .eq('created_by', currentUser.id)
+        .eq('role', 'sub_dealer');
+      
+      // Combine transaction customers and created sub dealers
       const transactionCustomerIds = new Set(customerData?.map(t => t.user_id) || []);
-      const allCustomerIds = new Set([
-        ...(allCustomersInDistrict?.map(c => c.id) || []),
-        ...transactionCustomerIds
-      ]);
+      const createdSubDealerIds = new Set(subDealersCreated?.map(sd => sd.id) || []);
+      const allCustomerIds = new Set([...transactionCustomerIds, ...createdSubDealerIds]);
       
       // Get customer details for all customers
       const { data: customerDetails } = await supabase
@@ -71,7 +67,7 @@ export default function DealerAnalytics() {
         .in('id', Array.from(allCustomerIds));
       
       const contractors = customerDetails?.filter(c => c.role === 'contractor').length || 0;
-      const subDealersCount = customerDetails?.filter(c => c.role === 'sub_dealer').length || 0;
+      const subDealersCount = subDealersCreated?.length || 0; // Count only created sub dealers
       
       // Get active customers (made transactions in the last 30 days)
       const thirtyDaysAgo = new Date();
@@ -86,7 +82,7 @@ export default function DealerAnalytics() {
       
       const activeCustomerIds = new Set(activeCustomerData?.map(t => t.user_id) || []);
       
-      // Get total bags sold (from dealer + sub dealers transactions)
+      // Get total bags sold (from this dealer's network only)
       const { data: bagData } = await supabase
         .from('transactions')
         .select('amount, description')
@@ -96,7 +92,7 @@ export default function DealerAnalytics() {
 
       const totalBagsSold = bagData?.reduce((sum, t) => sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
       
-      // Get total transactions (dealer + sub dealers transactions)
+      // Get total transactions (this dealer's network only)
       const { count: transactionCount } = await supabase
         .from('transactions')
         .select('*', { count: 'exact', head: true })
@@ -106,7 +102,7 @@ export default function DealerAnalytics() {
       setDealerStats({
         totalCustomers: allCustomerIds.size,
         contractors,
-        subDealers: subDealers?.length || 0, // Count of sub dealers created by this dealer
+        subDealers: subDealersCount, // Count of sub dealers created by this dealer
         activeCustomers: activeCustomerIds.size,
         totalBagsSold,
         totalTransactions: transactionCount || 0
@@ -114,7 +110,7 @@ export default function DealerAnalytics() {
 
       console.log('Analytics stats calculated:', {
         totalBagsSold,
-        subDealersCount: subDealers?.length || 0,
+        subDealersCount,
         totalTransactions: transactionCount || 0
       });
     } catch (error) {

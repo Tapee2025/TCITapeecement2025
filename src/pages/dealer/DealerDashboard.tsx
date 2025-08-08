@@ -148,53 +148,64 @@ export default function DealerDashboard() {
 
       const uniqueCustomers = new Set(customerData?.map(t => t.user_id)).size;
 
-      // Get performance metrics for different periods - dealer + sub dealers transactions
+      // Get performance metrics for different periods - ONLY for the specific dealer's network
       let allDealerIds: string[];
       if (salesView === 'my_sales') {
         allDealerIds = [user.id]; // Only dealer's own transactions
       } else {
-        allDealerIds = subDealerIds; // Only sub dealers' transactions
+        allDealerIds = subDealerIds; // Only THIS dealer's sub dealers' transactions
       }
       console.log('Fetching transactions for dealer IDs:', allDealerIds);
 
-      const { data: currentMonthData } = await supabase
+      // Get performance data only for this dealer's network (not all dealers in district)
+      const { data: currentMonthData, error: currentMonthError } = await supabase
         .from('transactions')
         .select('amount, description')
-        .in('user_id', allDealerIds) // Dealer + sub dealers transactions
+        .in('user_id', allDealerIds) // Only this dealer's network transactions
         .eq('type', 'earned')
         .eq('status', 'approved')
         .gte('created_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString());
 
-      const { data: last3MonthsData } = await supabase
+      if (currentMonthError) throw currentMonthError;
+
+      const { data: last3MonthsData, error: last3MonthsError } = await supabase
         .from('transactions')
         .select('amount, description')
-        .in('user_id', allDealerIds) // Dealer + sub dealers transactions
+        .in('user_id', allDealerIds) // Only this dealer's network transactions
         .eq('type', 'earned')
         .eq('status', 'approved')
         .gte('created_at', new Date(new Date().getFullYear(), new Date().getMonth() - 3, 1).toISOString());
 
-      const { data: last6MonthsData } = await supabase
+      if (last3MonthsError) throw last3MonthsError;
+
+      const { data: last6MonthsData, error: last6MonthsError } = await supabase
         .from('transactions')
         .select('amount, description')
-        .in('user_id', allDealerIds) // Dealer + sub dealers transactions
+        .in('user_id', allDealerIds) // Only this dealer's network transactions
         .eq('type', 'earned')
         .eq('status', 'approved')
         .gte('created_at', new Date(new Date().getFullYear(), new Date().getMonth() - 6, 1).toISOString());
 
-      const { data: yearlyData } = await supabase
+      if (last6MonthsError) throw last6MonthsError;
+
+      const { data: yearlyData, error: yearlyError } = await supabase
         .from('transactions')
         .select('amount, description')
-        .in('user_id', allDealerIds) // Dealer + sub dealers transactions
+        .in('user_id', allDealerIds) // Only this dealer's network transactions
         .eq('type', 'earned')
         .eq('status', 'approved')
         .gte('created_at', new Date(new Date().getFullYear(), 0, 1).toISOString());
 
-      const { data: lifetimeData } = await supabase
+      if (yearlyError) throw yearlyError;
+
+      const { data: lifetimeData, error: lifetimeError } = await supabase
         .from('transactions')
         .select('amount, description')
-        .in('user_id', allDealerIds) // Dealer + sub dealers transactions
+        .in('user_id', allDealerIds) // Only this dealer's network transactions
         .eq('type', 'earned')
         .eq('status', 'approved');
+
+      if (lifetimeError) throw lifetimeError;
 
       // Get current month name
       const currentMonthName = new Date().toLocaleDateString('en-US', { 
@@ -202,7 +213,7 @@ export default function DealerDashboard() {
         year: 'numeric' 
       });
 
-      // Calculate bags sold from dealer + sub dealers transactions using proper calculation
+      // Calculate bags sold from this dealer's network only
       const currentMonthBags = currentMonthData?.reduce((sum, t) => sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
       const last3MonthsBags = last3MonthsData?.reduce((sum, t) => sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
       const last6MonthsBags = last6MonthsData?.reduce((sum, t) => sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;

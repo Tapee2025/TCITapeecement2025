@@ -110,7 +110,7 @@ export default function DealerProfile() {
         supabase
           .from('transactions')
           .select('amount, description, user_id')
-          .in('user_id', allDealerIds)
+          .in('user_id', allDealerIds) // Only this dealer's network
           .eq('type', 'earned')
           .eq('status', 'approved')
           .gte('created_at', currentMonthStart.toISOString()),
@@ -119,7 +119,7 @@ export default function DealerProfile() {
         supabase
           .from('transactions')
           .select('amount, description, user_id')
-          .in('user_id', allDealerIds)
+          .in('user_id', allDealerIds) // Only this dealer's network
           .eq('type', 'earned')
           .eq('status', 'approved')
           .gte('created_at', threeMonthsAgo.toISOString()),
@@ -128,7 +128,7 @@ export default function DealerProfile() {
         supabase
           .from('transactions')
           .select('amount, description, user_id')
-          .in('user_id', allDealerIds)
+          .in('user_id', allDealerIds) // Only this dealer's network
           .eq('type', 'earned')
           .eq('status', 'approved')
           .gte('created_at', sixMonthsAgo.toISOString()),
@@ -137,7 +137,7 @@ export default function DealerProfile() {
         supabase
           .from('transactions')
           .select('amount, description, user_id')
-          .in('user_id', allDealerIds)
+          .in('user_id', allDealerIds) // Only this dealer's network
           .eq('type', 'earned')
           .eq('status', 'approved')
           .gte('created_at', yearStart.toISOString()),
@@ -146,7 +146,7 @@ export default function DealerProfile() {
         supabase
           .from('transactions')
           .select('amount, description, user_id')
-          .in('user_id', allDealerIds)
+          .in('user_id', allDealerIds) // Only this dealer's network
           .eq('type', 'earned')
           .eq('status', 'approved')
       ];
@@ -219,7 +219,7 @@ export default function DealerProfile() {
       if (salesView === 'my_sales') {
         allDealerIds = [user.id]; // Only dealer's own transactions
       } else {
-        allDealerIds = subDealerIds; // Only sub dealers' transactions
+        allDealerIds = subDealerIds; // Only THIS dealer's sub dealers' transactions
       }
 
       const { data: customData } = await supabase

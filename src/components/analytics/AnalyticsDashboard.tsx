@@ -102,34 +102,40 @@ export default function AnalyticsDashboard({ userRole = 'admin', dealerId, sales
         
         const subDealerIds = subDealers?.map(sd => sd.id) || [];
         
-        // Get customers (contractors) in the same district as the dealer
-        const { data: dealerData } = await supabase
+        // Get dealer's own data
+        const { data: dealerUserData, error: dealerError } = await supabase
           .from('users')
-          .select('district')
+          .select('*')
           .eq('id', dealerId)
           .single();
         
-        if (!dealerData) throw new Error('Dealer not found');
+        if (dealerError) throw dealerError;
+        if (!dealerUserData) throw new Error('Dealer not found');
         
-        // Get all customers (contractors + sub dealers) in the dealer's district
+        // Get customers who have made transactions through this specific dealer
+        const { data: customerTransactionData } = await supabase
+          .from('transactions')
+          .select('user_id')
+          .eq('dealer_id', dealerId)
+          .neq('user_id', dealerId);
+        
+        const customerIds = [...new Set(customerTransactionData?.map(t => t.user_id) || [])];
+        
+        // Get customer details for those who have transacted
         const { data: customersData } = await supabase
           .from('users')
           .select('*')
-          .eq('district', dealerData.district)
-          .in('role', ['contractor', 'sub_dealer'])
-          .neq('id', dealerId); // Exclude the dealer themselves
+          .in('id', customerIds);
         
-        // Get dealer's own data
-        const { data: dealerUserData, error: usersError } = await supabase
+        // Get sub dealers created by this dealer
+        const { data: createdSubDealers } = await supabase
           .from('users')
           .select('*')
-          .eq('id', dealerId)
-          .single();
+          .eq('created_by', dealerId)
+          .eq('role', 'sub_dealer');
         
-        if (usersError) throw usersError;
-        
-        // For user counting, include dealer + all customers in district
-        usersData = [dealerUserData, ...(customersData || [])];
+        // For user counting, include dealer + customers who transacted + created sub dealers
+        usersData = [dealerUserData, ...(customersData || []), ...(createdSubDealers || [])];
         
         // For transactions, filter based on sales view toggle
         let transactionUserIds: string[];
@@ -137,7 +143,7 @@ export default function AnalyticsDashboard({ userRole = 'admin', dealerId, sales
           // Only dealer's own transactions (bags sold by the dealer)
           transactionUserIds = [dealerId];
         } else {
-          // Only sub dealers' transactions (network sales)
+          // Only THIS dealer's sub dealers' transactions (network sales)
           transactionUserIds = subDealerIds;
         }
         
