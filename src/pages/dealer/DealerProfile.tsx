@@ -6,6 +6,7 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { format } from 'date-fns';
 import ImageUpload from '../../components/ui/ImageUpload';
 import { toast } from 'react-toastify';
+import { calculateBagsFromTransaction } from '../../utils/helpers';
 
 type Profile = Database['public']['Tables']['users']['Row'];
 
