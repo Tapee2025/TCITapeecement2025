@@ -79,6 +79,13 @@ export default function DealerProfile() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Calculate performance data manually for each period
+      const now = new Date();
+      const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+      const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+      const yearStart = new Date(now.getFullYear(), 0, 1);
+
       // Get sub dealers created by this dealer
       const { data: subDealers } = await supabase
         .from('users')
@@ -87,30 +94,36 @@ export default function DealerProfile() {
         .eq('role', 'sub_dealer');
 
       const subDealerIds = subDealers?.map(sd => sd.id) || [];
-      let allDealerIds: string[];
+      console.log('Dealer profile - sub dealers found:', subDealerIds.length);
+
+      // Determine which user IDs to include based on sales view
+      let targetUserIds: string[];
       if (salesView === 'my_sales') {
-        allDealerIds = [user.id]; // Only dealer's own transactions
+        targetUserIds = [user.id]; // Only dealer's own transactions
       } else {
-        allDealerIds = subDealerIds; // Only sub dealers' transactions
+        targetUserIds = subDealerIds; // Only THIS dealer's sub dealers' transactions
       }
-      console.log('Dealer profile - fetching for IDs:', allDealerIds);
+      console.log('Dealer profile - fetching for user IDs:', targetUserIds);
 
-      // Fetch performance data for all periods - dealer + sub dealers
-      const periods = ['current_month', 'last_3_months', 'last_6_months', 'yearly', 'lifetime'];
-      
-      // Calculate performance data manually for each period
-      const now = new Date();
-      const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
-      const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, 1);
-      const yearStart = new Date(now.getFullYear(), 0, 1);
+      // If no target users, set empty data
+      if (targetUserIds.length === 0) {
+        setPerformanceData({
+          currentMonth: { bags: 0, points: 0, transactions: 0, customers: 0, name: currentMonthName },
+          last3Months: { bags: 0, points: 0, transactions: 0, customers: 0 },
+          last6Months: { bags: 0, points: 0, transactions: 0, customers: 0 },
+          yearly: { bags: 0, points: 0, transactions: 0, customers: 0 },
+          lifetime: { bags: 0, points: 0, transactions: 0, customers: 0 }
+        });
+        return;
+      }
 
+      // Fetch performance data for all periods
       const performancePromises = [
         // Current month
         supabase
           .from('transactions')
           .select('amount, description, user_id')
-          .in('user_id', allDealerIds) // Only this dealer's network
+          .in('user_id', targetUserIds)
           .eq('type', 'earned')
           .eq('status', 'approved')
           .gte('created_at', currentMonthStart.toISOString()),
@@ -119,7 +132,7 @@ export default function DealerProfile() {
         supabase
           .from('transactions')
           .select('amount, description, user_id')
-          .in('user_id', allDealerIds) // Only this dealer's network
+          .in('user_id', targetUserIds)
           .eq('type', 'earned')
           .eq('status', 'approved')
           .gte('created_at', threeMonthsAgo.toISOString()),
@@ -128,7 +141,7 @@ export default function DealerProfile() {
         supabase
           .from('transactions')
           .select('amount, description, user_id')
-          .in('user_id', allDealerIds) // Only this dealer's network
+          .in('user_id', targetUserIds)
           .eq('type', 'earned')
           .eq('status', 'approved')
           .gte('created_at', sixMonthsAgo.toISOString()),
@@ -137,7 +150,7 @@ export default function DealerProfile() {
         supabase
           .from('transactions')
           .select('amount, description, user_id')
-          .in('user_id', allDealerIds) // Only this dealer's network
+          .in('user_id', targetUserIds)
           .eq('type', 'earned')
           .eq('status', 'approved')
           .gte('created_at', yearStart.toISOString()),
@@ -146,7 +159,7 @@ export default function DealerProfile() {
         supabase
           .from('transactions')
           .select('amount, description, user_id')
-          .in('user_id', allDealerIds) // Only this dealer's network
+          .in('user_id', targetUserIds)
           .eq('type', 'earned')
           .eq('status', 'approved')
       ];
@@ -189,6 +202,8 @@ export default function DealerProfile() {
       });
 
       console.log('Performance data calculated:', {
+        salesView,
+        targetUserIds,
         currentMonth: calculateMetrics(results[0].data),
         lifetime: calculateMetrics(results[4].data)
       });
@@ -219,13 +234,13 @@ export default function DealerProfile() {
       if (salesView === 'my_sales') {
         allDealerIds = [user.id]; // Only dealer's own transactions
       } else {
-        allDealerIds = subDealerIds; // Only THIS dealer's sub dealers' transactions
+        allDealerIds = subDealerIds; // Only sub dealers' transactions
       }
 
       const { data: customData } = await supabase
         .from('transactions')
         .select('amount, description, user_id')
-        .in('user_id', allDealerIds)
+        .in('user_id', allDealerIds.length > 0 ? allDealerIds : ['no-match'])
         .eq('type', 'earned')
         .eq('status', 'approved')
         .gte('created_at', customStartDate + 'T00:00:00')

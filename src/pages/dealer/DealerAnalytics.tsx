@@ -46,7 +46,8 @@ export default function DealerAnalytics() {
         .from('transactions')
         .select('user_id')
         .eq('dealer_id', currentUser.id)
-        .neq('user_id', currentUser.id); // Exclude dealer's own transactions
+        .neq('user_id', currentUser.id)
+        .eq('type', 'earned'); // Only earned transactions (customer purchases)
       
       // Get sub dealers created by this dealer
       const { data: subDealersCreated } = await supabase
@@ -60,11 +61,17 @@ export default function DealerAnalytics() {
       const createdSubDealerIds = new Set(subDealersCreated?.map(sd => sd.id) || []);
       const allCustomerIds = new Set([...transactionCustomerIds, ...createdSubDealerIds]);
       
-      // Get customer details for all customers
-      const { data: customerDetails } = await supabase
-        .from('users')
-        .select('id, role')
-        .in('id', Array.from(allCustomerIds));
+      // Get customer details for all customers (only if we have customers)
+      let customerDetails: any[] = [];
+      if (allCustomerIds.size > 0) {
+        const { data, error } = await supabase
+          .from('users')
+          .select('id, role')
+          .in('id', Array.from(allCustomerIds));
+        
+        if (error) throw error;
+        customerDetails = data || [];
+      }
       
       const contractors = customerDetails?.filter(c => c.role === 'contractor').length || 0;
       const subDealersCount = subDealersCreated?.length || 0; // Count only created sub dealers
@@ -78,26 +85,47 @@ export default function DealerAnalytics() {
         .select('user_id')
         .eq('dealer_id', currentUser.id)
         .neq('user_id', currentUser.id)
+        .eq('type', 'earned')
         .gte('created_at', thirtyDaysAgo.toISOString());
       
       const activeCustomerIds = new Set(activeCustomerData?.map(t => t.user_id) || []);
       
+      // Determine which user IDs to include based on sales view
+      let targetUserIds: string[];
+      if (salesView === 'my_sales') {
+        targetUserIds = [currentUser.id]; // Only dealer's own transactions
+      } else {
+        targetUserIds = Array.from(createdSubDealerIds); // Only THIS dealer's sub dealers' transactions
+      }
+      console.log('Analytics - target user IDs:', targetUserIds);
+
       // Get total bags sold (from this dealer's network only)
-      const { data: bagData } = await supabase
-        .from('transactions')
-        .select('amount, description')
-        .in('user_id', allDealerIds)
-        .eq('type', 'earned')
-        .eq('status', 'approved');
+      let bagData: any[] = [];
+      if (targetUserIds.length > 0) {
+        const { data, error } = await supabase
+          .from('transactions')
+          .select('amount, description')
+          .in('user_id', targetUserIds)
+          .eq('type', 'earned')
+          .eq('status', 'approved');
+        
+        if (error) throw error;
+        bagData = data || [];
+      }
 
       const totalBagsSold = bagData?.reduce((sum, t) => sum + calculateBagsFromTransaction(t.description, t.amount), 0) || 0;
       
       // Get total transactions (this dealer's network only)
-      const { count: transactionCount } = await supabase
-        .from('transactions')
-        .select('*', { count: 'exact', head: true })
-        .in('user_id', allDealerIds)
-        .eq('type', 'earned');
+      let transactionCount = 0;
+      if (targetUserIds.length > 0) {
+        const { count } = await supabase
+          .from('transactions')
+          .select('*', { count: 'exact', head: true })
+          .in('user_id', targetUserIds)
+          .eq('type', 'earned');
+        
+        transactionCount = count || 0;
+      }
       
       setDealerStats({
         totalCustomers: allCustomerIds.size,
@@ -109,6 +137,8 @@ export default function DealerAnalytics() {
       });
 
       console.log('Analytics stats calculated:', {
+        salesView,
+        targetUserIds,
         totalBagsSold,
         subDealersCount,
         totalTransactions: transactionCount || 0
