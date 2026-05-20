@@ -1,0 +1,13 @@
+name: Keep Supabase Awake
+on:
+  schedule:
+    - cron: '0 0 */4 * *' # Runs automatically every 4 days
+  workflow_dispatch: # Allows you to trigger it manually if needed
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Database Server
+        run: |
+          curl -I "${{ secrets.SUPABASE_URL }}"
