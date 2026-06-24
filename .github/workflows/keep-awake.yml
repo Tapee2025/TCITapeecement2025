@@ -10,20 +10,22 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Force Live Database Query
+      - name: Force Native GraphQL Database Query
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
-          # 1. Strip any potential hidden spaces or trailing slashes from the URL variable
+          # 1. Clean up trailing slashes from the base URL
           CLEAN_URL=$(echo "${SUPABASE_URL}" | sed 's:/*$::')
           
-          # 2. Build the full target endpoint cleanly hitting a default open config path
-          TARGET_ENDPOINT="${CLEAN_URL}/rest/v1/openapi"
+          # 2. Target the GraphQL endpoint which processes directly inside Postgres
+          TARGET_ENDPOINT="${CLEAN_URL}/graphql/v1"
           
-          echo "Sending query to active PostgREST engine..."
+          echo "Sending native database query to GraphQL engine..."
           
-          # 3. Deliver the authenticated request
-          curl -i -X GET "$TARGET_ENDPOINT" \
+          # 3. Post a standard schema introspection query
+          curl -i -X POST "$TARGET_ENDPOINT" \
             -H "apikey: ${SUPABASE_ANON_KEY}" \
-            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}"
+            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
+            -H "Content-Type: application/json" \
+            -d '{"query": "{ __schema { queryType { name } } }"}'
