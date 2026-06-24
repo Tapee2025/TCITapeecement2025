@@ -17,4 +17,4 @@ jobs:
           curl -i -X POST "${{ secrets.SUPABASE_URL }}/auth/v1/token?grant_type=password" \
             -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
             -H "Content-Type: application/json" \
-            -d '{"email": "admin.tapeee@gmail.com", "password": "Admin@123456"}'
+            -d '{"email": "admin.tapee@gmail.com", "password": "Admin@123456"}'
