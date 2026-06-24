@@ -1,31 +1,20 @@
-name: Keep Supabase Awake
+name: Keep Supabase Awake via App Login
 
 on:
   schedule:
-    # Runs automatically every 4 days at midnight UTC
-    - cron: '0 0 */4 * *'
-  workflow_dispatch: # Allows you to trigger it manually anytime to test
+    - cron: '0 0 */4 * *' # Runs automatically every 4 days
+  workflow_dispatch: # Allows you to trigger it manually anytime
 
 jobs:
-  ping:
+  simulate-login:
     runs-on: ubuntu-latest
     steps:
-      - name: Force Native GraphQL Database Query
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      - name: Authenticate on Tapee App
         run: |
-          # 1. Clean up trailing slashes from the base URL
-          CLEAN_URL=$(echo "${SUPABASE_URL}" | sed 's:/*$::')
+          echo "Simulating user login to refresh Supabase traffic..."
           
-          # 2. Target the GraphQL endpoint which processes directly inside Postgres
-          TARGET_ENDPOINT="${CLEAN_URL}/graphql/v1"
-          
-          echo "Sending native database query to GraphQL engine..."
-          
-          # 3. Post a standard schema introspection query
-          curl -i -X POST "$TARGET_ENDPOINT" \
-            -H "apikey: ${SUPABASE_ANON_KEY}" \
-            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
+          # This script sends an official authentication request directly to your Supabase Auth service
+          curl -i -X POST "${{ secrets.SUPABASE_URL }}/auth/v1/token?grant_type=password" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
             -H "Content-Type: application/json" \
-            -d '{"query": "{ __schema { queryType { name } } }"}'
+            -d '{"email": "admin.tapeee@gmail.com", "password": "Admin@123456"}'
